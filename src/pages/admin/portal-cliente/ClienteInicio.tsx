@@ -396,9 +396,11 @@ const ClienteInicio = () => {
 
 /* ── Activity Card ── */
 function ActividadCard({ item }: { item: ActividadItem }) {
+  const navigate = useNavigate();
   const isPago = item.tipo === "pago" || item.tipo === "mantenimiento";
   const isAtraso = item.tipo === "atraso";
   const isStatus = item.tipo === "escrituracion" || item.tipo === "entrega";
+  const isClickable = (isPago || isAtraso) && !!item.cuentaId;
 
   const iconMap: Record<string, React.ReactNode> = {
     pago: <CreditCard className="w-4 h-4" />,
@@ -408,9 +410,16 @@ function ActividadCard({ item }: { item: ActividadItem }) {
     atraso: <AlertTriangle className="w-4 h-4" />,
   };
 
+  const handleClick = () => {
+    if (isClickable) {
+      navigate(`/admin/portal-cliente/propiedad-pago/${item.cuentaId}`);
+    }
+  };
+
   return (
     <div
-      className={`bg-card rounded-2xl border border-border border-l-[3px] ${URGENCIA_BORDER[item.urgencia]} p-4`}
+      onClick={handleClick}
+      className={`bg-card rounded-2xl border border-border border-l-[3px] ${URGENCIA_BORDER[item.urgencia]} p-4 ${isClickable ? "cursor-pointer active:scale-[0.98] transition-transform" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -432,7 +441,7 @@ function ActividadCard({ item }: { item: ActividadItem }) {
         {(isPago || isAtraso) && item.monto != null && (
           <div className="text-right shrink-0">
             <p className="font-bold text-base text-foreground tabular-nums">{new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(item.monto)}</p>
-            {item.tipo === "pago" && (
+            {isPago && (
               <div className="flex items-center gap-1 mt-1 text-[hsl(var(--inmob-green))]">
                 <CreditCard className="w-3 h-3" />
                 <span className="text-[11px] font-semibold">Pagar</span>
@@ -440,8 +449,8 @@ function ActividadCard({ item }: { item: ActividadItem }) {
             )}
             {isAtraso && (
               <div className="flex items-center gap-1 mt-1 text-destructive">
-                <AlertTriangle className="w-3 h-3" />
-                <span className="text-[11px] font-semibold">Adeudo</span>
+                <CreditCard className="w-3 h-3" />
+                <span className="text-[11px] font-semibold">Pagar</span>
               </div>
             )}
           </div>

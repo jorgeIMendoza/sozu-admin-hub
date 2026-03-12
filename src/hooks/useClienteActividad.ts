@@ -452,6 +452,7 @@ export function useClienteActividad(personaId: number | null | undefined) {
             diasRestantes: info.oldestDias,
             urgencia: info.oldestDias < 0 ? "red" : info.oldestDias <= 10 ? "orange" : "green",
             mensaje,
+            cuentaId: groupKey,
           });
         });
       }
