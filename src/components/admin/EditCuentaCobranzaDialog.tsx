@@ -4889,7 +4889,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                       <Input 
                         id="porcentajeComision"
                         type="number"
-                        min="5"
+                        min="4"
                         max="100"
                         step="0.0001"
                         value={porcentajeComision}
