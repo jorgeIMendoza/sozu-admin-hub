@@ -454,11 +454,19 @@ function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1];
-      resolve(base64);
+      const buffer = reader.result as ArrayBuffer;
+      const bytes = new Uint8Array(buffer);
+      const chunkSize = 8192;
+      let binary = "";
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        for (let j = 0; j < chunk.length; j++) {
+          binary += String.fromCharCode(chunk[j]);
+        }
+      }
+      resolve(btoa(binary));
     };
     reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.readAsArrayBuffer(file);
   });
 }
