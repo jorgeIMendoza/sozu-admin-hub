@@ -172,8 +172,6 @@ const FloorPlanCanvas = ({
     }
   }, [imageLoaded, regiones, highlightUnit, fullPropertyNumber]);
 
-  const resolvedDepto = resolveDeptoFromUnidad(prop.unidad, prop.numeroPiso, prop.numeroDepa);
-
   return (
     <div ref={containerRef} className="w-full">
       <canvas ref={canvasRef} className="w-full rounded-lg" />
