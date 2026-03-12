@@ -2177,7 +2177,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     onSuccess: () => {
       toast.success("Notario actualizado exitosamente");
       // Refetch the cuenta data to update the UI
-      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuenta.id] });
+      queryClient.invalidateQueries({ queryKey: ["cuenta_detalle_modal", cuenta.id] });
     },
     onError: (error) => {
       console.error("Error updating notario:", error);
