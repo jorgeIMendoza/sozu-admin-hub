@@ -4955,11 +4955,14 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                             htmlFor="iva-incluido"
                             className="text-sm font-medium cursor-pointer select-none"
                           >
-                            IVA Incluido (16%)
+                            IVA (16%)
                           </Label>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {ivaIncluido ? 'Se agregará 16% al monto' : 'Monto sin IVA'}
+                          Monto en la factura: {cuentaDetalle?.precio_final && porcentajeComision ? 
+                            new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(
+                              ((cuentaDetalle.precio_final * porcentajeComision) / 100) * (ivaIncluido ? 1.16 : 1)
+                            ) : '$0.00'} ({ivaIncluido ? '16% IVA' : '0% IVA'})
                         </p>
                       </div>
                     )}
