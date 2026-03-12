@@ -188,6 +188,7 @@ const ClienteDetallesTecnicos = () => {
                   imageUrl={prop.planoUbicacionUrl}
                   regiones={prop.planoUbicacionRegiones}
                   highlightUnit={prop.numeroDepa}
+                  fullPropertyNumber={prop.unidad}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   Nivel {prop.numeroPiso} — Depto. <span className="font-semibold text-foreground">{prop.numeroDepa}</span>
