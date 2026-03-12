@@ -172,7 +172,7 @@ export default function Modelos() {
 
       let query = supabase
         .from("modelos")
-        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo", { count: 'exact' })
+        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo, plano_arquitectonico", { count: 'exact' })
         .eq("activo", false);
 
       // Apply filters
