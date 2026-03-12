@@ -75,7 +75,8 @@ const FloorPlanCanvas = ({
 
     ctx.drawImage(img, 0, 0, containerWidth, canvasHeight);
 
-    if (regiones && regiones.length > 0 && highlightUnit) {
+    if (regiones && regiones.length > 0 && (highlightUnit || fullPropertyNumber)) {
+      const digitsOnly = (value: string) => value.replace(/\D/g, "");
       const normalizeUnitValue = (value: string) => {
         const trimmed = value.trim();
         if (!trimmed) return "";
@@ -83,58 +84,90 @@ const FloorPlanCanvas = ({
         return withoutLeadingZeros.length > 0 ? withoutLeadingZeros : "0";
       };
 
-      const highlightRaw = highlightUnit.toString().trim();
-      const highlightNormalized = normalizeUnitValue(highlightRaw);
-      const fullRaw = fullPropertyNumber?.toString().trim() || "";
-      const numericSuffix = fullRaw.match(/(\d{1,3})$/)?.[1] || "";
-      const numericSuffixNormalized = numericSuffix ? normalizeUnitValue(numericSuffix) : "";
+      const highlightRaw = (highlightUnit || "").toString().trim();
+      const highlightDigits = digitsOnly(highlightRaw);
+      const fullRaw = (fullPropertyNumber || "").toString().trim();
+      const fullDigits = digitsOnly(fullRaw);
+
+      const inferredFromFull = (() => {
+        if (!fullDigits) return "";
+        if (highlightDigits && fullDigits.endsWith(highlightDigits)) return highlightDigits;
+        const suffix = fullDigits.slice(-2) || fullDigits;
+        return suffix;
+      })();
+
+      const exactCandidates = new Set(
+        [highlightRaw, highlightDigits, inferredFromFull, fullRaw, fullDigits]
+          .map((v) => v.trim())
+          .filter(Boolean)
+      );
+
+      const normalizedCandidates = new Set(
+        Array.from(exactCandidates)
+          .map((v) => normalizeUnitValue(v))
+          .filter(Boolean)
+      );
+
+      const polygonArea = (polygon: number[][]) => {
+        if (!polygon || polygon.length < 3) return 0;
+        let area = 0;
+        for (let i = 0; i < polygon.length; i++) {
+          const [x1, y1] = polygon[i];
+          const [x2, y2] = polygon[(i + 1) % polygon.length];
+          area += x1 * y2 - x2 * y1;
+        }
+        return Math.abs(area / 2);
+      };
 
       const scoredRegions = regiones.map((region: any) => {
-        const unitRaw = region.unit_number?.toString().trim() || "";
+        const unitRaw = (region.unit_number || "").toString().trim();
+        const unitDigits = digitsOnly(unitRaw);
         const unitNormalized = normalizeUnitValue(unitRaw);
 
         let score = 0;
-        if (unitRaw && unitRaw === highlightRaw) score = Math.max(score, 120);
-        if (unitNormalized && unitNormalized === highlightNormalized) score = Math.max(score, 110);
-        if (numericSuffix && unitRaw === numericSuffix) score = Math.max(score, 100);
-        if (numericSuffixNormalized && unitNormalized === numericSuffixNormalized) score = Math.max(score, 95);
-        if (fullRaw && unitRaw === fullRaw) score = Math.max(score, 80);
+        if (exactCandidates.has(unitRaw)) score = Math.max(score, 300);
+        if (unitDigits && exactCandidates.has(unitDigits)) score = Math.max(score, 285);
+        if (unitNormalized && normalizedCandidates.has(unitNormalized)) score = Math.max(score, 270);
 
-        return { region, score };
+        return {
+          region,
+          score,
+          area: polygonArea(region.polygon || []),
+        };
       });
 
-      const selected = scoredRegions.sort((a, b) => b.score - a.score)[0];
+      const selected = scoredRegions
+        .filter((entry) => entry.score > 0)
+        .sort((a, b) => (b.score - a.score) || (b.area - a.area))[0];
 
-      if (selected?.score > 0 && selected.region?.polygon?.length >= 3) {
+      if (selected?.region?.polygon?.length >= 3) {
         const points = selected.region.polygon.map((p: number[]) => [
           (p[0] / 100) * containerWidth,
           (p[1] / 100) * canvasHeight,
-        ]);
+        ] as [number, number]);
 
-        const xs = points.map((p: number[]) => p[0]);
-        const ys = points.map((p: number[]) => p[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
+        const centerX = points.reduce((sum, point) => sum + point[0], 0) / points.length;
+        const centerY = points.reduce((sum, point) => sum + point[1], 0) / points.length;
+        const expansionFactor = 1.04;
 
-        const boxWidth = maxX - minX;
-        const boxHeight = maxY - minY;
+        const expandedPoints = points.map(([x, y]) => [
+          centerX + (x - centerX) * expansionFactor,
+          centerY + (y - centerY) * expansionFactor,
+        ] as [number, number]);
 
-        const paddingX = Math.max(boxWidth * 0.22, containerWidth * 0.012);
-        const paddingY = Math.max(boxHeight * 0.35, canvasHeight * 0.02);
+        ctx.beginPath();
+        expandedPoints.forEach(([x, y], index) => {
+          if (index === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
 
-        const drawX = Math.max(0, minX - paddingX);
-        const drawY = Math.max(0, minY - paddingY);
-        const drawWidth = Math.min(containerWidth - drawX, boxWidth + paddingX * 2);
-        const drawHeight = Math.min(canvasHeight - drawY, boxHeight + paddingY * 2);
+        ctx.fillStyle = "rgba(34, 197, 94, 0.32)";
+        ctx.fill();
 
-        ctx.fillStyle = "rgba(34, 197, 94, 0.35)";
-        ctx.fillRect(drawX, drawY, drawWidth, drawHeight);
-
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.9)";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.95)";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
       }
     }
   }, [imageLoaded, regiones, highlightUnit, fullPropertyNumber]);
