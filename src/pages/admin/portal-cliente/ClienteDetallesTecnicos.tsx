@@ -203,6 +203,8 @@ const ClienteDetallesTecnicos = () => {
     );
   }
 
+  const resolvedDepto = resolveDeptoFromUnidad(prop.unidad, prop.numeroPiso, prop.numeroDepa);
+
   return (
     <div className="max-w-lg mx-auto lg:max-w-2xl pb-24">
       {/* Sticky Header */}
