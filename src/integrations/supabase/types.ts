@@ -3401,6 +3401,47 @@ export type Database = {
           },
         ]
       }
+      edificios_niveles_planos: {
+        Row: {
+          activo: boolean
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          id_edificio: number
+          imagen_url: string
+          nivel: number
+          regiones: Json | null
+        }
+        Insert: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_edificio: number
+          imagen_url: string
+          nivel: number
+          regiones?: Json | null
+        }
+        Update: {
+          activo?: boolean
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          id_edificio?: number
+          imagen_url?: string
+          nivel?: number
+          regiones?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edificios_niveles_planos_id_edificio_fkey"
+            columns: ["id_edificio"]
+            isOneToOne: false
+            referencedRelation: "edificios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entidades_relacionadas: {
         Row: {
           activo: boolean
