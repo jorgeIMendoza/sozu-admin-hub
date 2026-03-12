@@ -439,6 +439,11 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         propiedadBeneficiarioNombre,
         parcialidades,
         ultimosPagos,
+        numeroPiso,
+        idEdificio,
+        planoUbicacionUrl,
+        planoUbicacionRegiones,
+        numeroDepa,
       };
     },
     enabled: !!cuentaId,
