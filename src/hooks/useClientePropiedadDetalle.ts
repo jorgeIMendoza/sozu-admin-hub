@@ -168,7 +168,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       // 5. Building/project info
       const { data: emData } = await supabase
         .from("edificios_modelos")
-        .select("id, id_edificio, id_modelo, edificios:edificios_modelos_id_edificio_fkey!inner(nombre, id_proyecto, proyectos:edificios_id_proyecto_fkey!inner(id, nombre, precio_m2_actual, direccion, fecha_entrega, url_imagen_portada)), modelos:edificios_modelos_id_modelo_fkey(nombre)")
+        .select("id, id_edificio, id_modelo, edificios:edificios_modelos_id_edificio_fkey!inner(nombre, id_proyecto, proyectos:edificios_id_proyecto_fkey!inner(id, nombre, precio_m2_actual, direccion, fecha_entrega, url_imagen_portada)), modelos:edificios_modelos_id_modelo_fkey(nombre, plano_arquitectonico)")
         .eq("id", propiedad.id_edificio_modelo)
         .maybeSingle();
 
