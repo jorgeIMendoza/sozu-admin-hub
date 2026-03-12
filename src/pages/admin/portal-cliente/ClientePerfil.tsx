@@ -95,21 +95,6 @@ const ClientePerfil = () => {
     enabled: !!effectivePersonaId,
   });
 
-  // Fetch fiscal state name
-  const { data: estadoFiscal } = useQuery({
-    queryKey: ["cliente-perfil-estado-fiscal", persona?.direccion_fiscal_id_estado],
-    queryFn: async () => {
-      if (!persona?.direccion_fiscal_id_estado) return null;
-      const { data } = await supabase
-        .from("estados")
-        .select("nombre")
-        .eq("id", persona.direccion_fiscal_id_estado)
-        .maybeSingle();
-      return data?.nombre || null;
-    },
-    enabled: !!persona?.direccion_fiscal_id_estado,
-  });
-
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
       toast.error("La contraseña debe tener al menos 6 caracteres");
