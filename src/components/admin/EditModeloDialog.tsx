@@ -105,11 +105,13 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
 
       if (modeloError) throw modeloError;
 
-      // Update características (first deactivate all, then add selected ones)
-      await supabase
+      // Update características: delete all existing, then insert selected ones
+      const { error: deleteCaracError } = await supabase
         .from("modelos_caracteristicas")
-        .update({ activo: false })
+        .delete()
         .eq("id_modelo", modelo.id);
+
+      if (deleteCaracError) throw deleteCaracError;
 
       if (selectedCharacteristicIds.length > 0) {
         const caracteristicasData = selectedCharacteristicIds.map((caracteristicaId) => ({
@@ -120,7 +122,7 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
 
         const { error: caracError } = await supabase
           .from("modelos_caracteristicas")
-          .upsert(caracteristicasData);
+          .insert(caracteristicasData);
 
         if (caracError) throw caracError;
       }
