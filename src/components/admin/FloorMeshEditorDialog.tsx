@@ -429,24 +429,42 @@ export const FloorMeshEditorDialog = ({
                               />
                             ))}
 
-                          {/* Split-edge midpoint indicators for selected region */}
+                          {/* Split-edge midpoint indicators — click to add a vertex */}
                           {isSelected &&
                             selectedEdges.map((edge, ei) => (
-                              <circle
-                                key={`mid-${ei}`}
-                                cx={(edge.a[0] + edge.b[0]) / 2}
-                                cy={(edge.a[1] + edge.b[1]) / 2}
-                                r={0.8}
-                                fill="hsl(var(--primary) / 0.3)"
-                                stroke="hsl(var(--primary) / 0.5)"
-                                strokeWidth={0.3}
-                                className="cursor-pointer"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  handleSplitEdge(selectedRegionIndex, edge.indexA);
-                                }}
-                              />
+                              <g key={`mid-${ei}`}>
+                                {/* Larger invisible hit area */}
+                                <circle
+                                  cx={(edge.a[0] + edge.b[0]) / 2}
+                                  cy={(edge.a[1] + edge.b[1]) / 2}
+                                  r={2.5}
+                                  fill="transparent"
+                                  className="cursor-copy"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
+                                  }}
+                                />
+                                {/* Visible "+" indicator */}
+                                <circle
+                                  cx={(edge.a[0] + edge.b[0]) / 2}
+                                  cy={(edge.a[1] + edge.b[1]) / 2}
+                                  r={1.2}
+                                  fill="hsl(var(--primary) / 0.15)"
+                                  stroke="hsl(var(--primary))"
+                                  strokeWidth={0.35}
+                                  className="cursor-copy"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
+                                  }}
+                                />
+                                {/* Plus sign */}
+                                <line x1={(edge.a[0] + edge.b[0]) / 2 - 0.55} y1={(edge.a[1] + edge.b[1]) / 2} x2={(edge.a[0] + edge.b[0]) / 2 + 0.55} y2={(edge.a[1] + edge.b[1]) / 2} stroke="hsl(var(--primary))" strokeWidth={0.25} className="pointer-events-none" />
+                                <line x1={(edge.a[0] + edge.b[0]) / 2} y1={(edge.a[1] + edge.b[1]) / 2 - 0.55} x2={(edge.a[0] + edge.b[0]) / 2} y2={(edge.a[1] + edge.b[1]) / 2 + 0.55} stroke="hsl(var(--primary))" strokeWidth={0.25} className="pointer-events-none" />
+                              </g>
                             ))}
                         </g>
                       );
