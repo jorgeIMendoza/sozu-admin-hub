@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2, Crosshair, PencilRuler, RefreshCw, Scissors, Trash2, Plus } from "lucide-react";
+import { CheckCircle2, Crosshair, PencilRuler, RefreshCw, Trash2, Plus } from "lucide-react";
 
 export type MeshPoint = [number, number];
 
@@ -11,6 +11,8 @@ export interface MeshRegion {
   unit_number: string;
   polygon: MeshPoint[];
   mesh_confirmed?: boolean;
+  /** Quadratic bezier control points keyed by edge start index (as string) */
+  curves?: Record<string, MeshPoint>;
 }
 
 interface FloorMeshEditorDialogProps {
@@ -45,9 +47,16 @@ interface RegionDragState {
   regionIndex: number;
   originPointer: MeshPoint;
   originPolygon: MeshPoint[];
+  originCurves: Record<string, MeshPoint>;
 }
 
-type DragState = PointDragState | EdgeDragState | RegionDragState;
+interface CurveDragState {
+  mode: "curve";
+  regionIndex: number;
+  edgeKey: string;
+}
+
+type DragState = PointDragState | EdgeDragState | RegionDragState | CurveDragState;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -68,11 +77,32 @@ const normalizeRegions = (regions: MeshRegion[]): MeshRegion[] => {
         ] as MeshPoint)
         .filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1])),
       mesh_confirmed: resolveMeshConfirmed(region),
+      curves: region.curves || {},
     }))
     .filter((region) => region.unit_number.length > 0 && region.polygon.length >= 3);
 };
 
-const getPolygonPoints = (polygon: MeshPoint[]) => polygon.map((point) => `${point[0]},${point[1]}`).join(" ");
+const midpoint = (a: MeshPoint, b: MeshPoint): MeshPoint => [
+  (a[0] + b[0]) / 2,
+  (a[1] + b[1]) / 2,
+];
+
+/** Build SVG path `d` attribute supporting optional quadratic bezier curves */
+const getPathD = (polygon: MeshPoint[], curves?: Record<string, MeshPoint>): string => {
+  if (polygon.length < 3) return "";
+  let d = `M ${polygon[0][0]},${polygon[0][1]}`;
+  for (let i = 0; i < polygon.length; i++) {
+    const nextIdx = (i + 1) % polygon.length;
+    const cp = curves?.[String(i)];
+    if (cp) {
+      d += ` Q ${cp[0]},${cp[1]} ${polygon[nextIdx][0]},${polygon[nextIdx][1]}`;
+    } else {
+      d += ` L ${polygon[nextIdx][0]},${polygon[nextIdx][1]}`;
+    }
+  }
+  d += " Z";
+  return d;
+};
 
 const asRectangularPolygon = (polygon: MeshPoint[]): MeshPoint[] => {
   const xs = polygon.map((point) => point[0]);
@@ -89,19 +119,22 @@ const asRectangularPolygon = (polygon: MeshPoint[]): MeshPoint[] => {
   ];
 };
 
-const midpoint = (a: MeshPoint, b: MeshPoint): MeshPoint => [
-  (a[0] + b[0]) / 2,
-  (a[1] + b[1]) / 2,
-];
-
-const distToSegment = (p: MeshPoint, a: MeshPoint, b: MeshPoint): number => {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
-  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
-  t = clamp(t, 0, 1);
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+/** Shift curve keys when a point is inserted or removed */
+const shiftCurveKeys = (
+  curves: Record<string, MeshPoint>,
+  fromIndex: number,
+  delta: number
+): Record<string, MeshPoint> => {
+  const result: Record<string, MeshPoint> = {};
+  for (const [key, value] of Object.entries(curves)) {
+    const idx = Number(key);
+    if (idx >= fromIndex) {
+      result[String(idx + delta)] = value;
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
 };
 
 export const FloorMeshEditorDialog = ({
@@ -170,6 +203,17 @@ export const FloorMeshEditorDialog = ({
       return;
     }
 
+    if (dragState.mode === "curve") {
+      setRegions((prev) =>
+        prev.map((region, ri) => {
+          if (ri !== dragState.regionIndex) return region;
+          const curves = { ...(region.curves || {}), [dragState.edgeKey]: pointer };
+          return { ...region, curves };
+        })
+      );
+      return;
+    }
+
     if (dragState.mode === "edge") {
       const [cx, cy] = pointer;
       const dx = cx - dragState.originPointer[0];
@@ -204,7 +248,12 @@ export const FloorMeshEditorDialog = ({
           clamp(x + deltaX, 0, 100),
           clamp(y + deltaY, 0, 100),
         ] as MeshPoint);
-        return { ...region, polygon };
+        // Also move curve control points
+        const curves: Record<string, MeshPoint> = {};
+        for (const [key, cp] of Object.entries(dragState.originCurves)) {
+          curves[key] = [clamp(cp[0] + deltaX, 0, 100), clamp(cp[1] + deltaY, 0, 100)];
+        }
+        return { ...region, polygon, curves };
       })
     );
   };
@@ -218,7 +267,7 @@ export const FloorMeshEditorDialog = ({
     setRegions((prev) =>
       prev.map((region, index) =>
         index === selectedRegionIndex
-          ? { ...region, polygon: asRectangularPolygon(region.polygon as MeshPoint[]) }
+          ? { ...region, polygon: asRectangularPolygon(region.polygon as MeshPoint[]), curves: {} }
           : region
       )
     );
@@ -245,7 +294,41 @@ export const FloorMeshEditorDialog = ({
         const b = poly[(edgeStartIndex + 1) % poly.length];
         const mid = midpoint(a, b);
         poly.splice(edgeStartIndex + 1, 0, mid);
-        return { ...region, polygon: poly };
+        // Update curve keys: remove curve for split edge, shift keys after
+        const oldCurves = { ...(region.curves || {}) };
+        delete oldCurves[String(edgeStartIndex)];
+        const newCurves = shiftCurveKeys(oldCurves, edgeStartIndex + 1, 1);
+        return { ...region, polygon: poly, curves: newCurves };
+      })
+    );
+  };
+
+  // Toggle curve on an edge (add control point at midpoint, or remove it)
+  const handleToggleCurve = (regionIndex: number, edgeStartIndex: number) => {
+    setRegions((prev) =>
+      prev.map((region, ri) => {
+        if (ri !== regionIndex) return region;
+        const curves = { ...(region.curves || {}) };
+        const key = String(edgeStartIndex);
+        if (curves[key]) {
+          // Remove curve
+          delete curves[key];
+        } else {
+          // Add curve control point at midpoint offset perpendicular
+          const a = region.polygon[edgeStartIndex];
+          const b = region.polygon[(edgeStartIndex + 1) % region.polygon.length];
+          const mx = (a[0] + b[0]) / 2;
+          const my = (a[1] + b[1]) / 2;
+          // Offset perpendicular to the edge
+          const dx = b[0] - a[0];
+          const dy = b[1] - a[1];
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = -dy / len;
+          const ny = dx / len;
+          const offset = Math.min(len * 0.3, 8);
+          curves[key] = [clamp(mx + nx * offset, 0, 100), clamp(my + ny * offset, 0, 100)];
+        }
+        return { ...region, curves };
       })
     );
   };
@@ -257,7 +340,22 @@ export const FloorMeshEditorDialog = ({
         if (ri !== regionIndex) return region;
         if (region.polygon.length <= 3) return region;
         const poly = region.polygon.filter((_, pi) => pi !== pointIndex);
-        return { ...region, polygon: poly };
+        // Remove curves for edges touching this point, then shift
+        const oldCurves = { ...(region.curves || {}) };
+        const prevEdge = (pointIndex - 1 + region.polygon.length) % region.polygon.length;
+        delete oldCurves[String(prevEdge)];
+        delete oldCurves[String(pointIndex)];
+        // Shift keys after deleted point
+        const newCurves: Record<string, MeshPoint> = {};
+        for (const [key, value] of Object.entries(oldCurves)) {
+          const idx = Number(key);
+          if (idx > pointIndex) {
+            newCurves[String(idx - 1)] = value;
+          } else {
+            newCurves[key] = value;
+          }
+        }
+        return { ...region, polygon: poly, curves: newCurves };
       })
     );
   };
@@ -268,6 +366,7 @@ export const FloorMeshEditorDialog = ({
       unit_number: `${regions.length + 1}`,
       polygon: [[25, 25], [75, 25], [75, 75], [25, 75]],
       mesh_confirmed: false,
+      curves: {},
     };
     setRegions((prev) => [...prev, newRegion]);
     setSelectedRegionIndex(regions.length);
@@ -285,13 +384,21 @@ export const FloorMeshEditorDialog = ({
     onSave(normalized);
   };
 
-  // Build edge lines for selected region with interactive hit areas
+  // Build edge data for selected region
   const selectedEdges = useMemo(() => {
     if (!selectedRegion) return [];
     return selectedRegion.polygon.map((pt, i) => {
       const next = selectedRegion.polygon[(i + 1) % selectedRegion.polygon.length];
-      return { a: pt, b: next, indexA: i, indexB: (i + 1) % selectedRegion.polygon.length };
+      const hasCurve = !!(selectedRegion.curves || {})[String(i)];
+      const cp = (selectedRegion.curves || {})[String(i)] || null;
+      return { a: pt, b: next, indexA: i, indexB: (i + 1) % selectedRegion.polygon.length, hasCurve, cp };
     });
+  }, [selectedRegion]);
+
+  // Count curves for the selected region
+  const curveCount = useMemo(() => {
+    if (!selectedRegion?.curves) return 0;
+    return Object.keys(selectedRegion.curves).length;
   }, [selectedRegion]);
 
   return (
@@ -309,7 +416,7 @@ export const FloorMeshEditorDialog = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] max-h-[calc(90vh-110px)]">
           <div className="p-4 border-b lg:border-b-0 lg:border-r border-border overflow-auto">
             <p className="text-xs text-muted-foreground mb-3">
-              Arrastra puntos, aristas o la malla completa. Doble clic en una arista para dividirla. Clic derecho en un punto para eliminarlo.
+              Arrastra puntos, aristas o la malla completa. En cada arista: <strong>+</strong> agrega un vértice, <strong>⌒</strong> curva la arista. Clic derecho en un punto para eliminarlo.
             </p>
 
             <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
@@ -340,10 +447,13 @@ export const FloorMeshEditorDialog = ({
 
                     {regions.map((region, regionIndex) => {
                       const isSelected = regionIndex === selectedRegionIndex;
+                      const pathD = getPathD(region.polygon as MeshPoint[], region.curves);
+
                       return (
                         <g key={`${region.unit_number}-${regionIndex}`}>
-                          <polygon
-                            points={getPolygonPoints(region.polygon as MeshPoint[])}
+                          {/* Region shape (path supports curves) */}
+                          <path
+                            d={pathD}
                             fill={isSelected ? "hsl(var(--primary) / 0.22)" : "hsl(var(--muted) / 0.28)"}
                             stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--border))"}
                             strokeWidth={isSelected ? 0.8 : 0.55}
@@ -359,49 +469,41 @@ export const FloorMeshEditorDialog = ({
                                 regionIndex,
                                 originPointer: pointer,
                                 originPolygon: region.polygon.map((p) => [p[0], p[1]] as MeshPoint),
+                                originCurves: { ...(region.curves || {}) },
                               });
                             }}
                             className={isSelected ? "cursor-move transition-opacity" : "cursor-pointer transition-opacity"}
                           />
 
-                          {/* Edge hit areas for selected region — draggable edges + double click to split */}
+                          {/* Edge hit areas for dragging edges */}
                           {isSelected &&
-                            selectedEdges.map((edge, ei) => {
-                              const mx = (edge.a[0] + edge.b[0]) / 2;
-                              const my = (edge.a[1] + edge.b[1]) / 2;
-                              return (
-                                <line
-                                  key={`edge-${ei}`}
-                                  x1={edge.a[0]}
-                                  y1={edge.a[1]}
-                                  x2={edge.b[0]}
-                                  y2={edge.b[1]}
-                                  stroke="transparent"
-                                  strokeWidth={2.5}
-                                  className="cursor-move"
-                                  onPointerDown={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    const pointer = getPointerCoordinates(event.clientX, event.clientY);
-                                    if (!pointer) return;
-                                    setDragState({
-                                      mode: "edge",
-                                      regionIndex: selectedRegionIndex,
-                                      pointIndexA: edge.indexA,
-                                      pointIndexB: edge.indexB,
-                                      originPointer: pointer,
-                                      originA: [edge.a[0], edge.a[1]],
-                                      originB: [edge.b[0], edge.b[1]],
-                                    });
-                                  }}
-                                  onDoubleClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
-                                  }}
-                                />
-                              );
-                            })}
+                            selectedEdges.map((edge, ei) => (
+                              <line
+                                key={`edge-${ei}`}
+                                x1={edge.a[0]}
+                                y1={edge.a[1]}
+                                x2={edge.b[0]}
+                                y2={edge.b[1]}
+                                stroke="transparent"
+                                strokeWidth={2.5}
+                                className="cursor-move"
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  const pointer = getPointerCoordinates(event.clientX, event.clientY);
+                                  if (!pointer) return;
+                                  setDragState({
+                                    mode: "edge",
+                                    regionIndex: selectedRegionIndex,
+                                    pointIndexA: edge.indexA,
+                                    pointIndexB: edge.indexB,
+                                    originPointer: pointer,
+                                    originA: [edge.a[0], edge.a[1]],
+                                    originB: [edge.b[0], edge.b[1]],
+                                  });
+                                }}
+                              />
+                            ))}
 
                           {/* Vertex handles */}
                           {isSelected &&
@@ -429,43 +531,150 @@ export const FloorMeshEditorDialog = ({
                               />
                             ))}
 
-                          {/* Split-edge midpoint indicators — click to add a vertex */}
+                          {/* Curve control point handles + guide lines */}
                           {isSelected &&
-                            selectedEdges.map((edge, ei) => (
-                              <g key={`mid-${ei}`}>
-                                {/* Larger invisible hit area */}
-                                <circle
-                                  cx={(edge.a[0] + edge.b[0]) / 2}
-                                  cy={(edge.a[1] + edge.b[1]) / 2}
-                                  r={2.5}
-                                  fill="transparent"
-                                  className="cursor-copy"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
-                                  }}
-                                />
-                                {/* Visible "+" indicator */}
-                                <circle
-                                  cx={(edge.a[0] + edge.b[0]) / 2}
-                                  cy={(edge.a[1] + edge.b[1]) / 2}
-                                  r={1.2}
-                                  fill="hsl(var(--primary) / 0.15)"
-                                  stroke="hsl(var(--primary))"
-                                  strokeWidth={0.35}
-                                  className="cursor-copy"
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
-                                  }}
-                                />
-                                {/* Plus sign */}
-                                <line x1={(edge.a[0] + edge.b[0]) / 2 - 0.55} y1={(edge.a[1] + edge.b[1]) / 2} x2={(edge.a[0] + edge.b[0]) / 2 + 0.55} y2={(edge.a[1] + edge.b[1]) / 2} stroke="hsl(var(--primary))" strokeWidth={0.25} className="pointer-events-none" />
-                                <line x1={(edge.a[0] + edge.b[0]) / 2} y1={(edge.a[1] + edge.b[1]) / 2 - 0.55} x2={(edge.a[0] + edge.b[0]) / 2} y2={(edge.a[1] + edge.b[1]) / 2 + 0.55} stroke="hsl(var(--primary))" strokeWidth={0.25} className="pointer-events-none" />
-                              </g>
-                            ))}
+                            selectedEdges
+                              .filter((edge) => edge.hasCurve && edge.cp)
+                              .map((edge) => {
+                                const cp = edge.cp!;
+                                return (
+                                  <g key={`curve-cp-${edge.indexA}`}>
+                                    {/* Guide lines from control point to endpoints */}
+                                    <line
+                                      x1={edge.a[0]} y1={edge.a[1]}
+                                      x2={cp[0]} y2={cp[1]}
+                                      stroke="hsl(var(--primary) / 0.3)"
+                                      strokeWidth={0.3}
+                                      strokeDasharray="1,0.5"
+                                      className="pointer-events-none"
+                                    />
+                                    <line
+                                      x1={edge.b[0]} y1={edge.b[1]}
+                                      x2={cp[0]} y2={cp[1]}
+                                      stroke="hsl(var(--primary) / 0.3)"
+                                      strokeWidth={0.3}
+                                      strokeDasharray="1,0.5"
+                                      className="pointer-events-none"
+                                    />
+                                    {/* Control point handle (diamond shape) */}
+                                    <g
+                                      className="cursor-move"
+                                      onPointerDown={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        setDragState({
+                                          mode: "curve",
+                                          regionIndex: selectedRegionIndex,
+                                          edgeKey: String(edge.indexA),
+                                        });
+                                      }}
+                                    >
+                                      <circle
+                                        cx={cp[0]} cy={cp[1]}
+                                        r={2.5}
+                                        fill="transparent"
+                                      />
+                                      <rect
+                                        x={cp[0] - 1}
+                                        y={cp[1] - 1}
+                                        width={2}
+                                        height={2}
+                                        transform={`rotate(45 ${cp[0]} ${cp[1]})`}
+                                        fill="hsl(var(--primary) / 0.25)"
+                                        stroke="hsl(var(--primary))"
+                                        strokeWidth={0.35}
+                                      />
+                                    </g>
+                                  </g>
+                                );
+                              })}
+
+                          {/* Midpoint dual actions: Split (+) and Curve (⌒) */}
+                          {isSelected &&
+                            selectedEdges.map((edge, ei) => {
+                              const mx = (edge.a[0] + edge.b[0]) / 2;
+                              const my = (edge.a[1] + edge.b[1]) / 2;
+                              // Calculate perpendicular direction for positioning the two buttons
+                              const dx = edge.b[0] - edge.a[0];
+                              const dy = edge.b[1] - edge.a[1];
+                              const len = Math.hypot(dx, dy) || 1;
+                              // Along-edge offset for the two buttons
+                              const ax = (dx / len) * 1.8;
+                              const ay = (dy / len) * 1.8;
+
+                              return (
+                                <g key={`mid-actions-${ei}`}>
+                                  {/* Split button (add vertex) - offset backward along edge */}
+                                  <g
+                                    className="cursor-copy"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      handleSplitEdge(selectedRegionIndex, edge.indexA);
+                                    }}
+                                  >
+                                    <circle
+                                      cx={mx - ax} cy={my - ay}
+                                      r={2.2}
+                                      fill="transparent"
+                                    />
+                                    <circle
+                                      cx={mx - ax} cy={my - ay}
+                                      r={1.15}
+                                      fill="hsl(var(--background))"
+                                      stroke="hsl(var(--primary))"
+                                      strokeWidth={0.3}
+                                    />
+                                    {/* Plus sign */}
+                                    <line
+                                      x1={mx - ax - 0.55} y1={my - ay}
+                                      x2={mx - ax + 0.55} y2={my - ay}
+                                      stroke="hsl(var(--primary))"
+                                      strokeWidth={0.25}
+                                      className="pointer-events-none"
+                                    />
+                                    <line
+                                      x1={mx - ax} y1={my - ay - 0.55}
+                                      x2={mx - ax} y2={my - ay + 0.55}
+                                      stroke="hsl(var(--primary))"
+                                      strokeWidth={0.25}
+                                      className="pointer-events-none"
+                                    />
+                                  </g>
+
+                                  {/* Curve toggle button - offset forward along edge */}
+                                  <g
+                                    className="cursor-pointer"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      handleToggleCurve(selectedRegionIndex, edge.indexA);
+                                    }}
+                                  >
+                                    <circle
+                                      cx={mx + ax} cy={my + ay}
+                                      r={2.2}
+                                      fill="transparent"
+                                    />
+                                    <circle
+                                      cx={mx + ax} cy={my + ay}
+                                      r={1.15}
+                                      fill={edge.hasCurve ? "hsl(var(--primary) / 0.2)" : "hsl(var(--background))"}
+                                      stroke={edge.hasCurve ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+                                      strokeWidth={0.3}
+                                    />
+                                    {/* Arc symbol ⌒ */}
+                                    <path
+                                      d={`M ${mx + ax - 0.5},${my + ay + 0.15} Q ${mx + ax},${my + ay - 0.55} ${mx + ax + 0.5},${my + ay + 0.15}`}
+                                      fill="none"
+                                      stroke={edge.hasCurve ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+                                      strokeWidth={0.25}
+                                      className="pointer-events-none"
+                                    />
+                                  </g>
+                                </g>
+                              );
+                            })}
                         </g>
                       );
                     })}
@@ -550,6 +759,7 @@ export const FloorMeshEditorDialog = ({
                 {regions.map((region, index) => {
                   const isSelected = index === selectedRegionIndex;
                   const isConfirmed = resolveMeshConfirmed(region);
+                  const regionCurveCount = Object.keys(region.curves || {}).length;
                   return (
                     <button
                       type="button"
@@ -575,7 +785,7 @@ export const FloorMeshEditorDialog = ({
                         className="h-8 text-xs"
                       />
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {region.polygon.length} vértices
+                        {region.polygon.length} vértices{regionCurveCount > 0 ? ` · ${regionCurveCount} curva${regionCurveCount > 1 ? "s" : ""}` : ""}
                       </p>
                     </button>
                   );

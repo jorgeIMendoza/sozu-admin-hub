@@ -146,6 +146,8 @@ const FloorPlanCanvas = ({
           (p[1] / 100) * canvasHeight,
         ] as [number, number]);
 
+        const curves = selected.region.curves || {};
+
         const centerX = points.reduce((sum, point) => sum + point[0], 0) / points.length;
         const centerY = points.reduce((sum, point) => sum + point[1], 0) / points.length;
         const expansionFactor = 1.04;
@@ -158,8 +160,19 @@ const FloorPlanCanvas = ({
         ctx.beginPath();
         expandedPoints.forEach(([x, y], index) => {
           if (index === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
         });
+
+        for (let i = 0; i < expandedPoints.length; i++) {
+          const nextIdx = (i + 1) % expandedPoints.length;
+          const curveCP = curves[String(i)];
+          if (curveCP) {
+            const cpx = centerX + (((curveCP[0] / 100) * containerWidth) - centerX) * expansionFactor;
+            const cpy = centerY + (((curveCP[1] / 100) * canvasHeight) - centerY) * expansionFactor;
+            ctx.quadraticCurveTo(cpx, cpy, expandedPoints[nextIdx][0], expandedPoints[nextIdx][1]);
+          } else {
+            ctx.lineTo(expandedPoints[nextIdx][0], expandedPoints[nextIdx][1]);
+          }
+        }
         ctx.closePath();
 
         ctx.fillStyle = "rgba(34, 197, 94, 0.32)";
