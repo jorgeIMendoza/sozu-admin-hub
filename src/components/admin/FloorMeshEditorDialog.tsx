@@ -369,9 +369,9 @@ export const FloorMeshEditorDialog = ({
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[10px] text-muted-foreground">Unidad</p>
                         <span
-                          className={isConfirmed
-                            ? "text-[10px] px-1.5 py-0.5 rounded border bg-[hsl(var(--inmob-green)/0.15)] text-[hsl(var(--inmob-green))] border-[hsl(var(--inmob-green)/0.3)]"
-                            : "text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground"}
+                           className={isConfirmed
+                             ? "text-[10px] px-1.5 py-0.5 rounded border bg-success/15 text-success border-success/30"
+                             : "text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground"}
                         >
                           {isConfirmed ? "Confirmada" : "Pendiente"}
                         </span>
