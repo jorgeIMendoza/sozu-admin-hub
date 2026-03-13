@@ -40,18 +40,26 @@ const getRegionUnitLabel = (region: any, index: number) => {
   return raw.length > 0 ? raw : `U${index + 1}`;
 };
 
+const resolveRegionConfirmed = (region: any) => {
+  const value = region?.mesh_confirmed ?? region?.confirmed;
+
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "si", "sí"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+
+  return true;
+};
+
 const hasRegionMeshAssigned = (region: any) => {
   const unitLabel = (region?.unit_number ?? "").toString().trim();
   const polygon = Array.isArray(region?.polygon) ? region.polygon : [];
   const hasValidPolygon = polygon.length >= 3;
-  const explicitConfirmation =
-    typeof region?.mesh_confirmed === "boolean"
-      ? region.mesh_confirmed
-      : typeof region?.confirmed === "boolean"
-        ? region.confirmed
-        : null;
 
-  return unitLabel.length > 0 && hasValidPolygon && (explicitConfirmation ?? true);
+  return unitLabel.length > 0 && hasValidPolygon && resolveRegionConfirmed(region);
 };
 
 // Image preview dialog
@@ -641,7 +649,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                                 className={cn(
                                   "text-[8px] px-1.5 py-0.5 rounded-full font-medium border",
                                   hasMesh
-                                    ? "bg-[hsl(var(--inmob-green)/0.15)] text-[hsl(var(--inmob-green))] border-[hsl(var(--inmob-green)/0.35)]"
+                                    ? "bg-success/15 text-success border-success/30"
                                     : "bg-muted text-muted-foreground border-border"
                                 )}
                               >

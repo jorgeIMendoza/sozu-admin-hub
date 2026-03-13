@@ -24,10 +24,20 @@ interface FloorMeshEditorDialogProps {
   recalculating?: boolean;
 }
 
-interface DragState {
+interface PointDragState {
+  mode: "point";
   regionIndex: number;
   pointIndex: number;
 }
+
+interface RegionDragState {
+  mode: "region";
+  regionIndex: number;
+  originPointer: MeshPoint;
+  originPolygon: MeshPoint[];
+}
+
+type DragState = PointDragState | RegionDragState;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -109,22 +119,52 @@ export const FloorMeshEditorDialog = ({
 
   const selectedRegion = useMemo(() => regions[selectedRegionIndex] || null, [regions, selectedRegionIndex]);
 
-  const updatePointPosition = (event: React.PointerEvent<SVGSVGElement>) => {
-    if (!dragState || !svgRef.current) return;
+  const getPointerCoordinates = (clientX: number, clientY: number): MeshPoint | null => {
+    if (!svgRef.current) return null;
 
     const rect = svgRef.current.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
+    if (!rect.width || !rect.height) return null;
 
-    const x = clamp(((event.clientX - rect.left) / rect.width) * 100, 0, 100);
-    const y = clamp(((event.clientY - rect.top) / rect.height) * 100, 0, 100);
+    return [
+      clamp(((clientX - rect.left) / rect.width) * 100, 0, 100),
+      clamp(((clientY - rect.top) / rect.height) * 100, 0, 100),
+    ];
+  };
+
+  const updatePointPosition = (event: React.PointerEvent<SVGSVGElement>) => {
+    if (!dragState) return;
+
+    const pointer = getPointerCoordinates(event.clientX, event.clientY);
+    if (!pointer) return;
+
+    if (dragState.mode === "point") {
+      setRegions((prev) =>
+        prev.map((region, regionIndex) => {
+          if (regionIndex !== dragState.regionIndex) return region;
+
+          const polygon = region.polygon.map((point, pointIndex) =>
+            pointIndex === dragState.pointIndex ? (pointer as MeshPoint) : point
+          );
+
+          return { ...region, polygon };
+        })
+      );
+      return;
+    }
+
+    const [currentX, currentY] = pointer;
+    const [originX, originY] = dragState.originPointer;
+    const deltaX = currentX - originX;
+    const deltaY = currentY - originY;
 
     setRegions((prev) =>
       prev.map((region, regionIndex) => {
         if (regionIndex !== dragState.regionIndex) return region;
 
-        const polygon = region.polygon.map((point, pointIndex) =>
-          pointIndex === dragState.pointIndex ? ([x, y] as MeshPoint) : point
-        );
+        const polygon = dragState.originPolygon.map(([x, y]) => [
+          clamp(x + deltaX, 0, 100),
+          clamp(y + deltaY, 0, 100),
+        ] as MeshPoint);
 
         return { ...region, polygon };
       })
@@ -179,7 +219,7 @@ export const FloorMeshEditorDialog = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] max-h-[calc(90vh-110px)]">
           <div className="p-4 border-b lg:border-b-0 lg:border-r border-border overflow-auto">
             <p className="text-xs text-muted-foreground mb-3">
-              Ajusta cada vértice arrastrando los puntos. La malla guardada se usará para iluminar el depto exacto en Detalle Técnico.
+              Ajusta cada vértice arrastrando los puntos o mueve la malla completa arrastrando el polígono seleccionado.
             </p>
 
             <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
@@ -218,7 +258,21 @@ export const FloorMeshEditorDialog = ({
                             stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--border))"}
                             strokeWidth={isSelected ? 0.8 : 0.55}
                             onClick={() => setSelectedRegionIndex(regionIndex)}
-                            className="cursor-pointer transition-opacity"
+                            onPointerDown={(event) => {
+                              const pointer = getPointerCoordinates(event.clientX, event.clientY);
+                              if (!pointer) return;
+
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setSelectedRegionIndex(regionIndex);
+                              setDragState({
+                                mode: "region",
+                                regionIndex,
+                                originPointer: pointer,
+                                originPolygon: region.polygon.map((point) => [point[0], point[1]] as MeshPoint),
+                              });
+                            }}
+                            className={isSelected ? "cursor-move transition-opacity" : "cursor-pointer transition-opacity"}
                           />
 
                           {isSelected &&
@@ -236,7 +290,7 @@ export const FloorMeshEditorDialog = ({
                                   event.preventDefault();
                                   event.stopPropagation();
                                   setSelectedRegionIndex(regionIndex);
-                                  setDragState({ regionIndex, pointIndex });
+                                  setDragState({ mode: "point", regionIndex, pointIndex });
                                 }}
                               />
                             ))}
@@ -315,9 +369,9 @@ export const FloorMeshEditorDialog = ({
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[10px] text-muted-foreground">Unidad</p>
                         <span
-                          className={isConfirmed
-                            ? "text-[10px] px-1.5 py-0.5 rounded border bg-[hsl(var(--inmob-green)/0.15)] text-[hsl(var(--inmob-green))] border-[hsl(var(--inmob-green)/0.3)]"
-                            : "text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground"}
+                           className={isConfirmed
+                             ? "text-[10px] px-1.5 py-0.5 rounded border bg-success/15 text-success border-success/30"
+                             : "text-[10px] px-1.5 py-0.5 rounded border border-border bg-muted text-muted-foreground"}
                         >
                           {isConfirmed ? "Confirmada" : "Pendiente"}
                         </span>
