@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle2, Crosshair, PencilRuler, RefreshCw } from "lucide-react";
+import { CheckCircle2, Crosshair, PencilRuler, RefreshCw, Scissors, Trash2, Plus } from "lucide-react";
 
 export type MeshPoint = [number, number];
 
@@ -30,6 +30,16 @@ interface PointDragState {
   pointIndex: number;
 }
 
+interface EdgeDragState {
+  mode: "edge";
+  regionIndex: number;
+  pointIndexA: number;
+  pointIndexB: number;
+  originPointer: MeshPoint;
+  originA: MeshPoint;
+  originB: MeshPoint;
+}
+
 interface RegionDragState {
   mode: "region";
   regionIndex: number;
@@ -37,7 +47,7 @@ interface RegionDragState {
   originPolygon: MeshPoint[];
 }
 
-type DragState = PointDragState | RegionDragState;
+type DragState = PointDragState | EdgeDragState | RegionDragState;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -71,13 +81,27 @@ const asRectangularPolygon = (polygon: MeshPoint[]): MeshPoint[] => {
   const maxX = Math.max(...xs);
   const minY = Math.min(...ys);
   const maxY = Math.max(...ys);
-
   return [
     [minX, minY],
     [maxX, minY],
     [maxX, maxY],
     [minX, maxY],
   ];
+};
+
+const midpoint = (a: MeshPoint, b: MeshPoint): MeshPoint => [
+  (a[0] + b[0]) / 2,
+  (a[1] + b[1]) / 2,
+];
+
+const distToSegment = (p: MeshPoint, a: MeshPoint, b: MeshPoint): number => {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+  t = clamp(t, 0, 1);
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 };
 
 export const FloorMeshEditorDialog = ({
@@ -107,7 +131,6 @@ export const FloorMeshEditorDialog = ({
 
   useEffect(() => {
     if (!open || !imageUrl) return;
-
     const img = new Image();
     img.onload = () => {
       if (img.naturalWidth && img.naturalHeight) {
@@ -121,10 +144,8 @@ export const FloorMeshEditorDialog = ({
 
   const getPointerCoordinates = (clientX: number, clientY: number): MeshPoint | null => {
     if (!svgRef.current) return null;
-
     const rect = svgRef.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
-
     return [
       clamp(((clientX - rect.left) / rect.width) * 100, 0, 100),
       clamp(((clientY - rect.top) / rect.height) * 100, 0, 100),
@@ -133,39 +154,56 @@ export const FloorMeshEditorDialog = ({
 
   const updatePointPosition = (event: React.PointerEvent<SVGSVGElement>) => {
     if (!dragState) return;
-
     const pointer = getPointerCoordinates(event.clientX, event.clientY);
     if (!pointer) return;
 
     if (dragState.mode === "point") {
       setRegions((prev) =>
-        prev.map((region, regionIndex) => {
-          if (regionIndex !== dragState.regionIndex) return region;
-
-          const polygon = region.polygon.map((point, pointIndex) =>
-            pointIndex === dragState.pointIndex ? (pointer as MeshPoint) : point
+        prev.map((region, ri) => {
+          if (ri !== dragState.regionIndex) return region;
+          const polygon = region.polygon.map((pt, pi) =>
+            pi === dragState.pointIndex ? (pointer as MeshPoint) : pt
           );
-
           return { ...region, polygon };
         })
       );
       return;
     }
 
+    if (dragState.mode === "edge") {
+      const [cx, cy] = pointer;
+      const dx = cx - dragState.originPointer[0];
+      const dy = cy - dragState.originPointer[1];
+      setRegions((prev) =>
+        prev.map((region, ri) => {
+          if (ri !== dragState.regionIndex) return region;
+          const polygon = region.polygon.map((pt, pi) => {
+            if (pi === dragState.pointIndexA) {
+              return [clamp(dragState.originA[0] + dx, 0, 100), clamp(dragState.originA[1] + dy, 0, 100)] as MeshPoint;
+            }
+            if (pi === dragState.pointIndexB) {
+              return [clamp(dragState.originB[0] + dx, 0, 100), clamp(dragState.originB[1] + dy, 0, 100)] as MeshPoint;
+            }
+            return pt;
+          });
+          return { ...region, polygon };
+        })
+      );
+      return;
+    }
+
+    // region drag
     const [currentX, currentY] = pointer;
     const [originX, originY] = dragState.originPointer;
     const deltaX = currentX - originX;
     const deltaY = currentY - originY;
-
     setRegions((prev) =>
-      prev.map((region, regionIndex) => {
-        if (regionIndex !== dragState.regionIndex) return region;
-
+      prev.map((region, ri) => {
+        if (ri !== dragState.regionIndex) return region;
         const polygon = dragState.originPolygon.map(([x, y]) => [
           clamp(x + deltaX, 0, 100),
           clamp(y + deltaY, 0, 100),
         ] as MeshPoint);
-
         return { ...region, polygon };
       })
     );
@@ -177,7 +215,6 @@ export const FloorMeshEditorDialog = ({
 
   const handleRectangularizeSelected = () => {
     if (!selectedRegion) return;
-
     setRegions((prev) =>
       prev.map((region, index) =>
         index === selectedRegionIndex
@@ -189,7 +226,6 @@ export const FloorMeshEditorDialog = ({
 
   const handleToggleSelectedConfirmation = () => {
     if (!selectedRegion) return;
-
     setRegions((prev) =>
       prev.map((region, index) =>
         index === selectedRegionIndex
@@ -199,10 +235,64 @@ export const FloorMeshEditorDialog = ({
     );
   };
 
+  // Split an edge by inserting a midpoint
+  const handleSplitEdge = (regionIndex: number, edgeStartIndex: number) => {
+    setRegions((prev) =>
+      prev.map((region, ri) => {
+        if (ri !== regionIndex) return region;
+        const poly = [...region.polygon];
+        const a = poly[edgeStartIndex];
+        const b = poly[(edgeStartIndex + 1) % poly.length];
+        const mid = midpoint(a, b);
+        poly.splice(edgeStartIndex + 1, 0, mid);
+        return { ...region, polygon: poly };
+      })
+    );
+  };
+
+  // Delete a point (only if polygon has > 3 points)
+  const handleDeletePoint = (regionIndex: number, pointIndex: number) => {
+    setRegions((prev) =>
+      prev.map((region, ri) => {
+        if (ri !== regionIndex) return region;
+        if (region.polygon.length <= 3) return region;
+        const poly = region.polygon.filter((_, pi) => pi !== pointIndex);
+        return { ...region, polygon: poly };
+      })
+    );
+  };
+
+  // Add new empty region
+  const handleAddRegion = () => {
+    const newRegion: MeshRegion = {
+      unit_number: `${regions.length + 1}`,
+      polygon: [[25, 25], [75, 25], [75, 75], [25, 75]],
+      mesh_confirmed: false,
+    };
+    setRegions((prev) => [...prev, newRegion]);
+    setSelectedRegionIndex(regions.length);
+  };
+
+  // Delete selected region
+  const handleDeleteRegion = () => {
+    if (regions.length === 0) return;
+    setRegions((prev) => prev.filter((_, i) => i !== selectedRegionIndex));
+    setSelectedRegionIndex((prev) => Math.max(0, prev - 1));
+  };
+
   const handleSave = () => {
     const normalized = normalizeRegions(regions);
     onSave(normalized);
   };
+
+  // Build edge lines for selected region with interactive hit areas
+  const selectedEdges = useMemo(() => {
+    if (!selectedRegion) return [];
+    return selectedRegion.polygon.map((pt, i) => {
+      const next = selectedRegion.polygon[(i + 1) % selectedRegion.polygon.length];
+      return { a: pt, b: next, indexA: i, indexB: (i + 1) % selectedRegion.polygon.length };
+    });
+  }, [selectedRegion]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,7 +309,7 @@ export const FloorMeshEditorDialog = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] max-h-[calc(90vh-110px)]">
           <div className="p-4 border-b lg:border-b-0 lg:border-r border-border overflow-auto">
             <p className="text-xs text-muted-foreground mb-3">
-              Ajusta cada vértice arrastrando los puntos o mueve la malla completa arrastrando el polígono seleccionado.
+              Arrastra puntos, aristas o la malla completa. Doble clic en una arista para dividirla. Clic derecho en un punto para eliminarlo.
             </p>
 
             <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
@@ -261,7 +351,6 @@ export const FloorMeshEditorDialog = ({
                             onPointerDown={(event) => {
                               const pointer = getPointerCoordinates(event.clientX, event.clientY);
                               if (!pointer) return;
-
                               event.preventDefault();
                               event.stopPropagation();
                               setSelectedRegionIndex(regionIndex);
@@ -269,16 +358,56 @@ export const FloorMeshEditorDialog = ({
                                 mode: "region",
                                 regionIndex,
                                 originPointer: pointer,
-                                originPolygon: region.polygon.map((point) => [point[0], point[1]] as MeshPoint),
+                                originPolygon: region.polygon.map((p) => [p[0], p[1]] as MeshPoint),
                               });
                             }}
                             className={isSelected ? "cursor-move transition-opacity" : "cursor-pointer transition-opacity"}
                           />
 
+                          {/* Edge hit areas for selected region — draggable edges + double click to split */}
+                          {isSelected &&
+                            selectedEdges.map((edge, ei) => {
+                              const mx = (edge.a[0] + edge.b[0]) / 2;
+                              const my = (edge.a[1] + edge.b[1]) / 2;
+                              return (
+                                <line
+                                  key={`edge-${ei}`}
+                                  x1={edge.a[0]}
+                                  y1={edge.a[1]}
+                                  x2={edge.b[0]}
+                                  y2={edge.b[1]}
+                                  stroke="transparent"
+                                  strokeWidth={2.5}
+                                  className="cursor-move"
+                                  onPointerDown={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    const pointer = getPointerCoordinates(event.clientX, event.clientY);
+                                    if (!pointer) return;
+                                    setDragState({
+                                      mode: "edge",
+                                      regionIndex: selectedRegionIndex,
+                                      pointIndexA: edge.indexA,
+                                      pointIndexB: edge.indexB,
+                                      originPointer: pointer,
+                                      originA: [edge.a[0], edge.a[1]],
+                                      originB: [edge.b[0], edge.b[1]],
+                                    });
+                                  }}
+                                  onDoubleClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleSplitEdge(selectedRegionIndex, edge.indexA);
+                                  }}
+                                />
+                              );
+                            })}
+
+                          {/* Vertex handles */}
                           {isSelected &&
                             region.polygon.map((point, pointIndex) => (
                               <circle
-                                key={`${region.unit_number}-${pointIndex}`}
+                                key={`${region.unit_number}-pt-${pointIndex}`}
                                 cx={point[0]}
                                 cy={point[1]}
                                 r={1.35}
@@ -291,6 +420,31 @@ export const FloorMeshEditorDialog = ({
                                   event.stopPropagation();
                                   setSelectedRegionIndex(regionIndex);
                                   setDragState({ mode: "point", regionIndex, pointIndex });
+                                }}
+                                onContextMenu={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  handleDeletePoint(regionIndex, pointIndex);
+                                }}
+                              />
+                            ))}
+
+                          {/* Split-edge midpoint indicators for selected region */}
+                          {isSelected &&
+                            selectedEdges.map((edge, ei) => (
+                              <circle
+                                key={`mid-${ei}`}
+                                cx={(edge.a[0] + edge.b[0]) / 2}
+                                cy={(edge.a[1] + edge.b[1]) / 2}
+                                r={0.8}
+                                fill="hsl(var(--primary) / 0.3)"
+                                stroke="hsl(var(--primary) / 0.5)"
+                                strokeWidth={0.3}
+                                className="cursor-pointer"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  handleSplitEdge(selectedRegionIndex, edge.indexA);
                                 }}
                               />
                             ))}
@@ -337,6 +491,27 @@ export const FloorMeshEditorDialog = ({
                     ? "Marcar como pendiente"
                     : "Confirmar malla seleccionada"}
                 </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={handleAddRegion}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Agregar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs text-destructive hover:text-destructive"
+                    onClick={handleDeleteRegion}
+                    disabled={regions.length === 0}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    Eliminar
+                  </Button>
+                </div>
                 {onRecalculate && (
                   <Button
                     variant="outline"
