@@ -219,7 +219,7 @@ export const FloorMeshEditorDialog = ({
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] max-h-[calc(90vh-110px)]">
           <div className="p-4 border-b lg:border-b-0 lg:border-r border-border overflow-auto">
             <p className="text-xs text-muted-foreground mb-3">
-              Ajusta cada vértice arrastrando los puntos. La malla guardada se usará para iluminar el depto exacto en Detalle Técnico.
+              Ajusta cada vértice arrastrando los puntos o mueve la malla completa arrastrando el polígono seleccionado.
             </p>
 
             <div className="rounded-lg border border-border bg-muted/10 overflow-hidden">
