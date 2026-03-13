@@ -148,7 +148,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     setMeshSession(null);
   };
 
-  const handleMeshSave = (regiones: any[]) => {
+  const handleMeshSave = async (regiones: any[]) => {
     if (!meshSession) return;
 
     if (meshSession.mode === "new") {
@@ -165,15 +165,36 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       setUploadedImages((prev) =>
         prev.map((img) => (img.id === meshSession.image.id ? { ...img, regiones } : img))
       );
-      setFloors((prev) =>
-        prev.map((floor) =>
-          floor.imagen_url === meshSession.image.url ? { ...floor, regiones } : floor
-        )
+      const updatedFloors = floors.map((floor) =>
+        floor.imagen_url === meshSession.image.url ? { ...floor, regiones } : floor
       );
-      toast({
-        title: "Malla actualizada",
-        description: "Los cambios se aplicarán a todos los niveles que usan esta imagen.",
-      });
+      setFloors(updatedFloors);
+
+      // Auto-persist to DB for floors that already exist
+      try {
+        for (const floor of updatedFloors) {
+          if (floor.imagen_url === meshSession.image.url && floor.id) {
+            await supabase
+              .from("edificios_niveles_planos" as any)
+              .update({
+                regiones,
+                fecha_actualizacion: new Date().toISOString(),
+              })
+              .eq("id", floor.id);
+          }
+        }
+        queryClient.invalidateQueries({ queryKey: ["edificio-niveles-planos", building.id] });
+        toast({
+          title: "Malla actualizada y guardada",
+          description: "Los cambios se guardaron en la base de datos.",
+        });
+      } catch (err: any) {
+        toast({
+          title: "Malla actualizada localmente",
+          description: "Se guardó en pantalla pero hubo un error al persistir. Guarda los niveles manualmente.",
+          variant: "destructive",
+        });
+      }
     }
 
     setMeshEditorOpen(false);
