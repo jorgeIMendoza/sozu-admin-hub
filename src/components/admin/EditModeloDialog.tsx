@@ -87,7 +87,7 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
     }
     
     try {
-      // Update modelo
+      // Update modelo only — characteristics are saved in real-time by ModelCharacteristicsSection
       const modeloData = {
         nombre: values.nombre,
         descripcion: values.descripcion || null,
@@ -105,34 +105,11 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
 
       if (modeloError) throw modeloError;
 
-      // Update características: delete all existing, then insert selected ones
-      const { error: deleteCaracError } = await supabase
-        .from("modelos_caracteristicas")
-        .delete()
-        .eq("id_modelo", modelo.id);
-
-      if (deleteCaracError) throw deleteCaracError;
-
-      if (selectedCharacteristicIds.length > 0) {
-        const caracteristicasData = selectedCharacteristicIds.map((caracteristicaId) => ({
-          id_modelo: modelo.id,
-          id_caracteristica: parseInt(caracteristicaId),
-          activo: true,
-        }));
-
-        const { error: caracError } = await supabase
-          .from("modelos_caracteristicas")
-          .insert(caracteristicasData);
-
-        if (caracError) throw caracError;
-      }
-
       toast({
         title: "Modelo actualizado",
         description: "El modelo ha sido actualizado exitosamente.",
       });
 
-      form.reset();
       setOpen(false);
       onModeloUpdated();
     } catch (error) {

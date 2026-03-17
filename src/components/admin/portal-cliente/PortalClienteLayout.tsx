@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Building2, User, ArrowLeft, LucideIcon, LogOut, CreditCard,
+  Home, Building2, User, ArrowLeft, LucideIcon, LogOut, CreditCard, Menu, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -14,17 +15,24 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const PORTAL_CLIENTE_MENU_ID = 18;
 
 const iconMap: Record<string, LucideIcon> = {
-  "/admin/portal-cliente/inicio": LayoutDashboard,
+  "/admin/portal-cliente/inicio": Home,
   "/admin/portal-cliente/propiedades": Building2,
   "/admin/portal-cliente/pagos": CreditCard,
   "/admin/portal-cliente/perfil": User,
 };
 
 const FALLBACK_TABS = [
-  { path: "/admin/portal-cliente/inicio", label: "Inicio", icon: LayoutDashboard },
+  { path: "/admin/portal-cliente/inicio", label: "Inicio", icon: Home },
   { path: "/admin/portal-cliente/propiedades", label: "Propiedades", icon: Building2 },
   { path: "/admin/portal-cliente/pagos", label: "Pagos", icon: CreditCard },
   { path: "/admin/portal-cliente/perfil", label: "Perfil", icon: User },
+];
+
+// Only these 3 show in the bottom nav
+const BOTTOM_NAV_PATHS = [
+  "/admin/portal-cliente/inicio",
+  "/admin/portal-cliente/propiedades",
+  "/admin/portal-cliente/perfil",
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -39,6 +47,7 @@ export const PortalClienteLayout = () => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { impersonatedClienteName, impersonatedClientePersonaId, isImpersonating } = useClienteImpersonation();
+  const [hamburgerOpen, setHamburgerOpen] = useState(false);
 
   const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
 
@@ -78,15 +87,17 @@ export const PortalClienteLayout = () => {
       return data.map((s: any) => ({
         path: s.vista_front_end,
         label: s.nombre,
-        icon: iconMap[s.vista_front_end] || LayoutDashboard,
+        icon: iconMap[s.vista_front_end] || Home,
       }));
     },
     staleTime: 5 * 60_000,
   });
 
+  // Bottom nav only shows 3 tabs
+  const bottomTabs = tabs.filter((tab) => BOTTOM_NAV_PATHS.includes(tab.path));
+
   const isActive = (path: string) => {
     if (location.pathname === path || location.pathname.startsWith(path + "/")) return true;
-    // Property detail route should highlight "Propiedades" tab
     if (path === "/admin/portal-cliente/propiedades" && location.pathname.startsWith("/admin/portal-cliente/propiedad/")) return true;
     if (path === "/admin/portal-cliente/propiedades" && location.pathname.includes("/detalles-tecnicos")) return true;
     return false;
@@ -95,6 +106,11 @@ export const PortalClienteLayout = () => {
 
   const currentSection = Object.entries(SECTION_LABELS).find(([path]) => isActive(path))?.[1] || "";
   const userInitials = displayName.substring(0, 2).toUpperCase();
+
+  const handleHamburgerNav = (path: string) => {
+    navigate(path);
+    setHamburgerOpen(false);
+  };
 
   return (
     <div className="inmob-portal min-h-screen flex">
@@ -172,13 +188,68 @@ export const PortalClienteLayout = () => {
         </div>
       </aside>
 
-      {/* ── Mobile bottom nav ── */}
+      {/* ── Mobile hamburger menu overlay ── */}
+      {hamburgerOpen && (
+        <div className="lg:hidden fixed inset-0 z-[60]">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={() => setHamburgerOpen(false)} />
+          {/* Slide-in panel */}
+          <div className="absolute inset-y-0 left-0 w-72 bg-[hsl(var(--card))] shadow-xl animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
+              <div>
+                <p className="text-[15px] font-bold text-foreground">SOZU</p>
+                <p className="text-[11px] text-muted-foreground">Portal del inversionista</p>
+              </div>
+              <button onClick={() => setHamburgerOpen(false)} className="p-1.5 rounded-md hover:bg-muted transition-colors">
+                <X className="h-5 w-5 text-foreground" />
+              </button>
+            </div>
+
+            <nav className="px-3 py-4 space-y-1">
+              {/* Main nav items */}
+              {tabs.map((tab) => {
+                const active = isActive(tab.path);
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.path}
+                    onClick={() => handleHamburgerNav(tab.path)}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                      active
+                        ? "text-foreground font-semibold"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+
+              {/* Divider */}
+              <div className="border-t border-border my-3" />
+
+              {/* Salir */}
+              <button
+                onClick={() => { setHamburgerOpen(false); signOut(); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+                Salir
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* ── Mobile bottom nav (3 buttons only) ── */}
       <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
         <div className="relative max-w-lg mx-auto">
           <div
             className="flex items-center justify-around h-16 bg-[hsl(var(--card))] rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-border/50"
           >
-            {tabs.map((tab) => {
+            {bottomTabs.map((tab) => {
               const active = isActive(tab.path);
               const Icon = tab.icon;
               return (
@@ -197,13 +268,6 @@ export const PortalClienteLayout = () => {
                 </button>
               );
             })}
-            <button
-              onClick={signOut}
-              className="flex flex-col items-center justify-center gap-0.5 min-w-[64px] px-2 h-full transition-colors shrink-0 text-destructive"
-            >
-              <LogOut className="h-5 w-5" strokeWidth={2} />
-              <span className="text-[10px] font-medium">Salir</span>
-            </button>
           </div>
         </div>
       </nav>
@@ -248,14 +312,22 @@ export const PortalClienteLayout = () => {
               <span className="text-sm font-bold text-foreground">SOZU</span>
               <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
             </div>
-            {showBackButton && (
+            <div className="flex items-center gap-2">
+              {showBackButton && (
+                <button
+                  onClick={() => navigate("/admin")}
+                  className="flex items-center gap-1 text-sm text-muted-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+              )}
               <button
-                onClick={() => navigate("/admin")}
-                className="flex items-center gap-1 text-sm text-muted-foreground"
+                onClick={() => setHamburgerOpen(true)}
+                className="p-1.5 rounded-md hover:bg-muted transition-colors"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <Menu className="h-5 w-5 text-foreground" />
               </button>
-            )}
+            </div>
           </div>
           {/* Super Admin client selector on mobile */}
           {isSuperAdmin && (
