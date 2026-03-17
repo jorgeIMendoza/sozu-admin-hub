@@ -441,7 +441,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         proyecto: proj?.nombre || "Proyecto",
         edificio: ed?.nombre || "",
         modelo: modeloNombre,
-        planoArquitectonico,
+        planoArquitectonico: planoArqUrl,
         unidad: propiedad.numero_propiedad || "",
         precioFinal,
         totalPaid,
