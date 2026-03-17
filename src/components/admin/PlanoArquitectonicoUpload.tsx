@@ -454,23 +454,29 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                               {nivel.allDepartamentos.map(dept => {
                                 const hasMesh = nivel.departamentos.includes(dept);
                                 const isAssigned = plano.departamentos_asignados.includes(dept);
+                                // Check if dept is assigned to ANOTHER plan on same level
+                                const assignedToOther = nivel.planosArquitectonicos.some(
+                                  (otherPlano) => otherPlano.id !== plano.id && otherPlano.departamentos_asignados.includes(dept)
+                                );
+                                const isDisabled = !hasMesh || assignedToOther;
                                 return (
                                   <label
                                     key={dept}
                                     className={cn(
                                       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border transition-colors",
-                                      !hasMesh
+                                      isDisabled
                                         ? "bg-muted/20 border-border/50 text-muted-foreground/50 cursor-not-allowed"
                                         : isAssigned
                                           ? "bg-primary/10 border-primary/30 text-primary cursor-pointer"
                                           : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 cursor-pointer"
                                     )}
+                                    title={assignedToOther ? "Asignado a otro plano" : undefined}
                                   >
                                     <Checkbox
                                       checked={isAssigned}
-                                      disabled={!hasMesh}
+                                      disabled={isDisabled}
                                       onCheckedChange={() => {
-                                        if (hasMesh) {
+                                        if (!isDisabled) {
                                           handleDeptToggle(plano.id, dept, plano.departamentos_asignados);
                                         }
                                       }}
