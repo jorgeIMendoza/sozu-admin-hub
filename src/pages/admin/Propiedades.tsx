@@ -4392,9 +4392,15 @@ const Propiedades = () => {
                       case 'planos':
                         return (
                           <TableCell key={column.key} className="text-center">
-                            <Badge variant="outline" className="text-xs">
-                              —
-                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={(e) => { e.stopPropagation(); setPlanosProperty(property); }}
+                            >
+                              <MapPin className="h-3.5 w-3.5 mr-1" />
+                              Ver
+                            </Button>
                           </TableCell>
                         );
                       
