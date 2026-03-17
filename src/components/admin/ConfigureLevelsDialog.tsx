@@ -128,11 +128,15 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
     existingPlanos?.forEach((p: any) => {
       if (p.imagen_url && !uniqueUrls.has(p.imagen_url)) {
         uniqueUrls.add(p.imagen_url);
+        const rawSegment = p.imagen_url.split("/").pop() || "plano.png";
+        const decoded = decodeURIComponent(rawSegment);
+        // Strip leading timestamp prefix (e.g. "1773769630227_")
+        const cleanName = decoded.replace(/^\d+_/, "");
         imgs.push({
           id: `existing-${p.id}`,
           url: p.imagen_url,
-          fileName: p.imagen_url.split("/").pop() || "plano.png",
-          regiones: p.regiones || [],
+          fileName: cleanName,
+          regiones: Array.isArray(p.regiones) ? p.regiones : (typeof p.regiones === 'string' ? JSON.parse(p.regiones) : []),
         });
       }
     });
