@@ -359,16 +359,20 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       for (const floor of floors) {
         if (!floor.imagen_url) {
           if (floor.id) {
-            await supabase
+            const { error } = await supabase
               .from("edificios_niveles_planos" as any)
               .update({ activo: false, fecha_actualizacion: new Date().toISOString() })
               .eq("id", floor.id);
+            if (error) {
+              console.error("Error deactivating floor", floor.nivel, error);
+              throw error;
+            }
           }
           continue;
         }
 
         if (floor.id) {
-          await supabase
+          const { error } = await supabase
             .from("edificios_niveles_planos" as any)
             .update({
               imagen_url: floor.imagen_url,
@@ -377,16 +381,50 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
               activo: true,
             })
             .eq("id", floor.id);
+          if (error) {
+            console.error("Error updating floor", floor.nivel, error);
+            throw error;
+          }
         } else {
-          await supabase
+          // First try to find an existing inactive row for this building+nivel
+          const { data: existingRows } = await supabase
             .from("edificios_niveles_planos" as any)
-            .upsert({
-              id_edificio: building.id,
-              nivel: floor.nivel,
-              imagen_url: floor.imagen_url,
-              regiones: floor.regiones,
-              activo: true,
-            }, { onConflict: "id_edificio,nivel" });
+            .select("id")
+            .eq("id_edificio", building.id)
+            .eq("nivel", floor.nivel)
+            .limit(1);
+
+          if (existingRows && existingRows.length > 0) {
+            // Row exists (possibly inactive), update it
+            const { error } = await supabase
+              .from("edificios_niveles_planos" as any)
+              .update({
+                imagen_url: floor.imagen_url,
+                regiones: floor.regiones,
+                activo: true,
+                fecha_actualizacion: new Date().toISOString(),
+              })
+              .eq("id", (existingRows[0] as any).id);
+            if (error) {
+              console.error("Error reactivating floor", floor.nivel, error);
+              throw error;
+            }
+          } else {
+            // Truly new row
+            const { error } = await supabase
+              .from("edificios_niveles_planos" as any)
+              .insert({
+                id_edificio: building.id,
+                nivel: floor.nivel,
+                imagen_url: floor.imagen_url,
+                regiones: floor.regiones,
+                activo: true,
+              });
+            if (error) {
+              console.error("Error inserting floor", floor.nivel, error);
+              throw error;
+            }
+          }
         }
       }
 
@@ -395,7 +433,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       onOpenChange(false);
     } catch (error: any) {
       console.error("Error saving floor plans:", error);
-      toast({ title: "Error", description: "Error al guardar los planos.", variant: "destructive" });
+      toast({ title: "Error", description: `Error al guardar: ${error.message || "Error desconocido"}`, variant: "destructive" });
     } finally {
       setSaving(false);
     }
