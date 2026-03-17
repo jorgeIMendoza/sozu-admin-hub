@@ -457,26 +457,40 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                               {nivel.allDepartamentos.map(dept => {
                                 const hasMesh = nivel.departamentos.includes(dept);
                                 const isAssigned = plano.departamentos_asignados.includes(dept);
-                                // Check if dept is assigned to ANOTHER plan on same level
                                 const assignedToOther = nivel.planosArquitectonicos.some(
                                   (otherPlano) => otherPlano.id !== plano.id && otherPlano.departamentos_asignados.includes(dept)
                                 );
                                 const isDisabled = !hasMesh || assignedToOther;
+
+                                // 3 visual states:
+                                // 1) assignedToOther → checked, disabled, blue/muted tint
+                                // 2) !hasMesh → unchecked, disabled, faded/warning tint
+                                // 3) normal → enabled
+                                const labelClass = assignedToOther
+                                  ? "bg-secondary/30 border-secondary/50 text-secondary-foreground/60 cursor-not-allowed"
+                                  : !hasMesh
+                                    ? "bg-warning/10 border-warning/30 text-warning/60 cursor-not-allowed"
+                                    : isAssigned
+                                      ? "bg-primary/10 border-primary/30 text-primary cursor-pointer"
+                                      : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 cursor-pointer";
+
                                 return (
                                   <label
                                     key={dept}
                                     className={cn(
                                       "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border transition-colors",
-                                      isDisabled
-                                        ? "bg-muted/20 border-border/50 text-muted-foreground/50 cursor-not-allowed"
-                                        : isAssigned
-                                          ? "bg-primary/10 border-primary/30 text-primary cursor-pointer"
-                                          : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                                      labelClass
                                     )}
-                                    title={assignedToOther ? "Asignado a otro plano" : undefined}
+                                    title={
+                                      assignedToOther
+                                        ? "Asignado a otro plano"
+                                        : !hasMesh
+                                          ? "Sin malla confirmada"
+                                          : undefined
+                                    }
                                   >
                                     <Checkbox
-                                      checked={isAssigned}
+                                      checked={isAssigned || assignedToOther}
                                       disabled={isDisabled}
                                       onCheckedChange={() => {
                                         if (!isDisabled) {
