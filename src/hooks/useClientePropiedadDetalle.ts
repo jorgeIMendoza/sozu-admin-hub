@@ -432,6 +432,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
         valorEstimado: currentValue,
         estatusPropiedad: propiedad.id_estatus_disponibilidad,
         estatusNombre: estatusData?.nombre || "",
+        idEstatusProyecto: proj?.id_estatus_proyecto || null,
         proximoMantenimiento,
         mantenimientosAtrasados,
         cuotaMensualMantenimiento: cuotaMensual,
