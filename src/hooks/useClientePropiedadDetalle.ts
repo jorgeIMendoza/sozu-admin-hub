@@ -44,6 +44,7 @@ export interface PropiedadDetalle {
   cuentaId: number;
   ofertaId: number;
   propiedadId: number;
+  proyectoId: number;
   proyecto: string;
   edificio: string;
   modelo: string;
@@ -64,6 +65,7 @@ export interface PropiedadDetalle {
   valorEstimado: number;
   estatusPropiedad: number;
   estatusNombre: string;
+  idEstatusProyecto: number | null;
   proximoMantenimiento: string | null;
   mantenimientosAtrasados: number;
   cuotaMensualMantenimiento: number;
