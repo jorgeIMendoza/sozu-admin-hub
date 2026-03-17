@@ -172,6 +172,8 @@ interface Property {
   id: number;
   numero_propiedad: string;
   numero_piso: string | null;
+  id_edificio: number | null;
+  id_edificio_modelo: number | null;
   m2_reales: number;
   m2_interiores: number;
   m2_exteriores: number;
