@@ -1,16 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ImagePlus, Trash2, Loader2, ChevronDown, ChevronRight,
-  AlertTriangle, Upload, Check, X, Building2
+  AlertTriangle, Upload, Check, Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,16 +27,19 @@ interface EdificioModeloInfo {
   niveles: number;
 }
 
+interface PlanoArq {
+  id: number;
+  imagen_url: string;
+  nombre_original: string;
+  departamentos_asignados: string[];
+}
+
 interface NivelPlanoData {
   nivel: number;
   planoUbicacionConfigured: boolean;
-  departamentos: string[];
-  planoArquitectonico: {
-    id?: number;
-    imagen_url: string;
-    nombre_original: string;
-    departamentos_asignados: string[];
-  } | null;
+  departamentos: string[]; // deptos with confirmed mesh
+  allDepartamentos: string[]; // all deptos detected (including unconfirmed)
+  planosArquitectonicos: PlanoArq[];
 }
 
 interface UploadingState {
@@ -68,22 +70,32 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+const hasConfirmedMesh = (region: any): boolean => {
+  const un = (region?.unit_number ?? "").toString().trim();
+  const polygon = Array.isArray(region?.polygon) ? region.polygon : [];
+  const confirmed = region?.mesh_confirmed ?? region?.confirmed;
+  let isConfirmed = true;
+  if (typeof confirmed === "boolean") isConfirmed = confirmed;
+  else if (typeof confirmed === "number") isConfirmed = confirmed === 1;
+  else if (typeof confirmed === "string") {
+    const n = confirmed.trim().toLowerCase();
+    isConfirmed = ["true", "1", "yes", "si", "sí"].includes(n);
+  }
+  return un.length > 0 && polygon.length >= 3 && isConfirmed;
+};
+
 export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, proyectoId }: PlanoArquitectonicoUploadProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [expandedEdificios, setExpandedEdificios] = useState<Set<number>>(new Set());
   const [expandedNiveles, setExpandedNiveles] = useState<Set<string>>(new Set());
   const [uploadingState, setUploadingState] = useState<UploadingState | null>(null);
-  const [deptSelections, setDeptSelections] = useState<Record<string, string[]>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingUpload, setPendingUpload] = useState<{ emId: number; nivel: number } | null>(null);
 
-  // If no modeloId, show simple upload (for new model creation)
   if (!modeloId) {
     return <SimplePlanoUpload currentUrl={currentUrl} onUrlChange={onUrlChange} />;
   }
 
-  // Fetch edificios_modelos for this modelo
   const { data: edificiosModelos } = useQuery({
     queryKey: ["edificios-modelos-for-modelo", modeloId],
     queryFn: async () => {
@@ -103,7 +115,6 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
     enabled: !!modeloId,
   });
 
-  // Fetch existing planos de ubicacion for all edificios
   const edificioIds = (edificiosModelos || []).map(em => em.id_edificio);
   const { data: planosUbicacion } = useQuery({
     queryKey: ["planos-ubicacion-for-edificios", edificioIds],
@@ -120,7 +131,6 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
     enabled: edificioIds.length > 0,
   });
 
-  // Fetch existing architectural plans
   const emIds = (edificiosModelos || []).map(em => em.id);
   const { data: existingPlanos, refetch: refetchPlanos } = useQuery({
     queryKey: ["modelos-planos-arquitectonicos", emIds],
@@ -143,32 +153,37 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
       const planoUbicacion = (planosUbicacion || []).find(
         (p: any) => p.id_edificio === em.id_edificio && p.nivel === n
       );
-      const regiones = Array.isArray(planoUbicacion?.regiones)
-        ? planoUbicacion.regiones
-        : [];
-      const departamentos = regiones
+      const regiones = Array.isArray(planoUbicacion?.regiones) ? planoUbicacion.regiones : [];
+
+      // All detected departments (with unit_number and polygon >= 3)
+      const allDepartamentos = regiones
         .filter((r: any) => {
           const un = (r?.unit_number ?? "").toString().trim();
           return un.length > 0 && Array.isArray(r?.polygon) && r.polygon.length >= 3;
         })
         .map((r: any) => (r.unit_number ?? "").toString().trim());
 
-      const existingPlano = (existingPlanos || []).find(
-        (p: any) => p.id_edificio_modelo === em.id && p.nivel === n && p.activo
-      );
+      // Only departments with confirmed mesh
+      const departamentos = regiones
+        .filter((r: any) => hasConfirmedMesh(r))
+        .map((r: any) => (r.unit_number ?? "").toString().trim());
+
+      // All active plans for this nivel
+      const planosForNivel = (existingPlanos || [])
+        .filter((p: any) => p.id_edificio_modelo === em.id && p.nivel === n && p.activo)
+        .map((p: any) => ({
+          id: p.id,
+          imagen_url: p.imagen_url,
+          nombre_original: p.nombre_original,
+          departamentos_asignados: Array.isArray(p.departamentos) ? p.departamentos : [],
+        }));
 
       niveles.push({
         nivel: n,
         planoUbicacionConfigured: departamentos.length > 0,
         departamentos,
-        planoArquitectonico: existingPlano
-          ? {
-              id: existingPlano.id,
-              imagen_url: existingPlano.imagen_url,
-              nombre_original: existingPlano.nombre_original,
-              departamentos_asignados: Array.isArray(existingPlano.departamentos) ? existingPlano.departamentos : [],
-            }
-          : null,
+        allDepartamentos,
+        planosArquitectonicos: planosForNivel,
       });
     }
     return niveles;
@@ -193,7 +208,6 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
     setUploadingState({ edificioModeloId: emId, nivel, uploading: true, validating: true });
 
     try {
-      // Validate via AI
       const base64 = await fileToBase64(file);
       const { data: validationResult, error: fnError } = await supabase.functions.invoke("validate-architectural-plan", {
         body: { imageBase64: base64 },
@@ -214,7 +228,6 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
 
       setUploadingState(prev => prev ? { ...prev, validating: false } : null);
 
-      // Upload to storage
       const fileName = file.name;
       const filePath = `planos-arquitectonicos/${Date.now()}_${fileName}`;
 
@@ -228,37 +241,30 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
         .from("modelos")
         .getPublicUrl(filePath);
 
-      // Get all departments for this nivel
+      // Get all confirmed-mesh departments for this nivel as default selection
       const em = (edificiosModelos || []).find(e => e.id === emId);
       const nivelData = em ? getNivelesData(em).find(n => n.nivel === nivel) : null;
-      const allDepts = nivelData?.departamentos || [];
+      const confirmedDepts = nivelData?.departamentos || [];
 
-      // Deactivate existing plan for this nivel
-      const existing = (existingPlanos || []).find(
-        (p: any) => p.id_edificio_modelo === emId && p.nivel === nivel && p.activo
-      );
-      if (existing) {
-        await supabase
-          .from("modelos_planos_arquitectonicos" as any)
-          .update({ activo: false, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      }
-
-      // Insert new plan
-      await supabase
+      // Insert new plan (no longer deactivates existing — multiple allowed)
+      const { error: insertError } = await supabase
         .from("modelos_planos_arquitectonicos" as any)
         .insert({
           id_edificio_modelo: emId,
           nivel,
           imagen_url: publicUrl,
-          storage_path: filePath,
           nombre_original: fileName,
-          departamentos: allDepts,
+          departamentos: confirmedDepts,
         });
+
+      if (insertError) {
+        console.error("Error inserting plan:", insertError);
+        throw insertError;
+      }
 
       toast({
         title: "Plano arquitectónico subido",
-        description: `${fileName} asignado al nivel ${nivel} con ${allDepts.length} departamentos.`,
+        description: `${fileName} asignado al nivel ${nivel} con ${confirmedDepts.length} deptos seleccionados.`,
       });
 
       refetchPlanos();
@@ -278,10 +284,11 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
 
   const handleDeletePlano = async (planoId: number) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from("modelos_planos_arquitectonicos" as any)
-        .update({ activo: false, updated_at: new Date().toISOString() })
+        .update({ activo: false })
         .eq("id", planoId);
+      if (error) throw error;
       toast({ title: "Plano eliminado" });
       refetchPlanos();
     } catch (error: any) {
@@ -295,10 +302,11 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
       : [...currentDepts, dept];
 
     try {
-      await supabase
+      const { error } = await supabase
         .from("modelos_planos_arquitectonicos" as any)
-        .update({ departamentos: newDepts, updated_at: new Date().toISOString() })
+        .update({ departamentos: newDepts })
         .eq("id", planoId);
+      if (error) throw error;
       refetchPlanos();
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -339,7 +347,7 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
     <div className="space-y-2">
       <Label>Planos Arquitectónicos por Piso</Label>
       <p className="text-[10px] text-muted-foreground">
-        Sube planos arquitectónicos por piso. Solo se permite si el plano de ubicación del piso ya está configurado y enmallado.
+        Sube planos arquitectónicos por piso. Solo se permite si el plano de ubicación del piso ya está configurado y enmallado. Puedes subir varios planos por piso.
       </p>
 
       <input
@@ -354,7 +362,7 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
         {edificiosModelos.map((em) => {
           const niveles = getNivelesData(em);
           const isExpanded = expandedEdificios.has(em.id);
-          const configuredCount = niveles.filter(n => n.planoArquitectonico).length;
+          const totalPlanos = niveles.reduce((acc, n) => acc + n.planosArquitectonicos.length, 0);
 
           return (
             <Collapsible key={em.id} open={isExpanded} onOpenChange={() => toggleEdificio(em.id)}>
@@ -363,7 +371,7 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                 <Building2 className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs font-medium flex-1 text-left">{em.edificio_nombre}</span>
                 <Badge variant="outline" className="text-[9px]">
-                  {configuredCount}/{em.niveles} pisos
+                  {totalPlanos} planos
                 </Badge>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-1 space-y-1 pl-4">
@@ -371,6 +379,7 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                   const nivelKey = `${em.id}-${nivel.nivel}`;
                   const isNivelExpanded = expandedNiveles.has(nivelKey);
                   const isUploading = uploadingState?.edificioModeloId === em.id && uploadingState?.nivel === nivel.nivel;
+                  const hasPlanos = nivel.planosArquitectonicos.length > 0;
 
                   if (!nivel.planoUbicacionConfigured) {
                     return (
@@ -384,95 +393,103 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                     );
                   }
 
-                  if (nivel.planoArquitectonico) {
-                    return (
-                      <Collapsible key={nivel.nivel} open={isNivelExpanded} onOpenChange={() => toggleNivel(nivelKey)}>
-                        <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-primary/20 bg-primary/5">
-                          <CollapsibleTrigger className="flex items-center gap-2 flex-1 min-w-0">
-                            {isNivelExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                            <span className="text-[10px] font-bold text-primary w-8">N{nivel.nivel}</span>
-                            <Check className="h-3 w-3 text-success" />
-                            <span className="text-[9px] text-foreground truncate flex-1 text-left">
-                              {nivel.planoArquitectonico.nombre_original}
-                            </span>
-                          </CollapsibleTrigger>
-                          <Badge variant="outline" className="text-[8px] flex-shrink-0">
-                            {nivel.planoArquitectonico.departamentos_asignados.length} deptos
-                          </Badge>
-                          <button
-                            onClick={() => handleDeletePlano(nivel.planoArquitectonico!.id!)}
-                            className="p-1 hover:bg-destructive/10 rounded flex-shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </button>
-                        </div>
-                        <CollapsibleContent className="mt-1 ml-6 space-y-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-muted-foreground font-medium">Departamentos asignados:</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {nivel.departamentos.map(dept => {
-                              const isAssigned = nivel.planoArquitectonico!.departamentos_asignados.includes(dept);
-                              return (
-                                <label
-                                  key={dept}
-                                  className={cn(
-                                    "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border cursor-pointer transition-colors",
-                                    isAssigned
-                                      ? "bg-primary/10 border-primary/30 text-primary"
-                                      : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50"
-                                  )}
-                                >
-                                  <Checkbox
-                                    checked={isAssigned}
-                                    onCheckedChange={() =>
-                                      handleDeptToggle(
-                                        nivel.planoArquitectonico!.id!,
-                                        dept,
-                                        nivel.planoArquitectonico!.departamentos_asignados
-                                      )
-                                    }
-                                    className="h-2.5 w-2.5"
-                                  />
-                                  {dept}
-                                </label>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-1">
-                            <img
-                              src={nivel.planoArquitectonico.imagen_url}
-                              alt={nivel.planoArquitectonico.nombre_original}
-                              className="w-full h-24 object-contain rounded border border-border bg-background"
-                            />
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    );
-                  }
-
                   return (
-                    <div key={nivel.nivel} className="flex items-center gap-2 py-1.5 px-2 rounded border border-border bg-card hover:bg-muted/20 transition-colors">
-                      <span className="text-[10px] font-medium text-muted-foreground w-8">N{nivel.nivel}</span>
-                      <span className="text-[9px] text-muted-foreground flex-1">
-                        {nivel.departamentos.length} deptos disponibles
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 text-[9px] px-2"
-                        onClick={() => handleUploadClick(em.id, nivel.nivel)}
-                        disabled={!!isUploading}
-                      >
-                        {isUploading && uploadingState?.validating ? (
-                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Validando IA...</>
-                        ) : isUploading ? (
-                          <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Subiendo...</>
-                        ) : (
-                          <><Upload className="h-3 w-3 mr-1" /> Subir plano</>
+                    <Collapsible key={nivel.nivel} open={isNivelExpanded} onOpenChange={() => toggleNivel(nivelKey)}>
+                      <div className="flex items-center gap-2 py-1.5 px-2 rounded border border-border bg-card hover:bg-muted/20 transition-colors">
+                        <CollapsibleTrigger className="flex items-center gap-2 flex-1 min-w-0">
+                          {isNivelExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                          <span className={cn("text-[10px] font-medium w-8", hasPlanos ? "text-primary font-bold" : "text-muted-foreground")}>
+                            N{nivel.nivel}
+                          </span>
+                          {hasPlanos && <Check className="h-3 w-3 text-success" />}
+                          <span className="text-[9px] text-muted-foreground flex-1 text-left">
+                            {nivel.departamentos.length} deptos disponibles
+                            {hasPlanos && ` · ${nivel.planosArquitectonicos.length} plano${nivel.planosArquitectonicos.length > 1 ? "s" : ""}`}
+                          </span>
+                        </CollapsibleTrigger>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[9px] px-2 flex-shrink-0"
+                          onClick={(e) => { e.stopPropagation(); handleUploadClick(em.id, nivel.nivel); }}
+                          disabled={!!isUploading}
+                        >
+                          {isUploading && uploadingState?.validating ? (
+                            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Validando IA...</>
+                          ) : isUploading ? (
+                            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Subiendo...</>
+                          ) : (
+                            <><Upload className="h-3 w-3 mr-1" /> Subir plano</>
+                          )}
+                        </Button>
+                      </div>
+
+                      <CollapsibleContent className="mt-1 ml-6 space-y-2">
+                        {nivel.planosArquitectonicos.map((plano) => (
+                          <div key={plano.id} className="border border-primary/20 rounded-lg bg-primary/5 p-2 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={plano.imagen_url}
+                                alt={plano.nombre_original}
+                                className="w-12 h-10 object-contain rounded border border-border bg-background flex-shrink-0"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-medium truncate">{plano.nombre_original}</p>
+                                <p className="text-[9px] text-muted-foreground">
+                                  {plano.departamentos_asignados.length} deptos asignados
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDeletePlano(plano.id)}
+                                className="p-1 hover:bg-destructive/10 rounded flex-shrink-0"
+                                title="Eliminar plano"
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </button>
+                            </div>
+
+                            {/* Department checkboxes */}
+                            <div className="flex flex-wrap gap-1">
+                              {nivel.allDepartamentos.map(dept => {
+                                const hasMesh = nivel.departamentos.includes(dept);
+                                const isAssigned = plano.departamentos_asignados.includes(dept);
+                                return (
+                                  <label
+                                    key={dept}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] border transition-colors",
+                                      !hasMesh
+                                        ? "bg-muted/20 border-border/50 text-muted-foreground/50 cursor-not-allowed"
+                                        : isAssigned
+                                          ? "bg-primary/10 border-primary/30 text-primary cursor-pointer"
+                                          : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                                    )}
+                                  >
+                                    <Checkbox
+                                      checked={isAssigned}
+                                      disabled={!hasMesh}
+                                      onCheckedChange={() => {
+                                        if (hasMesh) {
+                                          handleDeptToggle(plano.id, dept, plano.departamentos_asignados);
+                                        }
+                                      }}
+                                      className="h-2.5 w-2.5"
+                                    />
+                                    {dept}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+
+                        {nivel.planosArquitectonicos.length === 0 && (
+                          <p className="text-[9px] text-muted-foreground italic py-1">
+                            No hay planos subidos para este nivel.
+                          </p>
                         )}
-                      </Button>
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   );
                 })}
               </CollapsibleContent>
