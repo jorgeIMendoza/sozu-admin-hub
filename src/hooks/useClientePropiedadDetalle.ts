@@ -413,7 +413,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       return {
         cuentaId: cuenta.id,
         ofertaId: cuenta.id_oferta || 0,
-        propiedadId,
+        proyectoId,
         proyecto: proj?.nombre || "Proyecto",
         edificio: ed?.nombre || "",
         modelo: modeloNombre,
