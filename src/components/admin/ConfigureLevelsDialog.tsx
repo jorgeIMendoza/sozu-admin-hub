@@ -915,7 +915,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Button size="sm" onClick={handleSave} disabled={saving || (uploadedImages.length > 0 && floors.every((floor) => !floor.imagen_url))}>
               {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
               Guardar niveles
             </Button>
