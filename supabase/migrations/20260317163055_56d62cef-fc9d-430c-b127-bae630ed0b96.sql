@@ -1,0 +1,1 @@
+UPDATE firmas_digitales SET estado = 'cancelado' WHERE id = 26;
