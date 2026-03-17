@@ -408,10 +408,11 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
                           </span>
                         </CollapsibleTrigger>
                         <Button
+                          type="button"
                           variant="outline"
                           size="sm"
                           className="h-6 text-[9px] px-2 flex-shrink-0"
-                          onClick={(e) => { e.stopPropagation(); handleUploadClick(em.id, nivel.nivel); }}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleUploadClick(em.id, nivel.nivel); }}
                           disabled={!!isUploading}
                         >
                           {isUploading && uploadingState?.validating ? (

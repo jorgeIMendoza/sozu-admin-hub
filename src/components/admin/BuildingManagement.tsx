@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Eye, Edit, Trash2, Layers } from "lucide-react";
+import { Building2, Eye, Edit, Trash2, Layers, FileImage } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { NewBuildingDialog } from "./NewBuildingDialog";
 import { EditBuildingDialog } from "./EditBuildingDialog";
 import { ConfigureLevelsDialog } from "./ConfigureLevelsDialog";
+import { PlanoArquitectonicoUpload } from "./PlanoArquitectonicoUpload";
 import { useToast } from "@/hooks/use-toast";
 
 interface BuildingManagementProps {
@@ -155,6 +156,8 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
       enabled: !!buildingId,
     });
 
+    const [planoModeloId, setPlanoModeloId] = useState<number | null>(null);
+
     return (
       <Dialog>
         <DialogTrigger asChild>
@@ -186,6 +189,16 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                               {model.descripcion}
                             </p>
                           )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 h-7 text-xs"
+                            onClick={() => setPlanoModeloId(model.id)}
+                          >
+                            <FileImage className="h-3.5 w-3.5 mr-1" />
+                            Planos Arquitectónicos
+                          </Button>
                         </CardContent>
                       </Card>
                     ))}
@@ -196,6 +209,23 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
               <p className="text-muted-foreground">No hay modelos asignados a este edificio</p>
             )}
           </div>
+
+          {/* Nested dialog for architectural plans */}
+          <Dialog open={!!planoModeloId} onOpenChange={(open) => { if (!open) setPlanoModeloId(null); }}>
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Planos Arquitectónicos</DialogTitle>
+              </DialogHeader>
+              {planoModeloId && (
+                <PlanoArquitectonicoUpload
+                  currentUrl={null}
+                  onUrlChange={() => {}}
+                  modeloId={planoModeloId}
+                  proyectoId={undefined}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         </DialogContent>
       </Dialog>
     );
