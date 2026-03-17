@@ -96,8 +96,15 @@ const FloorPlanCanvas = ({
         return suffix;
       })();
 
+      // Generate zero-padded versions for matching (e.g., "5" -> "05")
+      const padTwo = (v: string) => {
+        const d = digitsOnly(v);
+        return d.length === 1 ? d.padStart(2, "0") : "";
+      };
+
       const exactCandidates = new Set(
-        [highlightRaw, highlightDigits, inferredFromFull, fullRaw, fullDigits]
+        [highlightRaw, highlightDigits, inferredFromFull, fullRaw, fullDigits,
+         padTwo(highlightRaw), padTwo(highlightDigits), padTwo(inferredFromFull)]
           .map((v) => v.trim())
           .filter(Boolean)
       );
