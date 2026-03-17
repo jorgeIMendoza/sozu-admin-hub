@@ -949,26 +949,24 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                   </ScrollArea>
                 </TabsContent>
 
-                <TabsContent value="arquitectonico" className="flex-1 flex flex-col min-h-0 px-4 pb-4 mt-2">
-                  <p className="text-[10px] text-muted-foreground mb-3 flex-shrink-0">
+                <TabsContent value="arquitectonico" className="overflow-y-auto px-4 pb-4 mt-2" style={{ maxHeight: "calc(90vh - 200px)" }}>
+                  <p className="text-[10px] text-muted-foreground mb-3">
                     Configura planos arquitectónicos por modelo para los niveles con plano de ubicación.
                   </p>
                   {buildingModelos && buildingModelos.length > 0 ? (
-                    <ScrollArea className="flex-1">
-                      <div className="space-y-4 pr-3">
-                        {buildingModelos.map((modelo: any) => (
-                          <div key={modelo.id} className="space-y-1">
-                            <h5 className="text-xs font-semibold text-foreground">{modelo.nombre}</h5>
-                            <PlanoArquitectonicoUpload
-                              currentUrl={null}
-                              onUrlChange={() => {}}
-                              modeloId={modelo.id}
-                              proyectoId={undefined}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                    <div className="space-y-4">
+                      {buildingModelos.map((modelo: any) => (
+                        <div key={modelo.id} className="space-y-1">
+                          <h5 className="text-xs font-semibold text-foreground">{modelo.nombre}</h5>
+                          <PlanoArquitectonicoUpload
+                            currentUrl={null}
+                            onUrlChange={() => {}}
+                            modeloId={modelo.id}
+                            proyectoId={undefined}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="text-center py-6 text-muted-foreground">
                       <FileImage className="h-7 w-7 mx-auto mb-1.5 opacity-30" />
