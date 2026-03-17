@@ -345,6 +345,11 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       )
     );
     setDraggedImage(null);
+
+    toast({
+      title: "Plano asignado",
+      description: `El plano \"${draggedImage.fileName}\" fue asignado al nivel ${nivel}. Ahora sí puedes guardar.`,
+    });
   };
 
   const handleRemoveFloorPlan = (nivel: number) => {
@@ -368,6 +373,28 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
   };
 
   const handleSave = async () => {
+    const unassignedImages = uploadedImages.filter(
+      (img) => !floors.some((floor) => floor.imagen_url === img.url)
+    );
+
+    if (uploadedImages.length > 0 && floors.every((floor) => !floor.imagen_url)) {
+      toast({
+        title: "Falta asignar el plano",
+        description: "Subiste el plano, pero todavía no lo arrastraste a ningún nivel del edificio.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (unassignedImages.length > 0) {
+      toast({
+        title: "Hay planos sin asignar",
+        description: "Arrastra cada plano a su nivel antes de guardar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       for (const floor of floors) {
@@ -400,16 +427,19 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
             throw error;
           }
         } else {
-          // First try to find an existing inactive row for this building+nivel
-          const { data: existingRows } = await supabase
+          const { data: existingRows, error: existingRowsError } = await supabase
             .from("edificios_niveles_planos" as any)
             .select("id")
             .eq("id_edificio", building.id)
             .eq("nivel", floor.nivel)
             .limit(1);
 
+          if (existingRowsError) {
+            console.error("Error loading existing floor row", floor.nivel, existingRowsError);
+            throw existingRowsError;
+          }
+
           if (existingRows && existingRows.length > 0) {
-            // Row exists (possibly inactive), update it
             const { error } = await supabase
               .from("edificios_niveles_planos" as any)
               .update({
@@ -424,7 +454,6 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
               throw error;
             }
           } else {
-            // Truly new row
             const { error } = await supabase
               .from("edificios_niveles_planos" as any)
               .insert({
@@ -886,7 +915,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Button size="sm" onClick={handleSave} disabled={saving || (uploadedImages.length > 0 && floors.every((floor) => !floor.imagen_url))}>
               {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
               Guardar niveles
             </Button>
