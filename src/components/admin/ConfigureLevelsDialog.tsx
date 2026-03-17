@@ -443,6 +443,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       }
 
       toast({ title: "Niveles actualizados", description: "Los planos de ubicación se guardaron correctamente." });
+      hasHydratedForCurrentOpenRef.current = false;
       queryClient.invalidateQueries({ queryKey: ["edificio-niveles-planos", building.id] });
       onOpenChange(false);
     } catch (error: any) {
