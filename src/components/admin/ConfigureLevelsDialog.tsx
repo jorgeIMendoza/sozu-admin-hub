@@ -812,127 +812,171 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
               </ScrollArea>
             </div>
 
-            {/* Right: Upload panel */}
-            <div className="border-l border-border bg-muted/10 p-4 flex flex-col">
-              <h4 className="text-sm font-semibold text-foreground mb-1">Planos de piso</h4>
-              <p className="text-[10px] text-muted-foreground mb-3">
-                Sube PNG, confirma/edita la malla y luego arrastra la imagen al nivel.
-              </p>
+            {/* Right: Tabbed panel */}
+            <div className="border-l border-border bg-muted/10 flex flex-col">
+              <Tabs value={rightTab} onValueChange={setRightTab} className="flex flex-col flex-1 min-h-0">
+                <div className="px-3 pt-3 flex-shrink-0">
+                  <TabsList className="w-full h-8">
+                    <TabsTrigger value="ubicacion" className="text-[10px] flex-1">
+                      <ImageIcon className="h-3 w-3 mr-1" />
+                      Ubicación
+                    </TabsTrigger>
+                    <TabsTrigger value="arquitectonico" className="text-[10px] flex-1">
+                      <FileImage className="h-3 w-3 mr-1" />
+                      Arquitectónico
+                    </TabsTrigger>
+                  </TabsList>
+                </div>
 
-              <div className="mb-3">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="w-full text-xs"
-                >
-                  {validating ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      Validando IA...
-                    </>
-                  ) : uploading ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-3.5 w-3.5 mr-1.5" />
-                      Subir plano PNG
-                    </>
-                  )}
-                </Button>
-              </div>
+                <TabsContent value="ubicacion" className="flex-1 flex flex-col min-h-0 px-4 pb-4 mt-2">
+                  <p className="text-[10px] text-muted-foreground mb-3 flex-shrink-0">
+                    Sube PNG, confirma/edita la malla y luego arrastra la imagen al nivel.
+                  </p>
 
-              <ScrollArea className="flex-1">
-                <div className="space-y-2 pr-3">
-                  {uploadedImages.map((img) => (
-                    <div
-                      key={img.id}
-                      draggable
-                      onDragStart={() => handleDragStart(img)}
-                      className="mr-1 border border-border rounded-lg bg-card hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden"
+                  <div className="mb-3 flex-shrink-0">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full text-xs"
                     >
-                      <div className="flex items-center gap-2 p-2.5 cursor-grab active:cursor-grabbing">
-                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+                      {validating ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Validando IA...
+                        </>
+                      ) : uploading ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          Subiendo...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5 mr-1.5" />
+                          Subir plano PNG
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <ScrollArea className="flex-1">
+                    <div className="space-y-2 pr-3">
+                      {uploadedImages.map((img) => (
                         <div
-                          className="relative flex-shrink-0 cursor-pointer group/img"
-                          onClick={() => setPreviewUrl(img.url)}
+                          key={img.id}
+                          draggable
+                          onDragStart={() => handleDragStart(img)}
+                          className="mr-1 border border-border rounded-lg bg-card hover:border-primary/40 hover:shadow-sm transition-all overflow-hidden"
                         >
-                          <img
-                            src={img.url}
-                            alt={img.fileName}
-                            className="w-14 h-10 object-contain rounded border border-border bg-background"
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 bg-foreground/30 rounded transition-opacity">
-                            <ZoomIn className="h-3.5 w-3.5 text-background" />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium truncate">{img.fileName}</p>
-                          <p className="text-[9px] text-muted-foreground">
-                            {img.regiones?.length || 0} deptos detectados
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-0.5 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditMesh(img);
-                            }}
-                            className="p-1.5 hover:bg-primary/10 rounded-md border border-transparent hover:border-primary/20 transition-colors"
-                            title="Editar malla"
-                          >
-                            <PencilRuler className="h-3.5 w-3.5 text-primary" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                            className="p-1.5 hover:bg-destructive/10 rounded-md border border-transparent hover:border-destructive/20 transition-colors"
-                            title="Eliminar imagen"
-                          >
-                            <X className="h-3.5 w-3.5 text-destructive" />
-                          </button>
-                        </div>
-                      </div>
-                      {img.regiones && img.regiones.length > 0 && (
-                        <div className="px-2 pb-2 flex flex-wrap gap-1">
-                          {img.regiones.map((r: any, idx: number) => {
-                            const hasMesh = hasRegionMeshAssigned(r);
-                            return (
-                              <span
-                                key={idx}
-                                className={cn(
-                                  "text-[8px] px-1.5 py-0.5 rounded-full font-medium border",
-                                  hasMesh
-                                    ? "bg-success/15 text-success border-success/30"
-                                    : "bg-muted text-muted-foreground border-border"
-                                )}
+                          <div className="flex items-center gap-2 p-2.5 cursor-grab active:cursor-grabbing">
+                            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+                            <div
+                              className="relative flex-shrink-0 cursor-pointer group/img"
+                              onClick={() => setPreviewUrl(img.url)}
+                            >
+                              <img
+                                src={img.url}
+                                alt={img.fileName}
+                                className="w-14 h-10 object-contain rounded border border-border bg-background"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 bg-foreground/30 rounded transition-opacity">
+                                <ZoomIn className="h-3.5 w-3.5 text-background" />
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] font-medium truncate">{img.fileName}</p>
+                              <p className="text-[9px] text-muted-foreground">
+                                {img.regiones?.length || 0} deptos detectados
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-0.5 flex-shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditMesh(img);
+                                }}
+                                className="p-1.5 hover:bg-primary/10 rounded-md border border-transparent hover:border-primary/20 transition-colors"
+                                title="Editar malla"
                               >
-                                {getRegionUnitLabel(r, idx)}
-                              </span>
-                            );
-                          })}
+                                <PencilRuler className="h-3.5 w-3.5 text-primary" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                                className="p-1.5 hover:bg-destructive/10 rounded-md border border-transparent hover:border-destructive/20 transition-colors"
+                                title="Eliminar imagen"
+                              >
+                                <X className="h-3.5 w-3.5 text-destructive" />
+                              </button>
+                            </div>
+                          </div>
+                          {img.regiones && img.regiones.length > 0 && (
+                            <div className="px-2 pb-2 flex flex-wrap gap-1">
+                              {img.regiones.map((r: any, idx: number) => {
+                                const hasMesh = hasRegionMeshAssigned(r);
+                                return (
+                                  <span
+                                    key={idx}
+                                    className={cn(
+                                      "text-[8px] px-1.5 py-0.5 rounded-full font-medium border",
+                                      hasMesh
+                                        ? "bg-success/15 text-success border-success/30"
+                                        : "bg-muted text-muted-foreground border-border"
+                                    )}
+                                  >
+                                    {getRegionUnitLabel(r, idx)}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {uploadedImages.length === 0 && !uploading && (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <ImageIcon className="h-7 w-7 mx-auto mb-1.5 opacity-30" />
+                          <p className="text-[10px]">No hay planos</p>
                         </div>
                       )}
                     </div>
-                  ))}
-                  {uploadedImages.length === 0 && !uploading && (
+                  </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="arquitectonico" className="flex-1 flex flex-col min-h-0 px-4 pb-4 mt-2">
+                  <p className="text-[10px] text-muted-foreground mb-3 flex-shrink-0">
+                    Configura planos arquitectónicos por modelo para los niveles con plano de ubicación.
+                  </p>
+                  {buildingModelos && buildingModelos.length > 0 ? (
+                    <ScrollArea className="flex-1">
+                      <div className="space-y-4 pr-3">
+                        {buildingModelos.map((modelo: any) => (
+                          <div key={modelo.id} className="space-y-1">
+                            <h5 className="text-xs font-semibold text-foreground">{modelo.nombre}</h5>
+                            <PlanoArquitectonicoUpload
+                              currentUrl={null}
+                              onUrlChange={() => {}}
+                              modeloId={modelo.id}
+                              proyectoId={undefined}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  ) : (
                     <div className="text-center py-6 text-muted-foreground">
-                      <ImageIcon className="h-7 w-7 mx-auto mb-1.5 opacity-30" />
-                      <p className="text-[10px]">No hay planos</p>
+                      <FileImage className="h-7 w-7 mx-auto mb-1.5 opacity-30" />
+                      <p className="text-[10px]">No hay modelos asignados a este edificio</p>
                     </div>
                   )}
-                </div>
-              </ScrollArea>
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
 
