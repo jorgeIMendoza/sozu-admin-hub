@@ -269,10 +269,8 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
 
       setValidating(false);
 
-      const originalName = file.name.replace(/\.[^/.]+$/, "");
-      const ext = file.name.split(".").pop() || "png";
-      const fileName = `${originalName}_${Date.now()}.${ext}`;
-      const filePath = `planos-ubicacion/${fileName}`;
+      const fileName = file.name;
+      const filePath = `planos-ubicacion/${Date.now()}_${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("modelos")
