@@ -47,6 +47,7 @@ import { OwnerHistoryDialog } from "@/components/admin/OwnerHistoryDialog";
 import { ReventaDialog } from "@/components/admin/ReventaDialog";
 import { RefreshCw } from "lucide-react";
 import { CambiarEstatusAprobacionDialog } from "@/components/admin/CambiarEstatusAprobacionDialog";
+import { PlanosPropertyModal } from "@/components/admin/PlanosPropertyModal";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
