@@ -6759,6 +6759,19 @@ const Propiedades = () => {
         }}
       />
       </div>
+
+      {planosProperty && (
+        <PlanosPropertyModal
+          open={!!planosProperty}
+          onOpenChange={(open) => { if (!open) setPlanosProperty(null); }}
+          idEdificio={planosProperty.id_edificio}
+          idEdificioModelo={planosProperty.id_edificio_modelo}
+          numeroPropiedad={planosProperty.numero_propiedad}
+          numeroPiso={planosProperty.numero_piso ? Number(planosProperty.numero_piso) : null}
+          edificio={planosProperty.edificio}
+          modelo={planosProperty.modelo}
+        />
+      )}
     </TooltipProvider>
   );
 };
