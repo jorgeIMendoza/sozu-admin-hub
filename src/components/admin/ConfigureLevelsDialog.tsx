@@ -89,6 +89,7 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
   const [meshEditorOpen, setMeshEditorOpen] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasHydratedForCurrentOpenRef = useRef(false);
 
   const numPisos = typeof building.numero_pisos === "string"
     ? parseInt(building.numero_pisos, 10)
@@ -107,10 +108,23 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
       return data as any[];
     },
     enabled: open && !!building.id,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   useEffect(() => {
-    if (!open) return;
+    hasHydratedForCurrentOpenRef.current = false;
+    setUploadedImages([]);
+    setFloors([]);
+    setDraggedImage(null);
+    setPreviewUrl(null);
+    setMeshSession(null);
+    setMeshEditorOpen(false);
+  }, [building.id, open]);
+
+  useEffect(() => {
+    if (!open || !existingPlanos || hasHydratedForCurrentOpenRef.current) return;
+
     const floorData: FloorPlanData[] = [];
     for (let i = 1; i <= numPisos; i++) {
       const existing = existingPlanos?.find((p: any) => p.nivel === i);
@@ -130,17 +144,17 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
         uniqueUrls.add(p.imagen_url);
         const rawSegment = p.imagen_url.split("/").pop() || "plano.png";
         const decoded = decodeURIComponent(rawSegment);
-        // Strip leading timestamp prefix (e.g. "1773769630227_")
         const cleanName = decoded.replace(/^\d+_/, "");
         imgs.push({
           id: `existing-${p.id}`,
           url: p.imagen_url,
           fileName: cleanName,
-          regiones: Array.isArray(p.regiones) ? p.regiones : (typeof p.regiones === 'string' ? JSON.parse(p.regiones) : []),
+          regiones: Array.isArray(p.regiones) ? p.regiones : (typeof p.regiones === "string" ? JSON.parse(p.regiones) : []),
         });
       }
     });
     setUploadedImages(imgs);
+    hasHydratedForCurrentOpenRef.current = true;
   }, [open, existingPlanos, numPisos]);
 
   const handleMeshEditorClose = () => {
