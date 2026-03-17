@@ -362,8 +362,9 @@ export const FloorMeshEditorDialog = ({
 
   // Add new empty region
   const handleAddRegion = () => {
+    const nextNum = regions.length + 1;
     const newRegion: MeshRegion = {
-      unit_number: `${regions.length + 1}`,
+      unit_number: nextNum.toString().padStart(2, "0"),
       polygon: [[25, 25], [75, 25], [75, 75], [25, 75]],
       mesh_confirmed: false,
       curves: {},

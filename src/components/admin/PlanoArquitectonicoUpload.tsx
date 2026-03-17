@@ -241,10 +241,13 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
         .from("modelos")
         .getPublicUrl(filePath);
 
-      // Get all confirmed-mesh departments for this nivel as default selection
+      // Get confirmed-mesh departments NOT already assigned to other plans on this level
       const em = (edificiosModelos || []).find(e => e.id === emId);
       const nivelData = em ? getNivelesData(em).find(n => n.nivel === nivel) : null;
-      const confirmedDepts = nivelData?.departamentos || [];
+      const alreadyAssigned = new Set(
+        (nivelData?.planosArquitectonicos || []).flatMap(p => p.departamentos_asignados)
+      );
+      const confirmedDepts = (nivelData?.departamentos || []).filter(d => !alreadyAssigned.has(d));
 
       // Insert new plan (no longer deactivates existing — multiple allowed)
       const { error: insertError } = await supabase

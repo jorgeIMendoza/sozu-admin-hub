@@ -272,10 +272,6 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                   </div>
                   
                   <div className="flex space-x-2">
-                    <BuildingModelsDialog 
-                      buildingId={building.id} 
-                      buildingName={building.nombre} 
-                    />
                     <EditBuildingDialog 
                       building={building}
                       projectId={projectId}
@@ -296,6 +292,10 @@ export const BuildingManagement = ({ projectId }: BuildingManagementProps) => {
                         Niveles
                       </Button>
                     )}
+                    <BuildingModelsDialog 
+                      buildingId={building.id} 
+                      buildingName={building.nombre} 
+                    />
                     <DeleteBuildingDialog building={building} />
                   </div>
 
