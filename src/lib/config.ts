@@ -8,7 +8,7 @@ export const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABL
 export const SUPABASE_PROJECT_ID = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'tzmhgfjmddkfyffkkmto';
 
 // Environment Configuration
-export const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || 'produccion';
+export const ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT || 'production';
 
 // App Version (injected at build time)
 export const APP_VERSION = `v${__APP_VERSION__}-${__BUILD_TIMESTAMP__}`;

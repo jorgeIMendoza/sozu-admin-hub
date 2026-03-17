@@ -428,6 +428,19 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
       return;
     }
 
+    // Guardia de entorno: verificar que el documento fue creado en el mismo entorno
+    const docEnv = (firmaExistente as any).metadata?.environment;
+    if (docEnv && docEnv !== ENVIRONMENT) {
+      const label = docEnv === 'production' ? 'Producción' : 'Sandbox/Desarrollo';
+      toast.error(`Este documento fue creado en ${label}. Se cancelará para generar uno nuevo en el entorno actual.`);
+      await (supabase as any)
+        .from('firmas_digitales')
+        .update({ estado: 'cancelado' })
+        .eq('id', firmaExistente.id);
+      await refetchFirma();
+      return;
+    }
+
     setSyncingFirma(true);
     try {
       const { data: mifielData, error: mifielError } = await supabase.functions.invoke('mifiel-consultar-documento', {
