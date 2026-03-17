@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.validate-floor-plan]
 verify_jwt = false
+
+[functions.validate-architectural-plan]
+verify_jwt = false

@@ -775,23 +775,23 @@ export const ConfigureLevelsDialog = ({ open, onOpenChange, building }: Configur
                             {img.regiones?.length || 0} deptos detectados
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0 pl-1">
+                        <div className="flex items-center gap-0.5 flex-shrink-0">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEditMesh(img);
                             }}
-                            className="p-1 hover:bg-muted rounded"
+                            className="p-1.5 hover:bg-primary/10 rounded-md border border-transparent hover:border-primary/20 transition-colors"
                             title="Editar malla"
                           >
-                            <PencilRuler className="h-3 w-3 text-muted-foreground" />
+                            <PencilRuler className="h-3.5 w-3.5 text-primary" />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
-                            className="p-1 hover:bg-destructive/10 rounded"
+                            className="p-1.5 hover:bg-destructive/10 rounded-md border border-transparent hover:border-destructive/20 transition-colors"
                             title="Eliminar imagen"
                           >
-                            <X className="h-3 w-3 text-destructive" />
+                            <X className="h-3.5 w-3.5 text-destructive" />
                           </button>
                         </div>
                       </div>
