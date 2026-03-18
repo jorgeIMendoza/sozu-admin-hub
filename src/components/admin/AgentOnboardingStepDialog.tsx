@@ -80,6 +80,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const { track } = useCtaTracker();
+  const { hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const hasTrackedFieldChange = useRef(false);
 
   // Check if agent belongs to an inmobiliaria (to hide doc 48)
