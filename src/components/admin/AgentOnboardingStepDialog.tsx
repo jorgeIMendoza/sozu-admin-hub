@@ -1209,8 +1209,19 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     </Button>
                   )}
 
-                  {/* Firmar button - no active firma */}
                   {!firmaCompletada && !firmaEnProgreso && !isValidated && (
+                    !hasBasicIdentityComplete ? (
+                      <div className="flex-1 text-center">
+                        <Button
+                          size="sm"
+                          disabled
+                          className="w-full h-10 rounded-2xl font-semibold text-xs gap-1.5"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          Completa tu información básica y documentos para firmar
+                        </Button>
+                      </div>
+                    ) : (
                     <Button
                       size="sm"
                       disabled={sendingToMifiel}
@@ -1226,6 +1237,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                         </>
                       )}
                     </Button>
+                    )
                   )}
 
                   {/* Continuar firma button - skip autograph since doc already exists */}
