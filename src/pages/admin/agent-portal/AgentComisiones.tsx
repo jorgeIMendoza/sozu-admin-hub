@@ -30,7 +30,7 @@ const AgentComisiones = () => {
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
-  const { steps, percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
+  const { steps, percentage, isLoading: onboardingLoading, canAccessComisiones, missingForComisiones } = useAgentOnboardingStatus(personaId);
   const [activeTab, setActiveTab] = useState<TabKey>('todas');
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
@@ -41,11 +41,8 @@ const AgentComisiones = () => {
     track({ page: 'agent_comisiones', elementId: 'page_view', elementType: 'page' });
   }, []);
 
-  // Check profile completeness (fiscal + bank + docs)
-  const fiscalComplete = steps.find(s => s.id === 'fiscal')?.isComplete ?? false;
-  const bankComplete = steps.find(s => s.id === 'bank-accounts')?.isComplete ?? false;
-  const docsComplete = steps.find(s => s.id === 'documents')?.isComplete ?? false;
-  const canReceivePayments = fiscalComplete && bankComplete && docsComplete;
+  // Use the centralized canAccessComisiones from the hook
+  const canReceivePayments = canAccessComisiones;
 
   // Fetch comisiones with property status and factura info
   const { data: comisiones = [], isLoading: comisionesLoading } = useQuery({
@@ -244,9 +241,10 @@ const AgentComisiones = () => {
           </div>
 
           <div className="space-y-2.5">
-            <CheckItem label="Información fiscal" done={fiscalComplete} />
-            <CheckItem label="Cuenta bancaria" done={bankComplete} />
-            <CheckItem label="Documentos (INE, Constancia, Contrato)" done={docsComplete} />
+            {missingForComisiones.map(item => (
+              <CheckItem key={item} label={item} done={false} />
+            ))}
+            {missingForComisiones.length === 0 && <CheckItem label="Perfil completo" done={true} />}
           </div>
 
           <button

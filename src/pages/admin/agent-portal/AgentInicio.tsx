@@ -24,7 +24,7 @@ const AgentInicio = () => {
   const personaId = profile?.id_persona;
   const agentEmail = user?.email || profile?.email;
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
-  const { percentage, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
+  const { percentage, isLoading: onboardingLoading, hasTrainingComplete, hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const inicioPerms = permissions['/admin/agent/inicio'];
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
@@ -224,7 +224,11 @@ const AgentInicio = () => {
             <span className="text-sm font-bold text-[hsl(var(--agent-amber))]">{percentage}%</span>
           </div>
           <p className="text-xs text-[hsl(var(--agent-text-secondary))]">
-            Te faltan {Math.round((100 - percentage) / 25)} bloques para recibir comisiones.
+            {!hasTrainingComplete
+              ? 'Completa tu capacitación para generar ofertas.'
+              : !hasBasicIdentityComplete
+              ? 'Completa tu identidad para incluir datos bancarios en ofertas.'
+              : 'Completa tu perfil para recibir comisiones.'}
           </p>
           <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
             <div 

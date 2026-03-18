@@ -36,8 +36,7 @@ const AgentUnidadesProyecto = () => {
   const { profile } = useAuth();
   const personaId = profile?.id_persona;
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
-  const { percentage, isLoading: isLoadingOnboarding } = useAgentOnboardingStatus(personaId);
-  const isVerified = percentage === 100;
+  const { percentage, isLoading: isLoadingOnboarding, hasTrainingComplete, hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const nombreCompleto = profile?.nombre || "Agente";
   const initials = nombreCompleto.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("");
 
@@ -375,7 +374,7 @@ const AgentUnidadesProyecto = () => {
   return (
     <div className="pb-24">
       {/* No verificado badge - fixed */}
-      {isAgentRole && !isLoadingOnboarding && !isVerified && (
+      {isAgentRole && !isLoadingOnboarding && percentage < 100 && (
         <div className="fixed top-3 right-4 z-50">
           <Badge
             variant="outline"
@@ -661,6 +660,11 @@ const AgentUnidadesProyecto = () => {
               </div>
               <div className="shrink-0 px-6 py-4 border-t bg-background">
                 {canGenerateOffer ? (
+                  isAgentRole && !hasTrainingComplete ? (
+                    <Button className="w-full gap-2 rounded-full" size="lg" disabled>
+                      <FileText className="h-5 w-5" /> Completa tu capacitación para generar ofertas
+                    </Button>
+                  ) : (
                   <div onClick={(e) => { e.stopPropagation(); handleConfigureOffer(); }}>
                     <NewOfferDialog
                       propertyId={selectedProperty.id}
@@ -668,7 +672,7 @@ const AgentUnidadesProyecto = () => {
                       hideManualMode={true}
                       hidePdfOptions={true}
                       preSelectedSchemeId={selectedSchemeId}
-                      hideBankingInPdf={isAgentRole && !isVerified}
+                      hideBankingInPdf={isAgentRole && !hasBasicIdentityComplete}
                       customTrigger={
                         <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-emerald-600 text-white font-semibold text-sm shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all">
                           <FileText className="h-5 w-5" />
@@ -682,6 +686,7 @@ const AgentUnidadesProyecto = () => {
                       }
                     />
                   </div>
+                  )
                 ) : (
                   <Button className="w-full gap-2 rounded-full" size="lg" disabled>
                     <FileText className="h-5 w-5" /> Sin permiso para generar oferta

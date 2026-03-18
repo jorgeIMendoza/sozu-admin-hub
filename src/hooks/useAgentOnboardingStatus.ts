@@ -15,6 +15,10 @@ interface OnboardingStatus {
   totalSteps: number;
   percentage: number;
   isLoading: boolean;
+  hasTrainingComplete: boolean;
+  hasBasicIdentityComplete: boolean;
+  canAccessComisiones: boolean;
+  missingForComisiones: string[];
 }
 
 export function useAgentOnboardingStatus(personaId: number | null | undefined): OnboardingStatus {
@@ -141,7 +145,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
       { id: 'training', label: 'Capacitación', isComplete: true, hasPartialData: false },
     ];
     const inmoCompleted = inmoSteps.filter(s => s.isComplete).length;
-    return { steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false };
+    return { steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false, hasTrainingComplete: true, hasBasicIdentityComplete: identityComplete, canAccessComisiones: true, missingForComisiones: [] };
   }
 
   // Evaluate steps
@@ -204,11 +208,20 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   const completedCount = steps.filter(s => s.isComplete).length;
   const totalSteps = steps.length;
 
+  const missingForComisiones: string[] = [];
+  if (!basicStageComplete) missingForComisiones.push('Identidad');
+  if (!fiscalStageComplete) missingForComisiones.push('Información fiscal');
+  if (!bankComplete) missingForComisiones.push('Cuenta bancaria');
+
   return {
     steps,
     completedCount,
     totalSteps,
     percentage: Math.round((completedCount / totalSteps) * 100),
     isLoading,
+    hasTrainingComplete: trainingComplete,
+    hasBasicIdentityComplete: basicStageComplete,
+    canAccessComisiones: basicStageComplete && fiscalStageComplete && bankComplete,
+    missingForComisiones,
   };
 }

@@ -5,11 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Loader2, Plus, User, Clock, Building2, Calendar, FileText } from "lucide-react";
+import { Loader2, Plus, User, Clock, Building2, Calendar, FileText, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -68,6 +69,9 @@ const AgentPipeline = () => {
   const { impersonatedAgentEmail, isImpersonating } = useAgentImpersonation();
   const navigate = useNavigate();
   const agentEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
+  const personaId = profile?.id_persona;
+  const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
+  const { hasTrainingComplete, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const [activeStage, setActiveStage] = useState<string>('all');
   const [selectedOferta, setSelectedOferta] = useState<any>(null);
   const { permissions } = useAgentPortalPermissions();
@@ -255,6 +259,12 @@ const AgentPipeline = () => {
       <AgentPortalHeader showAgentName>
         {pipelinePerms.canCreate && (
           <div className="flex items-center justify-end -mt-2">
+            {isAgentRole && !onboardingLoading && !hasTrainingComplete ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Lock className="h-3.5 w-3.5" />
+                Completa tu capacitación
+              </span>
+            ) : (
             <button
               onClick={() => {
                 track({ page: 'agent_pipeline', elementId: 'btn_nueva_oferta', elementLabel: 'Nueva oferta' });
@@ -265,6 +275,7 @@ const AgentPipeline = () => {
               <Plus className="h-4 w-4" />
               Nueva oferta
             </button>
+            )}
           </div>
         )}
         {!isLoading && (

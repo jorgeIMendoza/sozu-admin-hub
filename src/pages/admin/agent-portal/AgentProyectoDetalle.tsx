@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
+import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
+import { useAuth } from "@/contexts/AuthContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
-import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon, Maximize2, BedDouble, Bath, Mail, Copy, Dumbbell, Car, TreePine, Shield, Coffee, Waves, Warehouse, ShoppingBag, PersonStanding, Clapperboard, Sofa, Dog, Bike, Baby, Utensils, Gamepad2, BookOpen, Wind, Sparkles, Star } from "lucide-react";
+import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon, Maximize2, BedDouble, Bath, Mail, Copy, Dumbbell, Car, TreePine, Shield, Coffee, Waves, Warehouse, ShoppingBag, PersonStanding, Clapperboard, Sofa, Dog, Bike, Baby, Utensils, Gamepad2, BookOpen, Wind, Sparkles, Star, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +51,10 @@ const AgentProyectoDetalle = () => {
   const projectId = parseInt(id || "0");
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const personaId = profile?.id_persona;
+  const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
+  const { hasTrainingComplete, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const inventarioPerms = permissions['/admin/agent/inventario'];
   const { registrarVista, registrarExportacion } = useActivityLogger();
@@ -627,13 +633,23 @@ const AgentProyectoDetalle = () => {
         <section className="bg-[hsl(var(--agent-primary))]/10 rounded-2xl p-5 text-center">
           <p className="text-sm font-semibold text-foreground mb-3">¿Tu cliente está interesado en este proyecto?</p>
           {inventarioPerms.canGenerateOffer && (
+            isAgentRole && !onboardingLoading && !hasTrainingComplete ? (
+              <Button
+                disabled
+                className="w-full rounded-xl h-12 text-sm font-semibold"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Completa tu capacitación para generar ofertas
+              </Button>
+            ) : (
             <Button
               onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_generar_oferta', elementLabel: 'Generar oferta comercial', metadata: { proyecto_id: projectId } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}`); }}
               className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
-          >
-            <Share2 className="h-4 w-4 mr-2" />
-            Generar oferta comercial
-          </Button>
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Generar oferta comercial
+            </Button>
+            )
           )}
           <p className="text-xs text-muted-foreground mt-3">
             Las ofertas permiten dar seguimiento formal al interés del cliente.

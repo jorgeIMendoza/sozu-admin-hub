@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
-import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2, Camera, Shield, PenTool, Send } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, Clock, RefreshCw, Download, FileText, CalendarDays, Landmark, Trash2, Camera, Shield, PenTool, Send, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,6 +23,7 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
+import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { cn } from "@/lib/utils";
 import { ENVIRONMENT } from "@/lib/config";
@@ -79,6 +80,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const { track } = useCtaTracker();
+  const { hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const hasTrackedFieldChange = useRef(false);
 
   // Check if agent belongs to an inmobiliaria (to hide doc 48)
@@ -212,6 +214,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
 
 function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onTrackDocView }: { personaId: number; filterDocTypes?: number[]; onTrackFieldChange?: () => void; onTrackDocView?: (docName: string) => void }) {
   const queryClient = useQueryClient();
+  const { hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
 
   const activeDocTypes = filterDocTypes || REQUIRED_DOC_TYPES;
   
@@ -1208,8 +1211,19 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                     </Button>
                   )}
 
-                  {/* Firmar button - no active firma */}
                   {!firmaCompletada && !firmaEnProgreso && !isValidated && (
+                    !hasBasicIdentityComplete ? (
+                      <div className="flex-1 text-center">
+                        <Button
+                          size="sm"
+                          disabled
+                          className="w-full h-10 rounded-2xl font-semibold text-xs gap-1.5"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                          Completa tu información básica y documentos para firmar
+                        </Button>
+                      </div>
+                    ) : (
                     <Button
                       size="sm"
                       disabled={sendingToMifiel}
@@ -1225,6 +1239,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                         </>
                       )}
                     </Button>
+                    )
                   )}
 
                   {/* Continuar firma button - skip autograph since doc already exists */}
@@ -1395,6 +1410,7 @@ interface StepFormProps {
 
 function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange }: { personaId: number; onSaved: () => void; onTrackSave?: () => void; onTrackFieldChange?: () => void }) {
   const queryClient = useQueryClient();
+  const { hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState('');
