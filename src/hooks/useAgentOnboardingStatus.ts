@@ -15,6 +15,10 @@ interface OnboardingStatus {
   totalSteps: number;
   percentage: number;
   isLoading: boolean;
+  hasTrainingComplete: boolean;
+  hasBasicIdentityComplete: boolean;
+  canAccessComisiones: boolean;
+  missingForComisiones: string[];
 }
 
 export function useAgentOnboardingStatus(personaId: number | null | undefined): OnboardingStatus {
