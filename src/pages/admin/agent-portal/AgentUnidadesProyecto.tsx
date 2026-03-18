@@ -660,6 +660,11 @@ const AgentUnidadesProyecto = () => {
               </div>
               <div className="shrink-0 px-6 py-4 border-t bg-background">
                 {canGenerateOffer ? (
+                  isAgentRole && !hasTrainingComplete ? (
+                    <Button className="w-full gap-2 rounded-full" size="lg" disabled>
+                      <FileText className="h-5 w-5" /> Completa tu capacitación para generar ofertas
+                    </Button>
+                  ) : (
                   <div onClick={(e) => { e.stopPropagation(); handleConfigureOffer(); }}>
                     <NewOfferDialog
                       propertyId={selectedProperty.id}
@@ -667,7 +672,7 @@ const AgentUnidadesProyecto = () => {
                       hideManualMode={true}
                       hidePdfOptions={true}
                       preSelectedSchemeId={selectedSchemeId}
-                      hideBankingInPdf={isAgentRole && !isVerified}
+                      hideBankingInPdf={isAgentRole && !hasBasicIdentityComplete}
                       customTrigger={
                         <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-emerald-600 text-white font-semibold text-sm shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all">
                           <FileText className="h-5 w-5" />
@@ -681,6 +686,7 @@ const AgentUnidadesProyecto = () => {
                       }
                     />
                   </div>
+                  )
                 ) : (
                   <Button className="w-full gap-2 rounded-full" size="lg" disabled>
                     <FileText className="h-5 w-5" /> Sin permiso para generar oferta

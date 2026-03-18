@@ -259,6 +259,12 @@ const AgentPipeline = () => {
       <AgentPortalHeader showAgentName>
         {pipelinePerms.canCreate && (
           <div className="flex items-center justify-end -mt-2">
+            {isAgentRole && !onboardingLoading && !hasTrainingComplete ? (
+              <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <Lock className="h-3.5 w-3.5" />
+                Completa tu capacitación
+              </span>
+            ) : (
             <button
               onClick={() => {
                 track({ page: 'agent_pipeline', elementId: 'btn_nueva_oferta', elementLabel: 'Nueva oferta' });
@@ -269,6 +275,7 @@ const AgentPipeline = () => {
               <Plus className="h-4 w-4" />
               Nueva oferta
             </button>
+            )}
           </div>
         )}
         {!isLoading && (
