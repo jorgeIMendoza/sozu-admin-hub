@@ -110,6 +110,17 @@ export const AgentPortalLayout = () => {
         <Outlet context={{ permissions, isAgentRole }} />
       </main>
 
+      {/* WhatsApp help bubble */}
+      <a
+        href="https://wa.me/523316693357?text=Hola%2C%20requiero%20apoyo%20para%20completar%20mi%20onboarding%20de%20agente"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-24 right-5 z-50 h-12 w-12 rounded-full bg-[#25D366] text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+        aria-label="Ayuda por WhatsApp"
+      >
+        <MessageCircleQuestion className="h-6 w-6" />
+      </a>
+
       <nav className="fixed bottom-4 left-4 right-4 z-50">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.12)] border border-gray-100/50">
           {tabs.map((tab) => {
