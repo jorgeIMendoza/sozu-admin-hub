@@ -374,7 +374,7 @@ const AgentUnidadesProyecto = () => {
   return (
     <div className="pb-24">
       {/* No verificado badge - fixed */}
-      {isAgentRole && !isLoadingOnboarding && !isVerified && (
+      {isAgentRole && !isLoadingOnboarding && percentage < 100 && (
         <div className="fixed top-3 right-4 z-50">
           <Badge
             variant="outline"
