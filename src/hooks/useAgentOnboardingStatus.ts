@@ -208,11 +208,20 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   const completedCount = steps.filter(s => s.isComplete).length;
   const totalSteps = steps.length;
 
+  const missingForComisiones: string[] = [];
+  if (!basicStageComplete) missingForComisiones.push('Identidad');
+  if (!fiscalStageComplete) missingForComisiones.push('Información fiscal');
+  if (!bankComplete) missingForComisiones.push('Cuenta bancaria');
+
   return {
     steps,
     completedCount,
     totalSteps,
     percentage: Math.round((completedCount / totalSteps) * 100),
     isLoading,
+    hasTrainingComplete: trainingComplete,
+    hasBasicIdentityComplete: basicStageComplete,
+    canAccessComisiones: basicStageComplete && fiscalStageComplete && bankComplete,
+    missingForComisiones,
   };
 }
