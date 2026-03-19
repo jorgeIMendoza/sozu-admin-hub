@@ -188,7 +188,7 @@ export default function Registro() {
           {/* Submit */}
           <button
             type="submit"
-            disabled={registerMutation.isPending}
+            disabled={registerMutation.isPending || !formData.nombre.trim() || !formData.email.trim() || !formData.email.includes('@') || formData.telefono.length !== 10}
             className="login-btn-primary"
           >
             {registerMutation.isPending ? "Registrando..." : "Registrarme como Agente"}

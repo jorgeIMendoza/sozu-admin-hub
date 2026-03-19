@@ -7195,6 +7195,30 @@ export type Database = {
           },
         ]
       }
+      v_id_producto: {
+        Row: {
+          id: number | null
+        }
+        Insert: {
+          id?: number | null
+        }
+        Update: {
+          id?: number | null
+        }
+        Relationships: []
+      }
+      v_id_propiedad: {
+        Row: {
+          id: number | null
+        }
+        Insert: {
+          id?: number | null
+        }
+        Update: {
+          id?: number | null
+        }
+        Relationships: []
+      }
       v_id_tipo_pago: {
         Row: {
           case: number | null
