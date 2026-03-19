@@ -821,7 +821,7 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
     if (entityType === 'user') {
       onSubmit({
         nombre_legal: nombre.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         telefono: telefono.trim() || null,
         clave_pais_telefono: clavePaisTelefono || 'MX',
         curp: curp.trim() || null,

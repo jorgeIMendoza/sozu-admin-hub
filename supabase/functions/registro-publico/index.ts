@@ -54,62 +54,74 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if email already exists in personas
+    // ─── 1. Check if persona already exists ───
     const { data: existingPersona } = await supabase
       .from('personas')
-      .select('id')
+      .select('id, nombre_legal, telefono')
       .ilike('email', emailLower)
       .eq('activo', true)
       .maybeSingle();
 
+    let personaId: number;
+
     if (existingPersona) {
-      return new Response(
-        JSON.stringify({ success: false, message: `El email ${email} ya está registrado` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      personaId = existingPersona.id;
+      console.log('Persona already exists, reusing ID:', personaId);
+
+      // Check if this persona already has an active Agente Inmobiliario entity (tipo 19)
+      const { data: existingAgentEntity } = await supabase
+        .from('entidades_relacionadas')
+        .select('id')
+        .eq('id_persona', personaId)
+        .eq('id_tipo_entidad', 19)
+        .eq('activo', true)
+        .maybeSingle();
+
+      if (existingAgentEntity) {
+        return new Response(
+          JSON.stringify({ success: false, message: `El email ${email} ya está registrado como agente inmobiliario` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+
+      // Update phone/name on existing persona if empty
+      const updates: Record<string, string> = {};
+      if (!existingPersona.telefono && telefono) updates.telefono = telefono.trim();
+      if (!existingPersona.nombre_legal && nombre) updates.nombre_legal = nombre.trim();
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('personas').update(updates).eq('id', personaId);
+        console.log('Updated existing persona with missing fields:', Object.keys(updates));
+      }
+    } else {
+      // Create new persona
+      const { data: persona, error: personaError } = await supabase
+        .from('personas')
+        .insert({
+          nombre_legal: nombre.trim(),
+          email: emailLower,
+          telefono: telefono.trim(),
+          clave_pais_telefono: clave_pais_telefono || 'MX',
+          tipo_persona: 'pf',
+          activo: true,
+          es_draft: true,
+        })
+        .select()
+        .single();
+
+      if (personaError) {
+        console.error('Error creating persona:', personaError);
+        throw new Error(`Error al crear persona: ${personaError.message}`);
+      }
+
+      personaId = persona.id;
+      console.log('Persona created:', personaId);
     }
 
-    // Check if email exists in usuarios
-    const { data: existingUser } = await supabase
-      .from('usuarios')
-      .select('email')
-      .ilike('email', emailLower)
-      .maybeSingle();
-
-    if (existingUser) {
-      return new Response(
-        JSON.stringify({ success: false, message: `El email ${email} ya está registrado como usuario` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
-    // 1. Create persona (tipo_persona = 'pf', es_draft = true)
-    const { data: persona, error: personaError } = await supabase
-      .from('personas')
-      .insert({
-        nombre_legal: nombre.trim(),
-        email: emailLower,
-        telefono: telefono.trim(),
-        clave_pais_telefono: clave_pais_telefono || 'MX',
-        tipo_persona: 'pf',
-        activo: true,
-        es_draft: true,
-      })
-      .select()
-      .single();
-
-    if (personaError) {
-      console.error('Error creating persona:', personaError);
-      throw new Error(`Error al crear persona: ${personaError.message}`);
-    }
-
-    console.log('Persona created:', persona.id);
-
-    // 2. Create entidad_relacionada (id_tipo_entidad = 19 for Agente Inmobiliario)
+    // ─── 2. Create entidad_relacionada (tipo 19 = Agente Inmobiliario) ───
     const { data: entidad, error: entidadError } = await supabase
       .from('entidades_relacionadas')
       .insert({
-        id_persona: persona.id,
+        id_persona: personaId,
         id_tipo_entidad: 19,
         activo: true,
       })
@@ -118,62 +130,119 @@ Deno.serve(async (req) => {
 
     if (entidadError) {
       console.error('Error creating entidad:', entidadError);
-      await supabase.from('personas').delete().eq('id', persona.id);
+      if (!existingPersona) {
+        await supabase.from('personas').delete().eq('id', personaId);
+      }
       throw new Error(`Error al crear entidad: ${entidadError.message}`);
     }
 
     console.log('Entidad created:', entidad.id);
 
-    // 3. Create auth user with email_confirm = FALSE (requires email confirmation)
+    // ─── 3. Handle auth user (create or reuse) ───
     const defaultPassword = 'Temporal123!';
     let authUserId: string;
 
     const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
       email: emailLower,
       password: defaultPassword,
-      email_confirm: false, // User must confirm email first
+      email_confirm: false,
       user_metadata: { nombre, rol_id: 3 },
     });
 
     if (createAuthError) {
-      console.error('Error creating auth user:', createAuthError);
-      await supabase.from('entidades_relacionadas').delete().eq('id', entidad.id);
-      await supabase.from('personas').delete().eq('id', persona.id);
-      throw new Error(`Error al crear usuario de autenticación: ${createAuthError.message}`);
+      if (createAuthError.message.includes('already been registered') || createAuthError.message.includes('already exists')) {
+        console.log('Auth user already exists, searching...');
+        const { data: authUsers } = await supabase.auth.admin.listUsers();
+        const foundUser = authUsers?.users?.find(u => u.email?.toLowerCase() === emailLower);
+
+        if (!foundUser) {
+          console.error('Auth user exists but could not be found');
+          await supabase.from('entidades_relacionadas').delete().eq('id', entidad.id);
+          if (!existingPersona) await supabase.from('personas').delete().eq('id', personaId);
+          throw new Error('El usuario existe en auth pero no se pudo encontrar');
+        }
+
+        authUserId = foundUser.id;
+        console.log('Reusing existing auth user:', authUserId);
+
+        // Reset password to temporary
+        await supabase.auth.admin.updateUserById(authUserId, {
+          password: defaultPassword,
+          email_confirm: false,
+        });
+      } else {
+        console.error('Error creating auth user:', createAuthError);
+        await supabase.from('entidades_relacionadas').delete().eq('id', entidad.id);
+        if (!existingPersona) await supabase.from('personas').delete().eq('id', personaId);
+        throw new Error(`Error al crear usuario de autenticación: ${createAuthError.message}`);
+      }
+    } else {
+      authUserId = authData.user!.id;
+      console.log('Auth user created (unconfirmed):', authUserId);
     }
 
-    authUserId = authData.user!.id;
-    console.log('Auth user created (unconfirmed):', authUserId);
-
-    // 4. Create usuario record (rol_id = 3 = Agente Inmobiliario)
-    const { data: usuario, error: usuarioError } = await supabase
+    // ─── 4. Handle usuario record (create or update) ───
+    const { data: existingUsuario } = await supabase
       .from('usuarios')
-      .insert({
-        email: emailLower,
-        nombre: nombre.trim(),
-        rol_id: 3,
-        id_persona: persona.id,
-        auth_user_id: authUserId,
-        debe_cambiar_password: true,
-        activo: true,
-        telefono: telefono.trim(),
-        clave_pais_telefono: clave_pais_telefono || 'MX',
-        email_confirmado: false,
-      })
-      .select()
-      .single();
+      .select('id, email, rol_id')
+      .ilike('email', emailLower)
+      .maybeSingle();
 
-    if (usuarioError) {
-      console.error('Error creating usuario:', usuarioError);
-      await supabase.auth.admin.deleteUser(authUserId);
-      await supabase.from('entidades_relacionadas').delete().eq('id', entidad.id);
-      await supabase.from('personas').delete().eq('id', persona.id);
-      throw new Error(`Error al crear usuario: ${usuarioError.message}`);
+    let usuarioId: number;
+
+    if (existingUsuario) {
+      // Update existing usuario - do NOT change rol_id (login selector will handle it)
+      const { error: updateError } = await supabase
+        .from('usuarios')
+        .update({
+          id_persona: personaId,
+          auth_user_id: authUserId,
+          debe_cambiar_password: true,
+          email_confirmado: false,
+          telefono: telefono.trim(),
+          clave_pais_telefono: clave_pais_telefono || 'MX',
+        })
+        .eq('id', existingUsuario.id);
+
+      if (updateError) {
+        console.error('Error updating usuario:', updateError);
+        throw new Error(`Error al actualizar usuario: ${updateError.message}`);
+      }
+
+      usuarioId = existingUsuario.id;
+      console.log('Existing usuario updated:', usuarioId);
+    } else {
+      // Create new usuario record
+      const { data: usuario, error: usuarioError } = await supabase
+        .from('usuarios')
+        .insert({
+          email: emailLower,
+          nombre: nombre.trim(),
+          rol_id: 3,
+          id_persona: personaId,
+          auth_user_id: authUserId,
+          debe_cambiar_password: true,
+          activo: true,
+          telefono: telefono.trim(),
+          clave_pais_telefono: clave_pais_telefono || 'MX',
+          email_confirmado: false,
+        })
+        .select()
+        .single();
+
+      if (usuarioError) {
+        console.error('Error creating usuario:', usuarioError);
+        await supabase.auth.admin.deleteUser(authUserId);
+        await supabase.from('entidades_relacionadas').delete().eq('id', entidad.id);
+        if (!existingPersona) await supabase.from('personas').delete().eq('id', personaId);
+        throw new Error(`Error al crear usuario: ${usuarioError.message}`);
+      }
+
+      usuarioId = usuario.id;
+      console.log('Usuario created:', usuarioId);
     }
 
-    console.log('Usuario created:', usuario.id);
-
-    // Assign access to ALL published projects
+    // ─── 5. Assign access to ALL published projects ───
     try {
       const { data: publishedProjects } = await supabase
         .from('proyectos')
@@ -193,7 +262,10 @@ Deno.serve(async (req) => {
 
         const { error: accessError } = await supabase
           .from('proyectos_acceso')
-          .insert(accessRecords);
+          .upsert(accessRecords, {
+            onConflict: 'usuario_id,proyecto_id',
+            ignoreDuplicates: true,
+          });
 
         if (accessError) {
           console.error('Error assigning project access:', accessError);
@@ -205,8 +277,7 @@ Deno.serve(async (req) => {
       console.error('Error in project access assignment:', accessErr);
     }
 
-    // 5. Generate email confirmation link using Supabase Auth
-    // Redirect to the frontend thank-you page (which will call the post-confirmation edge function)
+    // ─── 6. Generate email confirmation link ───
     const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(nombre.trim())}`;
     
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
@@ -222,7 +293,6 @@ Deno.serve(async (req) => {
       console.error('Error generating confirmation link:', linkError);
     }
 
-    // Extract token from action_link and rebuild URL to ensure redirect goes to thank-you page
     let confirmationUrl = linkData?.properties?.action_link;
     if (confirmationUrl) {
       try {
@@ -238,7 +308,7 @@ Deno.serve(async (req) => {
     }
     console.log('Confirmation link generated:', confirmationUrl ? 'yes' : 'no');
 
-    // 6. Send standalone confirmation email via Postmark (NOT using template to avoid "Notificación" wrapper)
+    // ─── 7. Send confirmation email via Postmark ───
     const POSTMARK_TOKEN = Deno.env.get('POSTMARK_SERVER_TOKEN');
 
     if (POSTMARK_TOKEN && confirmationUrl) {
@@ -292,7 +362,6 @@ Deno.serve(async (req) => {
         console.error('Error sending confirmation email:', emailError);
       }
 
-      // Admin notification is now sent AFTER user confirms email (in post-confirmacion-registro)
       console.log('Admin notification will be sent after email confirmation');
     } else {
       console.error('POSTMARK_SERVER_TOKEN not configured or confirmation link not generated');
@@ -303,7 +372,7 @@ Deno.serve(async (req) => {
       await supabase.from('logs_actividad').insert({
         tipo_accion: 'registro_publico',
         tipo_entidad: 'agente',
-        id_entidad: persona.id,
+        id_entidad: personaId,
         valor_nuevo: JSON.stringify({ nombre: nombre.trim(), email: emailLower }),
         descripcion: `Registro público de agente: ${nombre.trim()} (pendiente confirmación)`,
       });
@@ -315,7 +384,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'Se ha enviado un correo de confirmación. Revisa tu bandeja de entrada.',
-        data: { persona_id: persona.id, usuario_id: usuario.id }
+        data: { persona_id: personaId, usuario_id: usuarioId }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

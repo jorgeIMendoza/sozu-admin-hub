@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
               detalles: `
                 <tr><td class='label'>Nombre:</td><td class='value'>${displayName}</td></tr>
                 <tr><td class='label'>Email:</td><td class='value'>${email.toLowerCase()}</td></tr>
-                <tr><td class='label'>Teléfono:</td><td class='value'>${usuarioData?.telefono || 'N/A'}</td></tr>
+                <tr><td class='label'>Teléfono:</td><td class='value'>${telefono || 'N/A'}</td></tr>
                 <tr><td class='label'>Rol:</td><td class='value'>${rolLabel}</td></tr>
                 <tr><td class='label'>Estado:</td><td class='value'>✅ Email confirmado - Credenciales enviadas</td></tr>
               `,

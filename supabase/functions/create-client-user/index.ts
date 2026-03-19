@@ -23,7 +23,8 @@ serve(async (req) => {
       },
     });
 
-    const { email, nombre, id_persona } = await req.json();
+    const { email: rawEmail, nombre, id_persona } = await req.json();
+    const email = rawEmail?.toLowerCase()?.trim();
 
     if (!email) {
       return new Response(

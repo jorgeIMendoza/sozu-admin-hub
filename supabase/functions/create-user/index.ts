@@ -99,7 +99,8 @@ serve(async (req) => {
 
     // Parse request body early to check for auto_create flag
     const body: CreateUserRequest = await req.json();
-    const { email, nombre, rol_id, id_persona, id_inmobiliaria, telefono, clave_pais_telefono, auto_create } = body;
+    const { email: rawEmail, nombre, rol_id, id_persona, id_inmobiliaria, telefono, clave_pais_telefono, auto_create } = body;
+    const email = rawEmail?.toLowerCase()?.trim();
 
     // Check if this is an automatic creation for Inmobiliaria or Agente Inmobiliario role (bypasses Super Admin check)
     const ROLE_INMOBILIARIA = 4;

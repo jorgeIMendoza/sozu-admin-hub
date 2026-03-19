@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert, Building2, User } from 'lucide-react';
 import { z } from 'zod';
 import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
 import { APP_VERSION } from '@/lib/config';
@@ -13,6 +13,31 @@ const loginSchema = z.object({
   password: z.string().min(1, 'La contraseña es requerida'),
 });
 
+interface PortalOption {
+  label: string;
+  description: string;
+  icon: typeof Building2;
+  rolId: number;
+  route: string;
+}
+
+const ENTITY_TYPE_TO_PORTAL: Record<number, PortalOption> = {
+  19: {
+    label: 'Portal Agente',
+    description: 'Accede a inventario, ofertas y comisiones',
+    icon: Building2,
+    rolId: 3,
+    route: '/admin',
+  },
+  2: {
+    label: 'Portal Cliente',
+    description: 'Consulta tu propiedad, pagos y documentos',
+    icon: User,
+    rolId: 23,
+    route: '/admin/portal-cliente/inicio',
+  },
+};
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,6 +46,8 @@ export default function Login() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [showForgotMessage, setShowForgotMessage] = useState(false);
+  const [availablePortals, setAvailablePortals] = useState<PortalOption[]>([]);
+  const [showPortalSelector, setShowPortalSelector] = useState(false);
   
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
@@ -41,6 +68,21 @@ export default function Login() {
     });
   };
 
+  const handleSelectPortal = async (portal: PortalOption) => {
+    try {
+      // Update rol_id in usuarios table
+      await supabase
+        .from('usuarios')
+        .update({ rol_id: portal.rolId })
+        .ilike('email', email.trim().toLowerCase());
+
+      navigate(portal.route, { replace: true });
+    } catch (err) {
+      console.error('Error selecting portal:', err);
+      navigate('/admin', { replace: true });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,21 +96,24 @@ export default function Login() {
         return;
       }
 
-      // Check if the user has a blocked role - but allow Cliente to proceed to portal-cliente
+      const emailLower = email.trim().toLowerCase();
+
+      // Check if the user has a blocked role - but allow Cliente and Agente to proceed
       const { data: userData } = await supabase
         .from("usuarios")
-        .select("rol_id")
-        .eq("email", email.trim())
+        .select("rol_id, id_persona")
+        .ilike("email", emailLower)
         .maybeSingle();
 
       const isClienteRole = userData?.rol_id === 23;
+      const isAgenteRole = userData?.rol_id === 3;
 
-      if (!isClienteRole) {
-        const { data: isBlocked } = await supabase.rpc('check_email_blocked_role', {
-          p_email: email.trim()
+      if (!isClienteRole && !isAgenteRole) {
+        const { data: isBlockedResult } = await supabase.rpc('check_email_blocked_role', {
+          p_email: emailLower
         });
 
-        if (isBlocked) {
+        if (isBlockedResult) {
           setIsBlocked(true);
           setIsLoading(false);
           return;
@@ -97,7 +142,28 @@ export default function Login() {
         return;
       }
 
-      // Cliente role goes directly to portal-cliente
+      // Check for multiple portals via entidades_relacionadas
+      if (userData?.id_persona) {
+        const { data: entidades } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_tipo_entidad')
+          .eq('id_persona', userData.id_persona)
+          .eq('activo', true);
+
+        const entityTypes = [...new Set(entidades?.map(e => e.id_tipo_entidad) || [])];
+        const portals = entityTypes
+          .filter(t => ENTITY_TYPE_TO_PORTAL[t])
+          .map(t => ENTITY_TYPE_TO_PORTAL[t]);
+
+        if (portals.length > 1) {
+          setAvailablePortals(portals);
+          setShowPortalSelector(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Single portal or no multi-role: redirect based on current rol_id
       if (isClienteRole) {
         navigate('/admin/portal-cliente/inicio', { replace: true });
       } else {
@@ -127,6 +193,60 @@ export default function Login() {
             <LogIn className="h-4 w-4" />
             Iniciar Sesión
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showPortalSelector) {
+    return (
+      <div className="login-page">
+        <div className="login-bg-gradient" />
+        <div className="login-card relative z-10">
+          <div className="text-center mb-7">
+            <img src={sozuLogo} alt="Sozu" className="h-10 mx-auto" />
+          </div>
+          <h1 className="text-2xl font-black text-center text-[hsl(0_0%_5%)] mb-1.5" style={{ letterSpacing: '-0.02em' }}>
+            Selecciona tu portal
+          </h1>
+          <p className="text-sm text-center mb-7" style={{ color: 'hsl(0 0% 45%)' }}>
+            Tienes acceso a múltiples portales
+          </p>
+          <div className="space-y-3">
+            {availablePortals.map((portal) => {
+              const Icon = portal.icon;
+              return (
+                <button
+                  key={portal.rolId}
+                  onClick={() => handleSelectPortal(portal)}
+                  className="w-full flex items-center gap-4 px-5 py-4 rounded-xl border-2 text-left transition-all hover:shadow-md"
+                  style={{
+                    borderColor: 'hsl(0 0% 90%)',
+                    background: 'hsl(0 0% 100%)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'hsl(145 40% 50%)';
+                    e.currentTarget.style.background = 'hsl(145 40% 97%)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'hsl(0 0% 90%)';
+                    e.currentTarget.style.background = 'hsl(0 0% 100%)';
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-center w-11 h-11 rounded-xl flex-shrink-0"
+                    style={{ background: 'hsl(145 40% 94%)' }}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: 'hsl(145 40% 35%)' }} />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-[hsl(0_0%_5%)]">{portal.label}</div>
+                    <div className="text-xs mt-0.5" style={{ color: 'hsl(0 0% 50%)' }}>{portal.description}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
