@@ -26,7 +26,7 @@ export const AdminLayout = () => {
   }, [isSimplifiedRole, setTheme]);
 
   // Use AgentPortalLayout for ALL roles on agent portal routes
-  if (location.pathname.startsWith("/admin/agent")) {
+  if (location.pathname.startsWith("/admin/agent/")) {
     return <AgentPortalLayout />;
   }
 
