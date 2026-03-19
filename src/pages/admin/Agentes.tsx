@@ -784,7 +784,7 @@ export default function Agentes() {
                       <User className="h-3 w-3" />
                       Interno
                     </span>
-                  ) : agente.usuario_rol_id === ROLE_AGENTE_INMOBILIARIO ? (
+                  ) : agente.usuario_rol_id === ROLE_AGENTE_INMOBILIARIO || agente.id_tipo_entidad === 19 ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 w-fit">
                       <User className="h-3 w-3" />
                       Inmobiliario
