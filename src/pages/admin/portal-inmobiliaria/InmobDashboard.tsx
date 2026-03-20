@@ -519,16 +519,17 @@ export default function InmobDashboard() {
         const batch = cuentaCobranzaIds.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("comisionistas")
-          .select("id, email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, fecha_creacion")
+          .select("email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, fecha_creacion")
           .in("id_cuenta_cobranza", batch)
           .eq("activo", true);
         if (data) all.push(...data);
       }
 
-      const seen = new Set<number>();
+      const seen = new Set<string>();
       const deduped = all.filter((c) => {
-        if (seen.has(c.id)) return false;
-        seen.add(c.id);
+        const key = `${c.id_cuenta_cobranza}-${(c.email_usuario || "").toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       });
 
@@ -981,7 +982,11 @@ export default function InmobDashboard() {
       });
       const comision = Array.from(userCuentaIds).reduce((s, cuentaId) => s + (comisionByCuentaId.get(cuentaId) || 0), 0);
 
-      const ingreso = Array.from(userCuentaIds).reduce((s, cuentaId) => s + (comisionByCuentaId.get(cuentaId) || 0), 0);
+      // Ingreso = sum of precio_final from cuentas (not commissions)
+      const ingreso = userCierres.reduce((s: number, o: any) => {
+        const cuenta = cuentasMap.get(o.id);
+        return s + (Number(cuenta?.precio_final) || 0);
+      }, 0);
       const conv = userOfertas.length > 0 ? ((userCierres.length / userOfertas.length) * 100) : 0;
 
       // Prospectos: from per-agent map (date-filtered)
