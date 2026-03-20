@@ -1488,7 +1488,7 @@ export default function InmobDashboard() {
                 <BarChart data={agentChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={chartMode !== "unidades" ? (v) => `$${(v / 1000000).toFixed(1)}M` : undefined} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={chartMode !== "unidades" ? (v) => fmtShort(Number(v) || 0) : undefined} axisLine={false} tickLine={false} />
                   <RechartsTooltip formatter={(value: any) => [chartMode !== "unidades" ? fmtCurrency(value) : value, chartMode === "unidades" ? "Ventas" : chartMode === "ingreso" ? "Ingreso" : "Comisión"]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Bar dataKey={chartDataKey} fill="#239E6C" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(_data: any, index: number) => { const agent = agentChartData[index]; if (agent?.searchValue) navigate(`${NAV_PREFIX}/agentes?q=${encodeURIComponent(agent.searchValue)}`); }} />
                 </BarChart>
@@ -1511,7 +1511,7 @@ export default function InmobDashboard() {
                 <AreaChart data={areaData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
                   <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12, fill: "#9CA3AF" }} tickFormatter={(v) => fmtShort(Number(v) || 0)} axisLine={false} tickLine={false} />
                   <RechartsTooltip formatter={(value: any) => [fmtCurrency(value)]} contentStyle={{ borderRadius: 8, border: "1px solid #E5E7EB", fontSize: 13 }} />
                   <Legend />
                   <Area type="monotone" dataKey="real" stackId="1" stroke="#239E6C" fill="#239E6C" fillOpacity={0.15} name="Cobrado" />
