@@ -57,7 +57,7 @@ export function AgenteVendedorDialog({ isOpen, onClose, agente, ofertaId, canEdi
       
       const { error } = await supabase
         .from('ofertas')
-        .update({ email_creador: newEmail })
+        .update({ email_creador: newEmail, url: null })
         .eq('id', ofertaId);
       
       if (error) throw error;
