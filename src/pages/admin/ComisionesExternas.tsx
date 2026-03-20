@@ -397,7 +397,7 @@ export default function ComisionesExternas() {
 
   // Mutación para aprobar comisionista
   const aprobarMutation = useMutation({
-    mutationFn: async ({ email, idCuenta, montoComision, nombreComisionista }: { email: string; idCuenta: number; montoComision?: number; nombreComisionista?: string }) => {
+    mutationFn: async ({ email, idCuenta, montoComision, nombreComisionista, proyectoNombre, numeroDepartamento }: { email: string; idCuenta: number; montoComision?: number; nombreComisionista?: string; proyectoNombre?: string; numeroDepartamento?: string }) => {
       const { error } = await supabase
         .from("comisionistas")
         .update({ aprobada: true })
@@ -406,7 +406,7 @@ export default function ComisionesExternas() {
         .eq("activo", true);
       
       if (error) throw error;
-      return { email, idCuenta, montoComision, nombreComisionista };
+      return { email, idCuenta, montoComision, nombreComisionista, proyectoNombre, numeroDepartamento };
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["comisiones-externas"] });
@@ -418,10 +418,12 @@ export default function ComisionesExternas() {
       }, 'aprobar_comision_externa');
 
       const montoFormateado = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(data.montoComision || 0);
+      const deptoLabel = data.proyectoNombre && data.numeroDepartamento
+        ? `${data.proyectoNombre} ${data.numeroDepartamento}`
+        : `Cuenta ${formatCuentaCobranzaId(data.idCuenta)}`;
 
       // Enviar correo de notificación al comisionista externo
       try {
-        // Obtener emails de administradores de proyecto (rol_id = 2)
         const { data: adminsProyecto } = await supabase
           .from('usuarios')
           .select('email')
@@ -436,11 +438,12 @@ export default function ComisionesExternas() {
             from: 'Notificaciones Sozu <notificaciones@sozu.com>',
             email: data.email,
             cc: ccEmails,
-            asunto: `Comisión Aprobada - Cuenta ${formatCuentaCobranzaId(data.idCuenta)}`,
+            asunto: 'Comisión de venta aprobada',
             mensaje: {
               nombre: data.nombreComisionista || data.email,
               actividad: 'Comisión de venta aprobada',
-              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${formatCuentaCobranzaId(data.idCuenta)}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado} + IVA</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y cargar su factura correspondiente al monto aprobado.</td></tr>`,
+              asunto: 'Comisión de venta aprobada',
+              detalles: `<tr><td class='label'>Departamento:</td><td class='value'>${deptoLabel}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado} + IVA</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y adjuntar factura en plataforma.</td></tr>`,
             },
             templateId: 36978552,
           },
@@ -886,9 +889,9 @@ export default function ComisionesExternas() {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          onClick={(e) => {
+                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            aprobarMutation.mutate({ email: com.email_usuario, idCuenta: cuenta.id, montoComision: com.montoComision, nombreComisionista: com.nombre });
+                                            aprobarMutation.mutate({ email: com.email_usuario, idCuenta: cuenta.id, montoComision: com.montoComision, nombreComisionista: com.nombre, proyectoNombre: cuenta.proyecto_nombre, numeroDepartamento: cuenta.numero_departamento });
                                           }}
                                           disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5}
                                           title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : ''}
