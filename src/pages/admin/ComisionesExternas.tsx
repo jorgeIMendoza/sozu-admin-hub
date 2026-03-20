@@ -892,8 +892,8 @@ export default function ComisionesExternas() {
                                             e.stopPropagation();
                                             aprobarMutation.mutate({ email: com.email_usuario, idCuenta: cuenta.id, montoComision: com.montoComision, nombreComisionista: com.nombre, proyectoNombre: cuenta.proyecto_nombre, numeroDepartamento: cuenta.numero_departamento });
                                           }}
-                                          disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5}
-                                          title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : ''}
+                                          disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5 || !cuenta.es_pagada_comision_venta}
+                                          title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : !cuenta.es_pagada_comision_venta ? 'La comisión Sozu debe estar pagada antes de aprobar comisiones externas' : ''}
                                         >
                                           <Check className="h-4 w-4 mr-1" />
                                           Aprobar

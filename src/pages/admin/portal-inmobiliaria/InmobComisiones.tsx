@@ -781,7 +781,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     const proj = edif ? projMap.get(edif.id_proyecto) : null;
 
     let estatus: string;
-    let fechaPago: string | null = null;
+    let fechaPago: string | null = com.pagada ? (com.fecha_actualizacion || null) : null;
 
     if (com.pagada) {
       estatus = "Pagada";
