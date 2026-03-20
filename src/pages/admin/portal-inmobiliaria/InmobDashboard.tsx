@@ -968,7 +968,7 @@ export default function InmobDashboard() {
       const userCierres = dedupedAdvancedOfertas.filter((o: any) => (o.email_creador || "").toLowerCase() === emailLower && o.stage === "cierre");
       const userApartadosCount = dedupedAdvancedOfertas.filter((o: any) => (o.email_creador || "").toLowerCase() === emailLower && ADVANCED_STAGES.has(o.stage) && o.stage !== "cierre").length;
       const userPipeline = dedupedAdvancedOfertas
-        .filter((o: any) => (o.email_creador || "").toLowerCase() === emailLower)
+        .filter((o: any) => (o.email_creador || "").toLowerCase() === emailLower && o.stage !== "cierre")
         .reduce((s: number, o: any) => {
           const cuenta = cuentasMap.get(o.id);
           return s + (Number(cuenta?.precio_final) || 0);
