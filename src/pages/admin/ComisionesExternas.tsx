@@ -452,7 +452,7 @@ export default function ComisionesExternas() {
       
       toast({
         title: "Comisión aprobada",
-        description: "La comisión ha sido aprobada y se envió notificación al comisionista."
+        description: `Notificación enviada a ${data.email} por ${montoFormateado} + IVA.`
       });
     },
     onError: (error) => {
