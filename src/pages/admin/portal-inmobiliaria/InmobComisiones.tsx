@@ -690,7 +690,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   // Get comisionistas for this inmobiliaria
   const { data: comisionistas } = await (supabase as any)
     .from("comisionistas")
-    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada")
+    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion")
     .in("id_cuenta_cobranza", cuentaIds)
     .eq("email_usuario", inmobEmail)
     .eq("activo", true);
