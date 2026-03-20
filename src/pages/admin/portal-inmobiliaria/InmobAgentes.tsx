@@ -524,7 +524,7 @@ export default function InmobAgentes() {
 
   // Build commission details per agent for expandable rows
   const commissionDetailsByAgent = useMemo(() => {
-    const map = new Map<string, Array<{ ofertaId: number; cuentaId: number; precioFinal: number; montoComision: number; isProduct: boolean }>>();
+    const map = new Map<string, Array<{ ofertaId: number; cuentaId: number; precioFinal: number; montoComision: number; isProduct: boolean; propiedadId?: number; productoId?: number }>>();
     const classified = allOfertas.map((o: any) => ({ ...o, stage: classifyOffer(o) }));
     const cierres = classified.filter((o: any) => o.stage === "cierre" && cuentasMap.has(o.id));
     const seenByAgent = new Map<string, Set<string>>();
@@ -548,10 +548,60 @@ export default function InmobAgentes() {
         precioFinal: Number(cuenta.precio_final) || 0,
         montoComision: comisionByCuenta.get(cuenta.id) || 0,
         isProduct: !!o.id_producto,
+        propiedadId: o.id_propiedad || undefined,
+        productoId: o.id_producto || undefined,
       });
     });
     return map;
   }, [allOfertas, classifyOffer, cuentasMap, comisionByCuenta]);
+
+  // Fetch property/project/product info for commission details
+  const detailPropIds = useMemo(() => {
+    const ids = new Set<number>();
+    commissionDetailsByAgent.forEach((details) => details.forEach((d) => { if (d.propiedadId) ids.add(d.propiedadId); }));
+    return [...ids];
+  }, [commissionDetailsByAgent]);
+
+  const detailProductIds = useMemo(() => {
+    const ids = new Set<number>();
+    commissionDetailsByAgent.forEach((details) => details.forEach((d) => { if (d.productoId) ids.add(d.productoId); }));
+    return [...ids];
+  }, [commissionDetailsByAgent]);
+
+  const { data: propDetailMap = new Map<number, { numero: string; proyecto: string }>() } = useQuery({
+    queryKey: ["inmob-agentes-prop-details", detailPropIds],
+    queryFn: async () => {
+      const m = new Map<number, { numero: string; proyecto: string }>();
+      if (!detailPropIds.length) return m;
+      for (let i = 0; i < detailPropIds.length; i += 200) {
+        const batch = detailPropIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("propiedades")
+          .select("id, numero_propiedad, edificios_modelos(edificios(proyectos(nombre)))")
+          .in("id", batch) as any;
+        (data || []).forEach((p: any) => {
+          const proyecto = p.edificios_modelos?.edificios?.proyectos?.nombre || "";
+          m.set(p.id, { numero: String(p.numero_propiedad || ""), proyecto });
+        });
+      }
+      return m;
+    },
+    enabled: detailPropIds.length > 0,
+    staleTime: 10 * 60_000,
+  });
+
+  const { data: productDetailMap = new Map<number, string>() } = useQuery({
+    queryKey: ["inmob-agentes-product-details", detailProductIds],
+    queryFn: async () => {
+      const m = new Map<number, string>();
+      if (!detailProductIds.length) return m;
+      const { data } = await supabase.from("productos_servicios").select("id, nombre").in("id", detailProductIds) as any;
+      (data || []).forEach((p: any) => m.set(p.id, p.nombre || "Producto"));
+      return m;
+    },
+    enabled: detailProductIds.length > 0,
+    staleTime: 10 * 60_000,
+  });
 
   const ingresoLoading = false; // ingreso is now computed inline
 
