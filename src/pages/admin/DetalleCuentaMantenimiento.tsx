@@ -801,7 +801,7 @@ export default function DetalleCuentaMantenimiento() {
               )}
             </Tooltip>
           </TooltipProvider>
-          {excedente > 0.01 && acuerdosPago?.some(a => !a.pago_completado) && (
+          {(hayDiscrepanciaAplicaciones || (excedente > 0.01 && acuerdosPago?.some(a => !a.pago_completado))) && (
             <Button 
               onClick={async () => {
                 setRecalculando(true);
