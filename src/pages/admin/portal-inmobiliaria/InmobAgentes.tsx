@@ -25,7 +25,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Search, Users, TrendingUp, FileText, ShoppingCart, MoreHorizontal, Eye, Pencil, Power, KeyRound, FolderOpen, HelpCircle } from "lucide-react";
+import { Search, Users, TrendingUp, FileText, ShoppingCart, MoreHorizontal, Eye, Pencil, Power, KeyRound, FolderOpen, HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
