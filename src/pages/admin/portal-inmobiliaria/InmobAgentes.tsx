@@ -1189,20 +1189,27 @@ function AgentTable({
                           <TableCell colSpan={9} className="py-3 px-6">
                             <div className="space-y-1.5">
                               <p className="text-xs font-semibold text-muted-foreground mb-2">Detalle de comisiones</p>
-                              {details.map((d) => (
+                              {details.map((d) => {
+                                const propInfo = d.propiedadId ? propDetailMap.get(d.propiedadId) : undefined;
+                                const productName = d.productoId ? productDetailMap.get(d.productoId) : undefined;
+                                const label = d.isProduct
+                                  ? `${productName || "Producto"} — ${propInfo?.proyecto || ""} ${propInfo?.numero || ""}`
+                                  : `${propInfo?.proyecto || ""} ${propInfo?.numero || ""}`;
+                                return (
                                 <div key={d.cuentaId} className="flex items-center justify-between text-sm rounded-lg border border-border bg-card px-4 py-2.5">
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="text-[10px] font-mono">
-                                      {d.isProduct ? "CCP" : "CC"}-{d.cuentaId}
+                                    <Badge variant="outline" className="text-[10px]">
+                                      {d.isProduct ? "Producto" : "Propiedad"}
                                     </Badge>
-                                    <span className="text-muted-foreground">{d.isProduct ? "Producto" : "Propiedad"}</span>
+                                    <span className="font-medium">{label.trim() || "—"}</span>
                                   </div>
                                   <div className="flex items-center gap-6">
                                     <span className="text-muted-foreground text-xs">Precio: <span className="text-foreground font-medium">{fmtCurrency(d.precioFinal)}</span></span>
                                     <span className="text-xs">Comisión: <span className="text-primary font-semibold">{fmtCurrency(d.montoComision)}</span></span>
                                   </div>
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </TableCell>
                         </TableRow>
