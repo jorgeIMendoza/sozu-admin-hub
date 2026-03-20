@@ -1201,7 +1201,18 @@ export default function InmobDashboard() {
       });
     }
 
+    // Build a set of cuentas that are already cobradas or por cobrar (to exclude from estimado)
+    const cobradasCuentaIds = new Set<number>();
+    const porCobrarCuentaIds = new Set<number>();
+    comisionistas.forEach((c: any) => {
+      if (!isRelevantComisionista(c)) return;
+      const cuentaId = Number(c.id_cuenta_cobranza);
+      if (c.pagada === true) cobradasCuentaIds.add(cuentaId);
+      else if (c.aprobada === true) porCobrarCuentaIds.add(cuentaId);
+    });
+
     return areaWindow.map(({ label, start, end }) => {
+      // Cobrado: comisiones pagadas, placed by their payment date (fecha_actualizacion)
       const real = comisionistas
         .filter((c: any) => c.pagada === true && c.fecha_actualizacion && isRelevantComisionista(c))
         .filter((c: any) => {
@@ -1217,12 +1228,12 @@ export default function InmobDashboard() {
           return sum + (cuenta.precio_final * (Number(c.porcentaje_comision) || 0) / 100);
         }, 0);
 
+      // Por cobrar: comisiones aprobadas pero no pagadas, placed by offer/enganche/creation date
       const porCobrar = comisionistas
         .filter((c: any) => c.aprobada === true && c.pagada !== true && isRelevantComisionista(c))
         .filter((c: any) => {
           const cuentaId = Number(c.id_cuenta_cobranza);
           const cuenta = cuentaInfoMap.get(cuentaId);
-          // Use fecha_generacion (offer date) as primary, then enganche, then fecha_creacion
           if (cuenta?.fecha_generacion) {
             const d = new Date(cuenta.fecha_generacion);
             return d >= start && d <= end;
@@ -1247,13 +1258,16 @@ export default function InmobDashboard() {
           return sum + (cuenta.precio_final * (Number(c.porcentaje_comision) || 0) / 100);
         }, 0);
 
+      // Estimado: Vendido (status 5) but commission NOT yet aprobada/pagada
       let estimado = 0;
       cuentaInfoMap.forEach((cuenta, cuentaId) => {
         if (!isRelevantCuenta(cuentaId)) return;
-        if (propStatusMap.get(cuenta.id_propiedad) !== 4) return;
+        // Only Vendido status (5)
+        if (propStatusMap.get(cuenta.id_propiedad) !== 5) return;
+        // Exclude if already cobrada or por cobrar
+        if (cobradasCuentaIds.has(cuentaId) || porCobrarCuentaIds.has(cuentaId)) return;
 
         let dateInRange = false;
-        // Use fecha_generacion (offer date) as primary, then enganche, then fecha_creacion
         if (cuenta.fecha_generacion) {
           const d = new Date(cuenta.fecha_generacion);
           dateInRange = d >= start && d <= end;

@@ -1198,20 +1198,21 @@ function AgentTable({
                               {details.map((d) => {
                                 const propInfo = d.propiedadId ? propDetailMap.get(d.propiedadId) : undefined;
                                 const productName = d.productoId ? productDetailMap.get(d.productoId) : undefined;
+                                const propLabel = [propInfo?.proyecto, propInfo?.numero].filter(Boolean).join(" ");
                                 const label = d.isProduct
-                                  ? `${productName || "Producto"} — ${propInfo?.proyecto || ""} ${propInfo?.numero || ""}`
-                                  : `${propInfo?.proyecto || ""} ${propInfo?.numero || ""}`;
+                                  ? `${productName || "Producto"} - ${propLabel || "—"}`
+                                  : propLabel || "—";
                                 return (
                                 <div key={d.cuentaId} className="flex items-center justify-between text-sm rounded-lg border border-border bg-card px-4 py-2.5">
                                   <div className="flex items-center gap-2">
                                     <Badge variant="outline" className="text-[10px]">
                                       {d.isProduct ? "Producto" : "Propiedad"}
                                     </Badge>
-                                    <span className="font-medium">{label.trim() || "—"}</span>
+                                    <span className="font-medium">{label}</span>
                                   </div>
                                   <div className="flex items-center gap-6">
                                     <span className="text-muted-foreground text-xs">Precio: <span className="text-foreground font-medium">{fmtCurrency(d.precioFinal)}</span></span>
-                                    <span className="text-xs">Comisión: <span className="text-primary font-semibold">{fmtCurrency(d.montoComision)}</span></span>
+                                    <span className="text-xs">Comisión: <span className="text-primary font-semibold">{fmtCurrency(d.montoComision)}</span> <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1">+ IVA</Badge></span>
                                   </div>
                                 </div>
                                 );
