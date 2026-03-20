@@ -38,22 +38,43 @@ async function fetchAllComisionistas() {
   let hasMore = true;
 
   // Obtener emails de agentes externos (agentes inmobiliarios e inmobiliarias)
-  const { data: agentesInmobiliarios } = await supabase
-    .from('usuarios')
-    .select('email')
-    .eq('rol_id', AGENTE_INMOBILIARIO_ROL_ID)
-    .eq('activo', true);
+  // Paginar para evitar el límite de 1000 de Supabase
+  const emailsAgentesInmobiliarios = new Set<string>();
+  {
+    let offset = 0;
+    const batch = 1000;
+    let more = true;
+    while (more) {
+      const { data } = await supabase
+        .from('usuarios')
+        .select('email')
+        .eq('rol_id', AGENTE_INMOBILIARIO_ROL_ID)
+        .eq('activo', true)
+        .range(offset, offset + batch - 1);
+      (data || []).forEach(a => emailsAgentesInmobiliarios.add(a.email));
+      more = (data?.length || 0) === batch;
+      offset += batch;
+    }
+  }
 
-  const emailsAgentesInmobiliarios = new Set(agentesInmobiliarios?.map(a => a.email) || []);
-
-  const { data: inmobiliarias } = await supabase
-    .from('personas')
-    .select('email')
-    .eq('tipo_persona', 'pm')
-    .eq('activo', true)
-    .not('email', 'is', null);
-
-  const emailsInmobiliarias = new Set(inmobiliarias?.map(i => i.email).filter(Boolean) || []);
+  const emailsInmobiliarias = new Set<string>();
+  {
+    let offset = 0;
+    const batch = 1000;
+    let more = true;
+    while (more) {
+      const { data } = await supabase
+        .from('personas')
+        .select('email')
+        .eq('tipo_persona', 'pm')
+        .eq('activo', true)
+        .not('email', 'is', null)
+        .range(offset, offset + batch - 1);
+      (data || []).forEach(i => { if (i.email) emailsInmobiliarias.add(i.email); });
+      more = (data?.length || 0) === batch;
+      offset += batch;
+    }
+  }
 
   // Obtener facturas de comisiones externas (con URL)
   const tipoDocFactura = await getTipoDocumentoFactura();
