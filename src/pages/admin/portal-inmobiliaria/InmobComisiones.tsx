@@ -117,10 +117,10 @@ function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded }: { 
     setUploading(true);
     try {
       const path = `facturas-comision/${cuentaId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("documentos-generales").upload(path, file);
+      const { error: uploadError } = await supabase.storage.from("documentos").upload(path, file);
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage.from("documentos-generales").getPublicUrl(path);
+      const { data: { publicUrl } } = supabase.storage.from("documentos").getPublicUrl(path);
 
       const { error: insertError } = await (supabase as any).from("documentos").insert({
         id_cuenta_cobranza: cuentaId,
