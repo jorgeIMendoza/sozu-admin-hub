@@ -402,10 +402,10 @@ export default function InmobAgentes() {
     return m;
   }, [allOfertas, cuentasMap]);
 
-  const { data: comisionistasByEmail = new Map<string, number>() } = useQuery({
+  const { data: comisionistasResult = { byEmail: new Map<string, number>(), byCuenta: new Map<number, number>() } } = useQuery({
     queryKey: ["inmob-agentes-comisionistas", allCuentaIds],
     queryFn: async () => {
-      if (!allCuentaIds.length) return new Map<string, number>();
+      if (!allCuentaIds.length) return { byEmail: new Map<string, number>(), byCuenta: new Map<number, number>() };
       const allCom: any[] = [];
       for (let i = 0; i < allCuentaIds.length; i += 200) {
         const batch = allCuentaIds.slice(i, i + 200);
@@ -416,25 +416,26 @@ export default function InmobAgentes() {
           .eq("activo", true);
         if (data) allCom.push(...data);
       }
-      // Build precio map
       const precioMap = new Map<number, number>();
       cuentasMap.forEach((c: any) => { precioMap.set(c.id, Number(c.precio_final) || 0); });
-      // Sum commission per agent (creator of the offer), not per comisionista email
-      const map = new Map<string, number>();
+      const byEmail = new Map<string, number>();
+      const byCuenta = new Map<number, number>();
       allCom.forEach((c: any) => {
         const precio = precioMap.get(c.id_cuenta_cobranza) || 0;
         const monto = (Number(c.porcentaje_comision) || 0) / 100 * precio;
-        // Attribute to the agent who created the offer for this cuenta
         const creatorEmail = cuentaToCreator.get(c.id_cuenta_cobranza) || "";
         if (creatorEmail) {
-          map.set(creatorEmail, (map.get(creatorEmail) || 0) + monto);
+          byEmail.set(creatorEmail, (byEmail.get(creatorEmail) || 0) + monto);
         }
+        byCuenta.set(c.id_cuenta_cobranza, (byCuenta.get(c.id_cuenta_cobranza) || 0) + monto);
       });
-      return map;
+      return { byEmail, byCuenta };
     },
     enabled: allCuentaIds.length > 0,
     staleTime: 3 * 60_000,
   });
+  const comisionistasByEmail = comisionistasResult.byEmail;
+  const comisionByCuenta = comisionistasResult.byCuenta;
 
   // ───── Stage classification (same logic as Dashboard) ─────
   const classifyOffer = (o: any) => {
