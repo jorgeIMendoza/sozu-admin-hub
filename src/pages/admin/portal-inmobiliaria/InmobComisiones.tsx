@@ -733,15 +733,14 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     .eq("id_tipo_documento", 46)
     .eq("activo", true);
 
-  // Match facturas by email OR by cuenta_cobranza alone (uploads from MisVentas don't always set numero)
+  // Match any tipo 46 factura for this cuenta (uploaded from portal or admin)
   const facturaSet = new Set(
     (facturasData || [])
-      .filter((f: any) => f.numero === inmobEmail || !f.numero)
       .map((f: any) => f.id_cuenta_cobranza)
   );
   const facturaUrlMap = new Map<number, string>();
   (facturasData || [])
-    .filter((f: any) => (f.numero === inmobEmail || !f.numero) && (f.url_documento || f.url))
+    .filter((f: any) => f.url_documento || f.url)
     .forEach((f: any) => {
       facturaUrlMap.set(f.id_cuenta_cobranza, f.url_documento || f.url);
     });
