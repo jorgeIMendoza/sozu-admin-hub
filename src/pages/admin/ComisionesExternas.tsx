@@ -397,7 +397,7 @@ export default function ComisionesExternas() {
 
   // Mutación para aprobar comisionista
   const aprobarMutation = useMutation({
-    mutationFn: async ({ email, idCuenta }: { email: string; idCuenta: number }) => {
+    mutationFn: async ({ email, idCuenta, montoComision, nombreComisionista }: { email: string; idCuenta: number; montoComision?: number; nombreComisionista?: string }) => {
       const { error } = await supabase
         .from("comisionistas")
         .update({ aprobada: true })
@@ -406,7 +406,7 @@ export default function ComisionesExternas() {
         .eq("activo", true);
       
       if (error) throw error;
-      return { email, idCuenta };
+      return { email, idCuenta, montoComision, nombreComisionista };
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ["comisiones-externas"] });
@@ -416,10 +416,43 @@ export default function ComisionesExternas() {
         id_cuenta_cobranza: data.idCuenta,
         tipo: 'agente_externo'
       }, 'aprobar_comision_externa');
+
+      // Enviar correo de notificación al comisionista externo
+      try {
+        const montoFormateado = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(data.montoComision || 0);
+        
+        // Obtener emails de administradores de proyecto (rol_id = 2)
+        const { data: adminsProyecto } = await supabase
+          .from('usuarios')
+          .select('email')
+          .eq('rol_id', 2)
+          .eq('activo', true);
+        
+        const ccEmails = adminsProyecto?.map(a => a.email).join(',') || '';
+
+        await supabase.functions.invoke('enviar-notificacion', {
+          body: {
+            tipo: 'email',
+            from: 'Notificaciones Sozu <notificaciones@sozu.com>',
+            email: data.email,
+            cc: ccEmails,
+            asunto: `Comisión Aprobada - Cuenta ${formatCuentaCobranzaId(data.idCuenta)}`,
+            mensaje: {
+              nombre: data.nombreComisionista || data.email,
+              actividad: 'Comisión de venta aprobada',
+              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${formatCuentaCobranzaId(data.idCuenta)}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado}</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y cargar su factura correspondiente al monto aprobado.</td></tr>`,
+            },
+            templateId: 36978552,
+          },
+        });
+        console.log(`[ComisionesExternas] Notificación de aprobación enviada a ${data.email}`);
+      } catch (notifError) {
+        console.error('[ComisionesExternas] Error enviando notificación:', notifError);
+      }
       
       toast({
         title: "Comisión aprobada",
-        description: "La comisión ha sido aprobada. Ahora puede subir la factura."
+        description: "La comisión ha sido aprobada y se envió notificación al comisionista."
       });
     },
     onError: (error) => {

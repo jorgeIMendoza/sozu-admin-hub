@@ -159,11 +159,26 @@ async function fetchAllComisionistas() {
         };
       }).filter((com: any) => {
         if (com.esExterno) {
-          // Solo incluir si tiene factura cargada
+          // Solo incluir externos si tienen factura cargada
           const facturaKey = `${com.email_usuario}_${com.id_cuenta_cobranza}`;
           return facturasExternasMap.has(facturaKey);
         }
-        // Si no es agente externo, incluir normalmente
+        // Para internos: verificar que TODOS los externos de esa cuenta ya tengan factura
+        // Si hay algún externo sin factura en la misma cuenta, no mostrar la cuenta
+        const externosDeEstaCuenta = data.filter((other: any) => {
+          const otherEsExterno = emailsAgentesInmobiliarios.has(other.email_usuario) || 
+                                  emailsInmobiliarias.has(other.email_usuario);
+          return otherEsExterno && other.id_cuenta_cobranza === com.id_cuenta_cobranza;
+        });
+        // Si hay externos en esta cuenta, verificar que todos tengan factura
+        if (externosDeEstaCuenta.length > 0) {
+          const todosExternosConFactura = externosDeEstaCuenta.every((ext: any) => {
+            const facturaKey = `${ext.email_usuario}_${ext.id_cuenta_cobranza}`;
+            return facturasExternasMap.has(facturaKey);
+          });
+          return todosExternosConFactura;
+        }
+        // Si no hay externos en esta cuenta, incluir normalmente
         return true;
       });
 
