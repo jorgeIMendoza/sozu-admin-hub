@@ -125,7 +125,7 @@ function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded }: { 
       const { error: insertError } = await (supabase as any).from("documentos").insert({
         id_cuenta_cobranza: cuentaId,
         id_tipo_documento: 46,
-        url_documento: publicUrl,
+        url: publicUrl,
         id_persona: personaId,
         numero: inmobEmail,
         activo: true,
