@@ -441,9 +441,8 @@ export default function ComisionesExternas() {
             asunto: 'Comisión de venta aprobada',
             mensaje: {
               nombre: data.nombreComisionista || data.email,
-              actividad: 'Comisión de venta aprobada',
               asunto: 'Comisión de venta aprobada',
-              detalles: `<tr><td class='label'>Departamento:</td><td class='value'>${deptoLabel}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado} + IVA</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y adjuntar factura en plataforma.</td></tr>`,
+              texto: `La comisión de venta para el departamento ${deptoLabel} ha sido aprobada, el monto es ${montoFormateado} + IVA, favor de generar y adjuntar factura en plataforma.`,
             },
             templateId: 36978552,
           },

@@ -238,8 +238,8 @@ Deno.serve(async (req) => {
             asunto: `Factura Timbrada de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
             mensaje: {
               nombre: propietarioNombre,
-              actividad: 'Factura de comisión de venta timbrada',
-              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${id_cuenta_cobranza}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>$${montoComision.toFixed(2)} MXN</td></tr><tr><td class='label'>Estado:</td><td class='value'>Timbrada</td></tr>`,
+              asunto: `Factura Timbrada de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
+              texto: `La factura de comisión de venta para la cuenta ${id_cuenta_cobranza} ha sido timbrada exitosamente. Monto: $${montoComision.toFixed(2)} MXN.`,
             },
             templateId: 36978552,
           }),

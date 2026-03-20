@@ -295,8 +295,8 @@ Deno.serve(async (req) => {
             asunto: `Factura Draft de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
             mensaje: {
               nombre: propietario.nombre_legal,
-              actividad: 'Generación de factura de comisión de venta (Draft)',
-              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${id_cuenta_cobranza}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>$${montoComision.toFixed(2)} MXN</td></tr><tr><td class='label'>Porcentaje:</td><td class='value'>${porcentajeComision}%</td></tr><tr><td class='label'>Estado:</td><td class='value'>Draft (pendiente de timbrado)</td></tr>`,
+              asunto: `Factura Draft de Comisión de Venta - Cuenta ${id_cuenta_cobranza}`,
+              texto: `Se ha generado una factura draft de comisión de venta para la cuenta ${id_cuenta_cobranza}. Monto: $${montoComision.toFixed(2)} MXN (${porcentajeComision}%). Estado: Draft (pendiente de timbrado).`,
             },
             templateId: 36978552,
           }),
