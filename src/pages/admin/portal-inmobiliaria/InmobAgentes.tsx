@@ -390,6 +390,18 @@ export default function InmobAgentes() {
     return ids;
   }, [cuentasMap]);
 
+  // Build reverse map: cuentaId → email_creador (agent who made the offer)
+  const cuentaToCreator = useMemo(() => {
+    const m = new Map<number, string>();
+    allOfertas.forEach((o: any) => {
+      const cuenta = cuentasMap.get(o.id);
+      if (cuenta?.id) {
+        m.set(cuenta.id, (o.email_creador || "").toLowerCase());
+      }
+    });
+    return m;
+  }, [allOfertas, cuentasMap]);
+
   const { data: comisionistasByEmail = new Map<string, number>() } = useQuery({
     queryKey: ["inmob-agentes-comisionistas", allCuentaIds],
     queryFn: async () => {
@@ -407,13 +419,16 @@ export default function InmobAgentes() {
       // Build precio map
       const precioMap = new Map<number, number>();
       cuentasMap.forEach((c: any) => { precioMap.set(c.id, Number(c.precio_final) || 0); });
-      // Sum commission per email
+      // Sum commission per agent (creator of the offer), not per comisionista email
       const map = new Map<string, number>();
       allCom.forEach((c: any) => {
-        const email = (c.email_usuario || "").toLowerCase();
         const precio = precioMap.get(c.id_cuenta_cobranza) || 0;
         const monto = (Number(c.porcentaje_comision) || 0) / 100 * precio;
-        map.set(email, (map.get(email) || 0) + monto);
+        // Attribute to the agent who created the offer for this cuenta
+        const creatorEmail = cuentaToCreator.get(c.id_cuenta_cobranza) || "";
+        if (creatorEmail) {
+          map.set(creatorEmail, (map.get(creatorEmail) || 0) + monto);
+        }
       });
       return map;
     },
