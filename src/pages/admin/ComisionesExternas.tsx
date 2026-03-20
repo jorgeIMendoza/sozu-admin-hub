@@ -417,10 +417,10 @@ export default function ComisionesExternas() {
         tipo: 'agente_externo'
       }, 'aprobar_comision_externa');
 
+      const montoFormateado = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(data.montoComision || 0);
+
       // Enviar correo de notificación al comisionista externo
       try {
-        const montoFormateado = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(data.montoComision || 0);
-        
         // Obtener emails de administradores de proyecto (rol_id = 2)
         const { data: adminsProyecto } = await supabase
           .from('usuarios')
@@ -440,7 +440,7 @@ export default function ComisionesExternas() {
             mensaje: {
               nombre: data.nombreComisionista || data.email,
               actividad: 'Comisión de venta aprobada',
-              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${formatCuentaCobranzaId(data.idCuenta)}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado}</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y cargar su factura correspondiente al monto aprobado.</td></tr>`,
+              detalles: `<tr><td class='label'>Cuenta:</td><td class='value'>${formatCuentaCobranzaId(data.idCuenta)}</td></tr><tr><td class='label'>Monto Comisión:</td><td class='value'>${montoFormateado} + IVA</td></tr><tr><td class='label'>Acción requerida:</td><td class='value'>Favor de generar y cargar su factura correspondiente al monto aprobado.</td></tr>`,
             },
             templateId: 36978552,
           },
@@ -452,7 +452,7 @@ export default function ComisionesExternas() {
       
       toast({
         title: "Comisión aprobada",
-        description: "La comisión ha sido aprobada y se envió notificación al comisionista."
+        description: `Notificación enviada a ${data.email} por ${montoFormateado} + IVA.`
       });
     },
     onError: (error) => {
@@ -847,7 +847,10 @@ export default function ComisionesExternas() {
                                     </Badge>
                                   </TableCell>
                                   <TableCell>{com.porcentaje_comision?.toFixed(4)}%</TableCell>
-                                  <TableCell>{formatMonto(com.montoComision)}</TableCell>
+                                  <TableCell>
+                                    {formatMonto(com.montoComision)}
+                                    <Badge variant="outline" className="ml-1 text-[10px] px-1 py-0 bg-blue-50 text-blue-600 border-blue-200">+ IVA</Badge>
+                                  </TableCell>
                                   <TableCell>
                                     {com.pagada ? (
                                       <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Pagada</Badge>
