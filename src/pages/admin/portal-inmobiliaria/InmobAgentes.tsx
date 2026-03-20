@@ -442,7 +442,7 @@ export default function InmobAgentes() {
   };
 
   // Classify and deduplicate ventas (cierre stage) per agent
-  const { ofertasByAgent, ingresoByAgent } = useMemo(() => {
+  const { ofertasByAgent, ingresoByAgent, comisionByAgent } = useMemo(() => {
     const ofMap = new Map<string, { total: number; vendidas: number }>();
     // Classify all offers
     const classified = allOfertas.map((o: any) => ({ ...o, stage: classifyOffer(o) }));
@@ -476,13 +476,33 @@ export default function InmobAgentes() {
       ofMap.set(emailKey, cur);
     });
 
-    // Ingreso = commission per agent from comisionistas
+    // Ingreso = sum of precio_final from cuentas for cierre offers
     const ingMap = new Map<string, number>();
-    comisionistasByEmail.forEach((monto, email) => {
-      ingMap.set(email, monto);
+    // Comisión = commission per agent from comisionistas
+    const comMap = new Map<string, number>();
+
+    // Build ingreso from cierre offers (deduped)
+    seenByAgent.forEach((_, emailKey) => {
+      const agentCierres = cierreOffers.filter((o: any) => (o.email_creador || "").toLowerCase() === emailKey);
+      const seenKeys = new Set<string>();
+      let totalIngreso = 0;
+      agentCierres.forEach((o: any) => {
+        const k = o.id_producto
+          ? `prod-${o.id_producto}-${o.id_propiedad || "none"}`
+          : `prop-${o.id_propiedad}`;
+        if (seenKeys.has(k)) return;
+        seenKeys.add(k);
+        const cuenta = cuentasMap.get(o.id);
+        totalIngreso += Number(cuenta?.precio_final) || 0;
+      });
+      ingMap.set(emailKey, totalIngreso);
     });
 
-    return { ofertasByAgent: ofMap, ingresoByAgent: ingMap };
+    comisionistasByEmail.forEach((monto, email) => {
+      comMap.set(email, monto);
+    });
+
+    return { ofertasByAgent: ofMap, ingresoByAgent: ingMap, comisionByAgent: comMap };
   }, [allOfertas, propMap, cuentasMap, comisionistasByEmail]);
 
   const ingresoLoading = false; // ingreso is now computed inline
@@ -806,6 +826,7 @@ export default function InmobAgentes() {
             ofertasByAgent={ofertasByAgent}
             prospectosByAgent={prospectosByAgent}
             ingresoByAgent={ingresoByAgent}
+            comisionByAgent={comisionByAgent}
             getInitials={getInitials}
             onEdit={openEditDialog}
             onDeactivate={handleDeactivate}
@@ -824,6 +845,7 @@ export default function InmobAgentes() {
             ofertasByAgent={ofertasByAgent}
             prospectosByAgent={prospectosByAgent}
             ingresoByAgent={ingresoByAgent}
+            comisionByAgent={comisionByAgent}
             getInitials={getInitials}
             onReactivate={handleReactivate}
             onEdit={openEditDialog}
@@ -890,12 +912,12 @@ export default function InmobAgentes() {
 
 /* ───── Agent Table ───── */
 function AgentTable({
-  agents, isLoading, search, ofertasByAgent, prospectosByAgent, ingresoByAgent,
+  agents, isLoading, search, ofertasByAgent, prospectosByAgent, ingresoByAgent, comisionByAgent,
   getInitials, onEdit, onDeactivate, onReactivate, onResetPassword, onProjectAccess,
   navigate, isActiveTab,
 }: {
   agents: any[]; isLoading: boolean; search: string;
-  ofertasByAgent: Map<string, any>; prospectosByAgent: Map<string, number>; ingresoByAgent: Map<string, number>;
+  ofertasByAgent: Map<string, any>; prospectosByAgent: Map<string, number>; ingresoByAgent: Map<string, number>; comisionByAgent: Map<string, number>;
   getInitials: (name: string) => string;
   onEdit: (a: any) => void; onDeactivate?: (a: any) => void; onReactivate?: (a: any) => void;
   onResetPassword: (a: any) => void; onProjectAccess: (a: any) => void;
@@ -929,6 +951,7 @@ function AgentTable({
                 <TableHead className="text-center">Ofertas</TableHead>
                 <TableHead className="text-center">Ventas</TableHead>
                 <TableHead className="text-right">Ingreso</TableHead>
+                <TableHead className="text-right">Comisión</TableHead>
                 <TableHead className="text-center">
                   <TooltipProvider>
                     <Tooltip>
@@ -953,7 +976,7 @@ function AgentTable({
             <TableBody>
               {agents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     {search ? "Sin resultados" : isActiveTab ? "No hay agentes activos" : "No hay agentes desactivados"}
                   </TableCell>
                 </TableRow>
@@ -963,6 +986,7 @@ function AgentTable({
                   const stats = ofertasByAgent.get(emailKey) || { total: 0, vendidas: 0 };
                   const prospectos = prospectosByAgent.get(emailKey) || 0;
                   const ingreso = ingresoByAgent.get(emailKey) || 0;
+                  const comision = comisionByAgent.get(emailKey) || 0;
                   const conversion = stats.total > 0 ? ((stats.vendidas / stats.total) * 100) : 0;
                   return (
                     <TableRow key={agent.email}>
@@ -1001,6 +1025,7 @@ function AgentTable({
                       <TableCell className="text-center">{stats.total}</TableCell>
                       <TableCell className="text-center font-semibold">{stats.vendidas}</TableCell>
                       <TableCell className="text-right font-medium">{fmtCurrency(ingreso)}</TableCell>
+                      <TableCell className="text-right font-medium">{fmtCurrency(comision)}</TableCell>
                       <TableCell className="text-center">
                         <Badge
                           variant={conversion > conversionGlobal * 1.1 ? "default" : conversion < conversionGlobal * 0.8 ? "destructive" : "secondary"}
