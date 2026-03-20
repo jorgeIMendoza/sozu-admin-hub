@@ -951,9 +951,20 @@ export default function InmobDashboard() {
     return map;
   }, [allComisiones, cuentasMap, isSozu, inmobUserEmailSet]);
 
-  // Recompute comisionPromAgente with commission-to-inmobiliaria source of truth
-  const comisionPromAgente = totalAgentes > 0
-    ? Array.from(comisionByCuentaId.values()).reduce((s: number, v: number) => s + v, 0) / totalAgentes
+  // Recompute comisionPromAgente: divide by agents who actually sold (not all agents)
+  const agentsWithSales = useMemo(() => {
+    const sellers = new Set<string>();
+    dedupedAdvancedOfertas
+      .filter((o: any) => o.stage === "cierre")
+      .forEach((o: any) => {
+        const email = (o.email_creador || "").toLowerCase();
+        if (agentEmailSetLower.has(email)) sellers.add(email);
+      });
+    return sellers.size;
+  }, [dedupedAdvancedOfertas, agentEmailSetLower]);
+
+  const comisionPromAgente = agentsWithSales > 0
+    ? Array.from(comisionByCuentaId.values()).reduce((s: number, v: number) => s + v, 0) / agentsWithSales
     : 0;
 
   // Agent performance — includes both agents AND internal non-agent users
