@@ -476,15 +476,16 @@ export default function InmobAgentes() {
       const cur = ofMap.get(emailKey) || { total: 0, vendidas: 0 };
       cur.vendidas++;
       ofMap.set(emailKey, cur);
+    });
 
-      // Sum ingreso
-      const cuenta = cuentasMap.get(o.id);
-      const precio = Number(cuenta?.precio_final) || 0;
-      ingMap.set(emailKey, (ingMap.get(emailKey) || 0) + precio);
+    // Ingreso = commission per agent from comisionistas
+    const ingMap = new Map<string, number>();
+    comisionistasByEmail.forEach((monto, email) => {
+      ingMap.set(email, monto);
     });
 
     return { ofertasByAgent: ofMap, ingresoByAgent: ingMap };
-  }, [allOfertas, propMap, cuentasMap]);
+  }, [allOfertas, propMap, cuentasMap, comisionistasByEmail]);
 
   const ingresoLoading = false; // ingreso is now computed inline
 
