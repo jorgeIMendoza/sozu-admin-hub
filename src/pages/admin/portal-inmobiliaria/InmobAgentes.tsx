@@ -912,12 +912,12 @@ export default function InmobAgentes() {
 
 /* ───── Agent Table ───── */
 function AgentTable({
-  agents, isLoading, search, ofertasByAgent, prospectosByAgent, ingresoByAgent,
+  agents, isLoading, search, ofertasByAgent, prospectosByAgent, ingresoByAgent, comisionByAgent,
   getInitials, onEdit, onDeactivate, onReactivate, onResetPassword, onProjectAccess,
   navigate, isActiveTab,
 }: {
   agents: any[]; isLoading: boolean; search: string;
-  ofertasByAgent: Map<string, any>; prospectosByAgent: Map<string, number>; ingresoByAgent: Map<string, number>;
+  ofertasByAgent: Map<string, any>; prospectosByAgent: Map<string, number>; ingresoByAgent: Map<string, number>; comisionByAgent: Map<string, number>;
   getInitials: (name: string) => string;
   onEdit: (a: any) => void; onDeactivate?: (a: any) => void; onReactivate?: (a: any) => void;
   onResetPassword: (a: any) => void; onProjectAccess: (a: any) => void;
