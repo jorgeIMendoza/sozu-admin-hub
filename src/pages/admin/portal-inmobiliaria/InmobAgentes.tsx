@@ -986,6 +986,7 @@ function AgentTable({
                   const stats = ofertasByAgent.get(emailKey) || { total: 0, vendidas: 0 };
                   const prospectos = prospectosByAgent.get(emailKey) || 0;
                   const ingreso = ingresoByAgent.get(emailKey) || 0;
+                  const comision = comisionByAgent.get(emailKey) || 0;
                   const conversion = stats.total > 0 ? ((stats.vendidas / stats.total) * 100) : 0;
                   return (
                     <TableRow key={agent.email}>
