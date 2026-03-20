@@ -311,13 +311,13 @@ export default function InmobComisiones() {
 
       {/* KPI Cards */}
       <div className={`grid gap-4 ${isSozu ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-5'}`}>
-        <KPICard icon={DollarSign} iconColor="text-emerald-600 bg-emerald-100" label="Total generada" value={fmt(kpis.totalGenerada)} />
-        <KPICard icon={CheckCircle2} iconColor="text-emerald-600 bg-emerald-100" label="Pagada" value={fmt(kpis.pagadas)} />
-        <KPICard icon={Clock} iconColor="text-amber-600 bg-amber-100" label="Pendiente" value={fmt(kpis.pendientes)} />
+        <KPICard icon={DollarSign} iconColor="text-emerald-600 bg-emerald-100" label="Total generada" value={fmt2(kpis.totalGenerada)} />
+        <KPICard icon={CheckCircle2} iconColor="text-emerald-600 bg-emerald-100" label="Pagada" value={fmt2(kpis.pagadas)} />
+        <KPICard icon={Clock} iconColor="text-amber-600 bg-amber-100" label="Pendiente" value={fmt2(kpis.pendientes)} />
         {!isSozu && (
-          <KPICard icon={Eye} iconColor="text-blue-600 bg-blue-100" label="En revisión" value={fmt(kpis.enRevision)} />
+          <KPICard icon={Eye} iconColor="text-blue-600 bg-blue-100" label="En revisión" value={fmt2(kpis.enRevision)} />
         )}
-        <KPICard icon={CalendarCheck} iconColor="text-violet-600 bg-violet-100" label="Programada" value={fmt(kpis.programadas)} />
+        <KPICard icon={CalendarCheck} iconColor="text-violet-600 bg-violet-100" label="Programada" value={fmt2(kpis.programadas)} />
       </div>
 
       {/* Search + Filters */}
