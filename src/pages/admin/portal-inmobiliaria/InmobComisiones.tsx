@@ -176,7 +176,7 @@ export default function InmobComisiones() {
   const { personaId } = useInmobiliariaPersonaId();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([getCurrentMonthKey()]);
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [estatusFilter, setEstatusFilter] = useState<string>("todos");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
