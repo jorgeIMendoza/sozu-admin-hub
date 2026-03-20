@@ -948,6 +948,8 @@ export default function InmobAgentes() {
             ingresoByAgent={ingresoByAgent}
             comisionByAgent={comisionByAgent}
             commissionDetails={commissionDetailsByAgent}
+            propDetailMap={propDetailMap}
+            productDetailMap={productDetailMap}
             getInitials={getInitials}
             onReactivate={handleReactivate}
             onEdit={openEditDialog}
