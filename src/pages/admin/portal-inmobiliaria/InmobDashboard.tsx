@@ -336,7 +336,8 @@ export default function InmobDashboard() {
   const { data: ofertas = [], isLoading: ofertasLoading } = useQuery({
     queryKey: ["inmob-dash-ofertas", isSozu ? sozuPropertyIds : agentEmails, selectedMonths, isSozu, inmobAgentEmails.size],
     queryFn: async () => {
-      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+      const isAllMonths = selectedMonths.length === 0;
+      const ranges = isAllMonths ? [null] : (dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }]);
 
       if (isSozu) {
         if (!sozuPropertyIds.length) return [];
@@ -344,13 +345,15 @@ export default function InmobDashboard() {
         for (const range of ranges) {
           for (let i = 0; i < sozuPropertyIds.length; i += 200) {
             const batch = sozuPropertyIds.slice(i, i + 200);
-            const { data, error } = await supabase
+            let q = supabase
               .from("ofertas")
               .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
               .in("id_propiedad", batch)
-              .eq("activo", true)
-              .gte("fecha_generacion", range.start)
-              .lte("fecha_generacion", range.end) as any;
+              .eq("activo", true);
+            if (range) {
+              q = q.gte("fecha_generacion", range.start).lte("fecha_generacion", range.end);
+            }
+            const { data, error } = await q as any;
             if (error) console.error("[InmobDashboard] ofertas query error:", error);
             if (data) allOfertas.push(...data);
           }
@@ -364,13 +367,15 @@ export default function InmobDashboard() {
       if (!agentEmails.length) return [];
       const allOfertas: any[] = [];
       for (const range of ranges) {
-        const { data, error } = await supabase
+        let q = supabase
           .from("ofertas")
           .select("id, email_creador, fecha_generacion, id_estatus_aprobacion, id_propiedad, id_esquema_pago_seleccionado, id_producto")
           .in("email_creador", agentEmails)
-          .eq("activo", true)
-          .gte("fecha_generacion", range.start)
-          .lte("fecha_generacion", range.end) as any;
+          .eq("activo", true);
+        if (range) {
+          q = q.gte("fecha_generacion", range.start).lte("fecha_generacion", range.end);
+        }
+        const { data, error } = await q as any;
         if (error) console.error("[InmobDashboard] ofertas query error:", error);
         if (data) allOfertas.push(...data);
       }
@@ -566,20 +571,23 @@ export default function InmobDashboard() {
     queryFn: async () => {
       if (!agentPersonaIds.length) return new Map<number, number>();
 
-      const ranges = dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }];
+      const isAllMonths = selectedMonths.length === 0;
+      const ranges = isAllMonths ? [null] : (dateRanges.length > 0 ? dateRanges : [{ start: monthStart, end: monthEnd }]);
       const uniqueProspectsByAgent = new Map<number, Set<number>>();
 
       for (const range of ranges) {
         for (let i = 0; i < agentPersonaIds.length; i += 200) {
           const batch = agentPersonaIds.slice(i, i + 200);
-          const { data } = await supabase
+          let q = supabase
             .from("entidades_relacionadas")
             .select("id_persona, id_persona_duena_lead")
             .in("id_persona_duena_lead", batch)
             .eq("id_tipo_entidad", 7)
-            .eq("activo", true)
-            .gte("fecha_creacion", range.start)
-            .lte("fecha_creacion", range.end) as any;
+            .eq("activo", true);
+          if (range) {
+            q = q.gte("fecha_creacion", range.start).lte("fecha_creacion", range.end);
+          }
+          const { data } = await q as any;
 
           (data || []).forEach((row: any) => {
             const ownerPersonaId = Number(row.id_persona_duena_lead);
@@ -973,7 +981,7 @@ export default function InmobDashboard() {
       });
       const comision = Array.from(userCuentaIds).reduce((s, cuentaId) => s + (comisionByCuentaId.get(cuentaId) || 0), 0);
 
-      const ingreso = userCierres.reduce((s: number, o: any) => { const cuenta = cuentasMap.get(o.id); return s + (Number(cuenta?.precio_final) || 0); }, 0);
+      const ingreso = Array.from(userCuentaIds).reduce((s, cuentaId) => s + (comisionByCuentaId.get(cuentaId) || 0), 0);
       const conv = userOfertas.length > 0 ? ((userCierres.length / userOfertas.length) * 100) : 0;
 
       // Prospectos: from per-agent map (date-filtered)

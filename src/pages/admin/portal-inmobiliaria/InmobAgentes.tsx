@@ -383,6 +383,44 @@ export default function InmobAgentes() {
     staleTime: 3 * 60_000,
   });
 
+  // Fetch comisionistas to compute commission per agent
+  const allCuentaIds = useMemo(() => {
+    const ids: number[] = [];
+    cuentasMap.forEach((c: any) => { if (c?.id) ids.push(c.id); });
+    return ids;
+  }, [cuentasMap]);
+
+  const { data: comisionistasByEmail = new Map<string, number>() } = useQuery({
+    queryKey: ["inmob-agentes-comisionistas", allCuentaIds],
+    queryFn: async () => {
+      if (!allCuentaIds.length) return new Map<string, number>();
+      const allCom: any[] = [];
+      for (let i = 0; i < allCuentaIds.length; i += 200) {
+        const batch = allCuentaIds.slice(i, i + 200);
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("email_usuario, porcentaje_comision, id_cuenta_cobranza")
+          .in("id_cuenta_cobranza", batch)
+          .eq("activo", true);
+        if (data) allCom.push(...data);
+      }
+      // Build precio map
+      const precioMap = new Map<number, number>();
+      cuentasMap.forEach((c: any) => { precioMap.set(c.id, Number(c.precio_final) || 0); });
+      // Sum commission per email
+      const map = new Map<string, number>();
+      allCom.forEach((c: any) => {
+        const email = (c.email_usuario || "").toLowerCase();
+        const precio = precioMap.get(c.id_cuenta_cobranza) || 0;
+        const monto = (Number(c.porcentaje_comision) || 0) / 100 * precio;
+        map.set(email, (map.get(email) || 0) + monto);
+      });
+      return map;
+    },
+    enabled: allCuentaIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
   // ───── Stage classification (same logic as Dashboard) ─────
   const classifyOffer = (o: any) => {
     const p = propMap.get(o.id_propiedad);
@@ -406,8 +444,6 @@ export default function InmobAgentes() {
   // Classify and deduplicate ventas (cierre stage) per agent
   const { ofertasByAgent, ingresoByAgent } = useMemo(() => {
     const ofMap = new Map<string, { total: number; vendidas: number }>();
-    const ingMap = new Map<string, number>();
-
     // Classify all offers
     const classified = allOfertas.map((o: any) => ({ ...o, stage: classifyOffer(o) }));
 
@@ -438,15 +474,16 @@ export default function InmobAgentes() {
       const cur = ofMap.get(emailKey) || { total: 0, vendidas: 0 };
       cur.vendidas++;
       ofMap.set(emailKey, cur);
+    });
 
-      // Sum ingreso
-      const cuenta = cuentasMap.get(o.id);
-      const precio = Number(cuenta?.precio_final) || 0;
-      ingMap.set(emailKey, (ingMap.get(emailKey) || 0) + precio);
+    // Ingreso = commission per agent from comisionistas
+    const ingMap = new Map<string, number>();
+    comisionistasByEmail.forEach((monto, email) => {
+      ingMap.set(email, monto);
     });
 
     return { ofertasByAgent: ofMap, ingresoByAgent: ingMap };
-  }, [allOfertas, propMap, cuentasMap]);
+  }, [allOfertas, propMap, cuentasMap, comisionistasByEmail]);
 
   const ingresoLoading = false; // ingreso is now computed inline
 
