@@ -573,17 +573,58 @@ export default function InmobAgentes() {
     queryFn: async () => {
       const m = new Map<number, { numero: string; proyecto: string }>();
       if (!detailPropIds.length) return m;
+      const props: any[] = [];
       for (let i = 0; i < detailPropIds.length; i += 200) {
         const batch = detailPropIds.slice(i, i + 200);
         const { data } = await supabase
           .from("propiedades")
-          .select("id, numero_propiedad, edificios_modelos(edificios(proyectos(nombre)))")
+          .select("id, numero_propiedad, id_edificio_modelo")
           .in("id", batch) as any;
-        (data || []).forEach((p: any) => {
-          const proyecto = p.edificios_modelos?.edificios?.proyectos?.nombre || "";
-          m.set(p.id, { numero: String(p.numero_propiedad || ""), proyecto });
-        });
+        if (data) props.push(...data);
       }
+
+      const emIds = [...new Set(props.map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
+      const emToEdificio = new Map<number, number>();
+      for (let i = 0; i < emIds.length; i += 200) {
+        const batch = emIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("edificios_modelos")
+          .select("id, id_edificio")
+          .in("id", batch) as any;
+        (data || []).forEach((em: any) => emToEdificio.set(em.id, em.id_edificio));
+      }
+
+      const edificioIds = [...new Set([...emToEdificio.values()].filter(Boolean))] as number[];
+      const edificioToProyecto = new Map<number, number>();
+      for (let i = 0; i < edificioIds.length; i += 200) {
+        const batch = edificioIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("edificios")
+          .select("id, id_proyecto")
+          .in("id", batch) as any;
+        (data || []).forEach((ed: any) => edificioToProyecto.set(ed.id, ed.id_proyecto));
+      }
+
+      const proyectoIds = [...new Set([...edificioToProyecto.values()].filter(Boolean))] as number[];
+      const proyectoMap = new Map<number, string>();
+      for (let i = 0; i < proyectoIds.length; i += 200) {
+        const batch = proyectoIds.slice(i, i + 200);
+        const { data } = await supabase
+          .from("proyectos")
+          .select("id, nombre")
+          .in("id", batch) as any;
+        (data || []).forEach((proyecto: any) => proyectoMap.set(proyecto.id, proyecto.nombre || ""));
+      }
+
+      props.forEach((p: any) => {
+        const edificioId = emToEdificio.get(p.id_edificio_modelo);
+        const proyectoId = edificioId ? edificioToProyecto.get(edificioId) : undefined;
+        m.set(p.id, {
+          numero: String(p.numero_propiedad || ""),
+          proyecto: proyectoId ? (proyectoMap.get(proyectoId) || "") : "",
+        });
+      });
+
       return m;
     },
     enabled: detailPropIds.length > 0,
@@ -1200,7 +1241,7 @@ function AgentTable({
                                 const productName = d.productoId ? productDetailMap.get(d.productoId) : undefined;
                                 const propLabel = [propInfo?.proyecto, propInfo?.numero].filter(Boolean).join(" ");
                                 const label = d.isProduct
-                                  ? `${productName || "Producto"} - ${propLabel || "—"}`
+                                  ? [propLabel || "—", productName || "Producto"].filter(Boolean).join(" - ")
                                   : propLabel || "—";
                                 return (
                                 <div key={d.cuentaId} className="flex items-center justify-between text-sm rounded-lg border border-border bg-card px-4 py-2.5">

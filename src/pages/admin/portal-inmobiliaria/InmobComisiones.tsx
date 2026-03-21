@@ -679,7 +679,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
 
   const { data: cuentas } = await (supabase as any)
     .from("cuentas_cobranza")
-    .select("id, id_oferta, precio_final, activo")
+    .select("id, id_oferta, precio_final, activo, fecha_pago_comision, es_pagada_comision_venta")
     .in("id_oferta", ofertaIds)
     .is("id_cuenta_cobranza_padre", null);
 
@@ -781,7 +781,9 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     const proj = edif ? projMap.get(edif.id_proyecto) : null;
 
     let estatus: string;
-    let fechaPago: string | null = com.pagada ? (com.fecha_actualizacion || null) : null;
+    let fechaPago: string | null = com.pagada
+      ? (cuenta.fecha_pago_comision || com.fecha_actualizacion || null)
+      : null;
 
     if (com.pagada) {
       estatus = "Pagada";

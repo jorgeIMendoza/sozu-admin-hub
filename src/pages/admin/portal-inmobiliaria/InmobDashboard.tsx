@@ -1085,7 +1085,7 @@ export default function InmobDashboard() {
     queryKey: ["inmob-dash-area", isSozu ? sozuPropertyIds.length : agentEmails.join(","), isSozu, inmobAgentEmails.size],
     queryFn: async () => {
       let allCuentaIds: number[] = [];
-      const cuentaInfoMap = new Map<number, { precio_final: number; porcentaje_comision_venta: number; id_propiedad: number; fecha_creacion?: string; fecha_generacion?: string }>();
+      const cuentaInfoMap = new Map<number, { precio_final: number; porcentaje_comision_venta: number; id_propiedad: number; fecha_creacion?: string; fecha_generacion?: string; fecha_pago_comision?: string | null }>();
       const ofertaIdToCuentaId = new Map<number, number>();
 
       if (isSozu) {
@@ -1101,7 +1101,7 @@ export default function InmobDashboard() {
         const ofIds = ofertasRaw.map((o: any) => o.id);
         for (let i = 0; i < ofIds.length; i += 200) {
           const batch = ofIds.slice(i, i + 200);
-          const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, porcentaje_comision_venta, id_propiedad, fecha_creacion").in("id_oferta", batch).eq("activo", true);
+          const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, porcentaje_comision_venta, id_propiedad, fecha_creacion, fecha_pago_comision").in("id_oferta", batch).eq("activo", true);
           (data || []).forEach((c: any) => {
             allCuentaIds.push(c.id);
             ofertaIdToCuentaId.set(c.id_oferta, c.id);
@@ -1111,6 +1111,7 @@ export default function InmobDashboard() {
               id_propiedad: c.id_propiedad,
               fecha_creacion: c.fecha_creacion,
               fecha_generacion: ofIdToFechaGen.get(c.id_oferta),
+              fecha_pago_comision: c.fecha_pago_comision,
             });
           });
         }
@@ -1122,7 +1123,7 @@ export default function InmobDashboard() {
         const ofIds = (ofs || []).map((o: any) => o.id);
         for (let i = 0; i < ofIds.length; i += 200) {
           const batch = ofIds.slice(i, i + 200);
-          const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, porcentaje_comision_venta, id_propiedad, fecha_creacion").in("id_oferta", batch).eq("activo", true);
+          const { data } = await (supabase as any).from("cuentas_cobranza").select("id, id_oferta, precio_final, porcentaje_comision_venta, id_propiedad, fecha_creacion, fecha_pago_comision").in("id_oferta", batch).eq("activo", true);
           (data || []).forEach((c: any) => {
             allCuentaIds.push(c.id);
             ofertaIdToCuentaId.set(c.id_oferta, c.id);
@@ -1132,6 +1133,7 @@ export default function InmobDashboard() {
               id_propiedad: c.id_propiedad,
               fecha_creacion: c.fecha_creacion,
               fecha_generacion: ofIdToFechaGen.get(c.id_oferta),
+              fecha_pago_comision: c.fecha_pago_comision,
             });
           });
         }
@@ -1212,11 +1214,14 @@ export default function InmobDashboard() {
     });
 
     return areaWindow.map(({ label, start, end }) => {
-      // Cobrado: comisiones pagadas, placed by their payment date (fecha_actualizacion)
+        // Cobrado: comisiones pagadas, placed by their real payment date from cuenta_cobranza
       const real = comisionistas
-        .filter((c: any) => c.pagada === true && c.fecha_actualizacion && isRelevantComisionista(c))
+          .filter((c: any) => c.pagada === true && isRelevantComisionista(c))
         .filter((c: any) => {
-          const d = new Date(c.fecha_actualizacion);
+            const cuenta = cuentaInfoMap.get(Number(c.id_cuenta_cobranza));
+            const refDate = cuenta?.fecha_pago_comision || c.fecha_actualizacion;
+            if (!refDate) return false;
+            const d = new Date(refDate);
           return d >= start && d <= end;
         })
         .reduce((sum: number, c: any) => {
