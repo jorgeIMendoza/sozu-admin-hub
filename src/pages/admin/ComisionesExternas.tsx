@@ -546,15 +546,15 @@ export default function ComisionesExternas() {
       }
 
       const updatePayload: { pagada: boolean; url_evidencia_pago?: string } = { 
-        pagada: true
+        pagada: true,
       };
       if (publicUrl) {
         updatePayload.url_evidencia_pago = publicUrl;
       }
       
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from("comisionistas")
-        .update(updatePayload)
+        .update({ ...updatePayload, fecha_pago_comision: new Date().toISOString() })
         .eq("email_usuario", email)
         .eq("id_cuenta_cobranza", idCuenta)
         .eq("activo", true);

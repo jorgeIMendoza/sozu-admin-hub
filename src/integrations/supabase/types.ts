@@ -2640,6 +2640,7 @@ export type Database = {
           email_usuario: string
           fecha_actualizacion: string
           fecha_creacion: string
+          fecha_pago_comision: string | null
           id_cuenta_cobranza: number
           pagada: boolean
           porcentaje_comision: number
@@ -2651,6 +2652,7 @@ export type Database = {
           email_usuario: string
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_pago_comision?: string | null
           id_cuenta_cobranza: number
           pagada?: boolean
           porcentaje_comision: number
@@ -2662,6 +2664,7 @@ export type Database = {
           email_usuario?: string
           fecha_actualizacion?: string
           fecha_creacion?: string
+          fecha_pago_comision?: string | null
           id_cuenta_cobranza?: number
           pagada?: boolean
           porcentaje_comision?: number

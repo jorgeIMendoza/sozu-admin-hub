@@ -690,7 +690,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   // Get comisionistas for this inmobiliaria
   const { data: comisionistas } = await (supabase as any)
     .from("comisionistas")
-    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion")
+    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision")
     .in("id_cuenta_cobranza", cuentaIds)
     .eq("email_usuario", inmobEmail)
     .eq("activo", true);
@@ -782,7 +782,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
 
     let estatus: string;
     let fechaPago: string | null = com.pagada
-      ? (cuenta.fecha_pago_comision || com.fecha_actualizacion || null)
+      ? (com.fecha_pago_comision || com.fecha_actualizacion || null)
       : null;
 
     if (com.pagada) {

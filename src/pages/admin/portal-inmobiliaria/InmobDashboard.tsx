@@ -1146,7 +1146,7 @@ export default function InmobDashboard() {
         const batch = allCuentaIds.slice(i, i + 200);
         const { data } = await (supabase as any)
           .from("comisionistas")
-          .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, aprobada, pagada, fecha_actualizacion")
+          .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision")
           .in("id_cuenta_cobranza", batch)
           .eq("activo", true);
         if (data) comisionistas.push(...data);
@@ -1218,8 +1218,7 @@ export default function InmobDashboard() {
       const real = comisionistas
           .filter((c: any) => c.pagada === true && isRelevantComisionista(c))
         .filter((c: any) => {
-            const cuenta = cuentaInfoMap.get(Number(c.id_cuenta_cobranza));
-            const refDate = cuenta?.fecha_pago_comision || c.fecha_actualizacion;
+            const refDate = c.fecha_pago_comision || c.fecha_actualizacion;
             if (!refDate) return false;
             const d = new Date(refDate);
           return d >= start && d <= end;
