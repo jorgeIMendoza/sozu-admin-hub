@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +19,7 @@ interface Estacionamiento {
   proyecto_nombre: string;
   numero_propiedad: string;
   id_tipo: number | null;
+  es_incluido?: boolean;
 }
 
 interface EditEstacionamientoDialogProps {
@@ -38,6 +40,7 @@ export const EditEstacionamientoDialog = ({
     m2: estacionamiento?.m2 || 0,
     ubicacion: estacionamiento?.ubicacion || "",
     id_tipo: estacionamiento?.id_tipo || null,
+    es_incluido: estacionamiento?.es_incluido ?? true,
   }));
 
   // Query para obtener tipos de estacionamiento
@@ -63,6 +66,7 @@ export const EditEstacionamientoDialog = ({
         m2: estacionamiento.m2,
         ubicacion: estacionamiento.ubicacion,
         id_tipo: estacionamiento.id_tipo,
+        es_incluido: estacionamiento.es_incluido ?? true,
       });
     }
   }, [estacionamiento]);
@@ -80,6 +84,7 @@ export const EditEstacionamientoDialog = ({
       m2: 0,
       ubicacion: "",
       id_tipo: null,
+      es_incluido: true,
     });
   };
 
@@ -139,6 +144,15 @@ export const EditEstacionamientoDialog = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="es_incluido">Es incluido (con el departamento)</Label>
+            <Switch
+              id="es_incluido"
+              checked={formData.es_incluido}
+              onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
+            />
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
