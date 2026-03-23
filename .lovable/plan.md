@@ -1,52 +1,29 @@
 
-Objetivo: corregir el correo de aprobación de comisiones externas para que el template reciba el JSON correcto y renderice bien el subject y el mensaje.
 
-1. Ajustar `src/pages/admin/ComisionesExternas.tsx`
-- Cambiar el payload que hoy se manda a `enviar-notificacion` con `templateId: 36978552`.
-- Ese template no espera `mensaje.actividad` ni `mensaje.detalles`; espera el mismo formato usado en `enviar-aviso-bulk`:
-  - `mensaje.nombre`
-  - `mensaje.asunto`
-  - `mensaje.texto`
-- Por eso el correo sale “vacío” en la parte marcada.
+# Plan: Agregar toggle "Es incluido" en edición de bodegas + Corregir valor de escrituración
 
-2. Construir el mensaje correcto
-- Mantener el subject principal como:
-  - `Comisión de venta aprobada`
-- Enviar el cuerpo en `mensaje.texto` con el texto solicitado, por ejemplo:
-  - `La comisión de venta para el departamento Daiku 205 ha sido aprobada, el monto es 227,464.44 + IVA, favor de generar y adjuntar factura en plataforma.`
-- Seguir mostrando `+ IVA` también en la UI donde corresponda.
+## Contexto
+Todas las bodegas de Bottura tienen `es_incluido = true`, pero algunas (como la bodega 49) tienen su propia cuenta de cobranza con precio real. Se necesita poder editar este campo y que el cálculo de escrituración lo considere correctamente.
 
-3. Mantener compatibilidad con el helper actual
-- Conservar `tipo`, `from`, `email`, `cc`, `templateId`.
-- Dejar `asunto` top-level si el edge function lo usa para email/WhatsApp, pero asegurar que el template reciba además `mensaje.asunto` y `mensaje.texto`, que es lo que realmente renderiza.
+## Cambios
 
-4. Revisar otros usos incorrectos del mismo template 36978552
-- Hay otros envíos con el mismo patrón erróneo (`actividad/detalles`) en:
-  - `supabase/functions/generar-factura-comision-sozu/index.ts`
-  - `supabase/functions/timbrar-factura-comision-sozu/index.ts`
-- Los incluiría en el ajuste para evitar más correos rotos con ese mismo template.
+### 1. Agregar campo "Es incluido" al diálogo de edición de bodegas
+**Archivo**: `src/components/admin/EditBodegaDialog.tsx`
+- Agregar un Switch/Checkbox con label "Es incluido" al formulario
+- Incluir `es_incluido` en el `formData` del estado
+- Enviar el valor al guardar junto con los demás campos
 
-5. Validación esperada
-- El correo de comisión aprobada debe mostrar:
-  - Subject: `Comisión de venta aprobada`
-  - Saludo con nombre
-  - Mensaje legible dentro del bloque principal
-  - Sin filas HTML vacías
-- El contenido debe quedar consistente con cómo hoy funciona `enviar-aviso-bulk`, que ya usa correctamente este template.
+### 2. Actualizar la función `onSave` para incluir `es_incluido`
+**Archivo**: Componente padre que usa `EditBodegaDialog` (donde se define el `onSave`)
+- Asegurar que el update a Supabase incluya el campo `es_incluido`
 
-Detalles técnicos
-- Evidencia encontrada:
-  - Uso correcto del template `36978552` en `supabase/functions/enviar-aviso-bulk/index.ts`:
-    - `mensaje.nombre`
-    - `mensaje.asunto`
-    - `mensaje.texto`
-  - Uso incorrecto actual en `src/pages/admin/ComisionesExternas.tsx`:
-    - `mensaje.nombre`
-    - `mensaje.actividad`
-    - `mensaje.asunto`
-    - `mensaje.detalles`
-- Conclusión:
-  - Se mezclaron dos contratos de template:
-    - `41353048` usa `actividad/detalles`
-    - `36978552` usa `asunto/texto`
-  - El fix es alinear `ComisionesExternas` y los otros envíos del `36978552` a `texto`, no a `detalles`.
+### 3. Corregir cálculo de Valor de Escrituración
+**Archivo**: `src/pages/admin/DetalleCuentaCobranza.tsx`
+- Modificar la consulta para obtener todas las bodegas/estacionamientos de la propiedad sin filtrar por `es_incluido`
+- Para cada bodega/estacionamiento, verificar si tiene una cuenta de cobranza separada con `precio_final > 0`
+- Sumar al total de escrituración solo aquellas que tengan cuenta separada con precio real, independientemente del flag `es_incluido`
+
+## Resultado esperado
+- El admin puede cambiar el toggle "Es incluido" desde la edición de bodega
+- El valor de escrituración suma correctamente el precio de bodegas que tienen cuenta de cobranza separada
+
