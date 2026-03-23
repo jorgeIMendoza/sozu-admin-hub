@@ -210,20 +210,23 @@ export default function AdministrarAvisos() {
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  const fetchAvisos = async () => {
-    setIsLoading(true);
-    const { data } = await supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false });
-    setAvisos(data || []);
-    setIsLoading(false);
+  const fetchPostmarkTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('listar-postmark-templates');
+      if (!error && data?.templates) {
+        setPostmarkTemplates(data.templates);
+      }
+    } catch (e) {
+      console.error('Error fetching Postmark templates:', e);
+    }
+    setLoadingTemplates(false);
   };
 
-  const fetchRoles = async () => {
-    const { data } = await supabase.from('roles').select('id, nombre').eq('activo', true).order('nombre');
-    setRoles(data || []);
-  };
-
-  useEffect(() => { fetchAvisos(); fetchRoles(); }, []);
+  useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); }, []);
 
   const openCreate = () => {
     setEditingAviso(null);
