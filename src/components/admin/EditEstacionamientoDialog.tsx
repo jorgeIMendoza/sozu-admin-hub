@@ -20,6 +20,7 @@ interface Estacionamiento {
   numero_propiedad: string;
   id_tipo: number | null;
   es_incluido?: boolean;
+  precio_final?: number | null;
 }
 
 interface EditEstacionamientoDialogProps {
