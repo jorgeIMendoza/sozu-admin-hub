@@ -40,6 +40,7 @@ export const EditEstacionamientoDialog = ({
     m2: estacionamiento?.m2 || 0,
     ubicacion: estacionamiento?.ubicacion || "",
     id_tipo: estacionamiento?.id_tipo || null,
+    es_incluido: estacionamiento?.es_incluido ?? true,
   }));
 
   // Query para obtener tipos de estacionamiento
