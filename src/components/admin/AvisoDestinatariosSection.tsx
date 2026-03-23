@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, Users, Mail, ChevronDown, ChevronUp, Search, CheckSquare, Square } from "lucide-react";
+import { MultiSelectFilter } from "@/components/ui/multi-select-filter";
+import { Plus, Loader2, Users, Mail, ChevronDown, ChevronUp, Search, CheckSquare, Square, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Destinatario {
@@ -17,7 +18,8 @@ interface Destinatario {
 interface PoolItem {
   nombre: string;
   email: string;
-  rolIds: number[]; // roles this recipient belongs to ("manual" = empty)
+  rolIds: number[];
+  proyectos?: string[]; // project names for Cliente users
 }
 
 interface Rol {
@@ -25,12 +27,16 @@ interface Rol {
   nombre: string;
 }
 
+const CLIENTE_ROL_ID = 23;
+
 interface Props {
   roles: Rol[];
   selectedRoles: number[];
   onToggleRole: (rolId: number) => void;
   destinatarios: Destinatario[];
   onDestinatariosChange: (destinatarios: Destinatario[]) => void;
+  selectedProyectos?: string[];
+  onSelectedProyectosChange?: (proyectos: string[]) => void;
 }
 
 export function AvisoDestinatariosSection({
@@ -39,6 +45,8 @@ export function AvisoDestinatariosSection({
   onToggleRole,
   destinatarios,
   onDestinatariosChange,
+  selectedProyectos = [],
+  onSelectedProyectosChange,
 }: Props) {
   const { toast } = useToast();
   const [loadingRolId, setLoadingRolId] = useState<number | null>(null);
@@ -52,19 +60,131 @@ export function AvisoDestinatariosSection({
 
   const [pool, setPool] = useState<PoolItem[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
+  const [availableProyectos, setAvailableProyectos] = useState<string[]>([]);
+  const [clienteProyectoMap, setClienteProyectoMap] = useState<Map<string, string[]>>(new Map());
 
-  // Sync from parent on mount: load users for pre-selected roles, only select those from DB JSON
+  const isClienteSelected = selectedRoles.includes(CLIENTE_ROL_ID);
+
+  // Fetch projects for all clients
+  const fetchClienteProyectos = useCallback(async () => {
+    // Query: usuarios (Cliente) -> personas -> ofertas -> cuentas_cobranza -> propiedades -> edificios_modelos -> edificios -> proyectos
+    const { data } = await supabase
+      .from("usuarios")
+      .select("email, id_persona")
+      .eq("rol_id", CLIENTE_ROL_ID)
+      .eq("activo", true)
+      .not("email", "is", null);
+
+    if (!data || data.length === 0) return;
+
+    const personaIds = data.filter(u => u.id_persona).map(u => u.id_persona!);
+    const emailByPersona = new Map(data.filter(u => u.id_persona).map(u => [u.id_persona!, u.email!]));
+
+    // Get all cuentas_cobranza for these personas via ofertas
+    const { data: ofertas } = await supabase
+      .from("ofertas")
+      .select("id, id_persona_lead")
+      .in("id_persona_lead", personaIds);
+
+    if (!ofertas || ofertas.length === 0) return;
+
+    const ofertaIds = ofertas.map(o => o.id);
+    const personaByOferta = new Map(ofertas.map(o => [o.id, o.id_persona_lead!]));
+
+    const { data: cuentas } = await supabase
+      .from("cuentas_cobranza")
+      .select("id_oferta, id_propiedad")
+      .in("id_oferta", ofertaIds)
+      .eq("activo", true);
+
+    if (!cuentas || cuentas.length === 0) return;
+
+    const propiedadIds = [...new Set(cuentas.filter(c => c.id_propiedad).map(c => c.id_propiedad!))];
+
+    const { data: propiedades } = await supabase
+      .from("propiedades")
+      .select("id, id_edificio_modelo")
+      .in("id", propiedadIds);
+
+    if (!propiedades) return;
+
+    const emIds = [...new Set(propiedades.filter(p => p.id_edificio_modelo).map(p => p.id_edificio_modelo!))];
+
+    const { data: edModelos } = await supabase
+      .from("edificios_modelos")
+      .select("id, id_edificio")
+      .in("id", emIds);
+
+    if (!edModelos) return;
+
+    const edIds = [...new Set(edModelos.map(em => em.id_edificio))];
+
+    const { data: edificios } = await supabase
+      .from("edificios")
+      .select("id, id_proyecto")
+      .in("id", edIds);
+
+    if (!edificios) return;
+
+    const proyIds = [...new Set(edificios.map(e => e.id_proyecto))];
+
+    const { data: proyectos } = await supabase
+      .from("proyectos")
+      .select("id, nombre")
+      .in("id", proyIds);
+
+    if (!proyectos) return;
+
+    // Build reverse map: email -> project names
+    const proyNombreById = new Map(proyectos.map(p => [p.id, p.nombre]));
+    const edProyById = new Map(edificios.map(e => [e.id, e.id_proyecto]));
+    const emEdById = new Map(edModelos.map(em => [em.id, em.id_edificio]));
+    const propEmById = new Map(propiedades.map(p => [p.id, p.id_edificio_modelo]));
+
+    const emailProyectos = new Map<string, Set<string>>();
+
+    for (const cuenta of cuentas) {
+      if (!cuenta.id_oferta || !cuenta.id_propiedad) continue;
+      const personaId = personaByOferta.get(cuenta.id_oferta);
+      if (!personaId) continue;
+      const email = emailByPersona.get(personaId);
+      if (!email) continue;
+
+      const emId = propEmById.get(cuenta.id_propiedad);
+      if (!emId) continue;
+      const edId = emEdById.get(emId);
+      if (!edId) continue;
+      const proyId = edProyById.get(edId);
+      if (!proyId) continue;
+      const proyNombre = proyNombreById.get(proyId);
+      if (!proyNombre) continue;
+
+      if (!emailProyectos.has(email)) emailProyectos.set(email, new Set());
+      emailProyectos.get(email)!.add(proyNombre);
+    }
+
+    const map = new Map<string, string[]>();
+    const allProyectos = new Set<string>();
+    for (const [email, proysSet] of emailProyectos) {
+      const proys = [...proysSet];
+      map.set(email, proys);
+      proys.forEach(p => allProyectos.add(p));
+    }
+
+    setClienteProyectoMap(map);
+    setAvailableProyectos([...allProyectos].sort());
+  }, []);
+
+  // Sync from parent on mount
   useEffect(() => {
     const initPool = async () => {
       const dbEmails = new Set(destinatarios.map(d => d.email));
       const merged: PoolItem[] = [];
 
-      // Add destinatarios from DB JSON first (as manual if no role matched)
       for (const d of destinatarios) {
         merged.push({ ...d, rolIds: [] });
       }
 
-      // Fetch users for each pre-selected role and add to pool (but don't auto-select)
       if (selectedRoles.length > 0) {
         const { data: usuarios } = await supabase
           .from("usuarios")
@@ -78,7 +198,6 @@ export function AvisoDestinatariosSection({
             if (!u.email) continue;
             const existing = merged.find(p => p.email === u.email);
             if (existing) {
-              // Update rolIds for items already from DB JSON
               if (u.rol_id && !existing.rolIds.includes(u.rol_id)) {
                 existing.rolIds.push(u.rol_id);
               }
@@ -90,12 +209,18 @@ export function AvisoDestinatariosSection({
       }
 
       setPool(merged);
-      // Only select emails that came from DB JSON
       setSelectedEmails(dbEmails);
     };
 
     initPool();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch client projects when Cliente role is selected
+  useEffect(() => {
+    if (isClienteSelected) {
+      fetchClienteProyectos();
+    }
+  }, [isClienteSelected, fetchClienteProyectos]);
 
   const notifyParent = useCallback((newSelected: Set<string>, currentPool: PoolItem[]) => {
     const selected = currentPool
@@ -149,8 +274,45 @@ export function AvisoDestinatariosSection({
         }
       }
       setLoadingRolId(null);
+    } else {
+      // If deselecting Cliente, clear project filter
+      if (rolId === CLIENTE_ROL_ID && onSelectedProyectosChange) {
+        onSelectedProyectosChange([]);
+      }
     }
   };
+
+  // When project filter changes, filter the selected emails for Cliente users
+  useEffect(() => {
+    if (!isClienteSelected || selectedProyectos.length === 0) return;
+
+    // Filter: keep only clients that belong to at least one selected project
+    const newSelected = new Set(selectedEmails);
+    let changed = false;
+
+    for (const item of pool) {
+      if (!item.rolIds.includes(CLIENTE_ROL_ID)) continue;
+      const clientProjects = clienteProyectoMap.get(item.email) || [];
+      const matchesProject = selectedProyectos.some(p => clientProjects.includes(p));
+
+      if (!matchesProject && newSelected.has(item.email)) {
+        // Only deselect if this user is ONLY a Cliente (not also another role)
+        const hasOtherRoles = item.rolIds.some(r => r !== CLIENTE_ROL_ID);
+        if (!hasOtherRoles) {
+          newSelected.delete(item.email);
+          changed = true;
+        }
+      } else if (matchesProject && !newSelected.has(item.email)) {
+        newSelected.add(item.email);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setSelectedEmails(newSelected);
+      notifyParent(newSelected, pool);
+    }
+  }, [selectedProyectos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleEmail = (email: string) => {
     const newSelected = new Set(selectedEmails);
@@ -161,7 +323,9 @@ export function AvisoDestinatariosSection({
   };
 
   const selectAll = () => {
-    const all = new Set(pool.map(d => d.email));
+    const filtered = getFilteredPool();
+    const all = new Set(selectedEmails);
+    filtered.forEach(d => all.add(d.email));
     setSelectedEmails(all);
     notifyParent(all, pool);
   };
@@ -191,22 +355,25 @@ export function AvisoDestinatariosSection({
     setManualEmail("");
   };
 
-  // Roles that have items in the pool (for filter dropdown)
   const rolesInPool = roles.filter(r => pool.some(p => p.rolIds.includes(r.id)));
   const hasManualItems = pool.some(p => p.rolIds.length === 0);
 
+  const getFilteredPool = () => {
+    return pool.filter(d => {
+      const matchesSearch = d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.email.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" ||
+        (statusFilter === "selected" && selectedEmails.has(d.email)) ||
+        (statusFilter === "unselected" && !selectedEmails.has(d.email));
+      const matchesRole = roleFilter === "all" ||
+        (roleFilter === "manual" && d.rolIds.length === 0) ||
+        d.rolIds.includes(Number(roleFilter));
+      return matchesSearch && matchesStatus && matchesRole;
+    });
+  };
+
   const VISIBLE_COUNT = 10;
-  const filteredPool = pool.filter(d => {
-    const matchesSearch = d.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" ||
-      (statusFilter === "selected" && selectedEmails.has(d.email)) ||
-      (statusFilter === "unselected" && !selectedEmails.has(d.email));
-    const matchesRole = roleFilter === "all" ||
-      (roleFilter === "manual" && d.rolIds.length === 0) ||
-      d.rolIds.includes(Number(roleFilter));
-    return matchesSearch && matchesStatus && matchesRole;
-  });
+  const filteredPool = getFilteredPool();
   const visibleItems = showAll ? filteredPool : filteredPool.slice(0, VISIBLE_COUNT);
   const hasMore = filteredPool.length > VISIBLE_COUNT;
   const selectedCount = selectedEmails.size;
@@ -248,6 +415,27 @@ export function AvisoDestinatariosSection({
           ))}
         </div>
       </div>
+
+      {/* Project filter - only shown when Cliente role is selected */}
+      {isClienteSelected && availableProyectos.length > 0 && (
+        <div>
+          <Label className="flex items-center gap-1.5 mb-1.5">
+            <Building2 className="h-4 w-4" />
+            Segmentar Clientes por Proyecto
+          </Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            Filtra los clientes por proyecto. Si no seleccionas ninguno, se envía a todos los clientes.
+          </p>
+          <MultiSelectFilter
+            values={selectedProyectos}
+            onValuesChange={(vals) => onSelectedProyectosChange?.(vals)}
+            options={availableProyectos}
+            placeholder="Todos los proyectos"
+            searchPlaceholder="Buscar proyecto..."
+            icon={<Building2 className="h-4 w-4" />}
+          />
+        </div>
+      )}
 
       {/* Manual add */}
       <div>
@@ -345,6 +533,7 @@ export function AvisoDestinatariosSection({
                 const rolNames = d.rolIds.length > 0
                   ? d.rolIds.map(rid => roles.find(r => r.id === rid)?.nombre).filter(Boolean).join(", ")
                   : "Manual";
+                const clientProjects = clienteProyectoMap.get(d.email);
                 return (
                   <label
                     key={d.email}
@@ -356,6 +545,11 @@ export function AvisoDestinatariosSection({
                     <span className="truncate flex-1">
                       <span className="font-medium">{d.nombre}</span>
                       <span className="text-muted-foreground ml-1 text-xs">({d.email})</span>
+                      {clientProjects && clientProjects.length > 0 && (
+                        <span className="text-muted-foreground ml-1 text-[10px]">
+                          — {clientProjects.join(", ")}
+                        </span>
+                      )}
                     </span>
                     <Badge variant="outline" className="text-[10px] shrink-0 h-5">{rolNames}</Badge>
                   </label>

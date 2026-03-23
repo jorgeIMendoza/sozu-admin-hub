@@ -37,6 +37,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Use the template ID from the aviso record, fallback to default
+    const templateId = aviso.postmark_template_id || 36978552;
+
     // Get recipients from correos JSON field
     const { data: rolesData } = await supabaseAdmin
       .from('avisos_roles_destinatarios')
@@ -124,7 +127,7 @@ Deno.serve(async (req) => {
       const messages = batch.map(recipient => ({
         From: 'notificaciones@sozu.com',
         To: recipient.email,
-        TemplateId: 36978552,
+        TemplateId: templateId,
         TemplateModel: {
           mensaje: {
             nombre: recipient.nombre || '',

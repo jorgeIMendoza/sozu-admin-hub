@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Send, Search, Eye, Clock } from "lucide-react";
+import { Send, Search, Eye, Clock, Users, Mail } from "lucide-react";
 
 interface AvisoRolDestinatario {
   correos: { destinatarios?: { nombre?: string; email?: string }[] } | null;
@@ -23,6 +23,7 @@ interface Aviso {
   cron_expression: string | null;
   activo: boolean;
   destinatarios_count: number;
+  postmark_template_id: number;
 }
 
 const DIAS_SEMANA: Record<string, string> = { '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles', '4': 'jueves', '5': 'viernes', '6': 'sábado', '7': 'domingo' };
@@ -91,8 +92,7 @@ function describeCron(expr: string): string {
   if (min.startsWith('*/') && hour === '*') {
     time = `cada ${min.slice(2)} minutos`;
   } else if (min.startsWith('*/') && hour !== '*' && !hour.startsWith('*/') && !hour.includes('-')) {
-    const step = min.slice(2);
-    time = `cada ${step} minutos de ${hour}:00 a ${hour}:59`;
+    time = `cada ${min.slice(2)} minutos de ${hour}:00 a ${hour}:59`;
   } else if (min.includes(',') && hour !== '*' && !hour.startsWith('*/') && !hour.includes('-')) {
     const mins = min.split(',').map(m => `${hour}:${m.padStart(2, '0')}`);
     time = `a las ${formatList(mins)}`;
@@ -107,8 +107,7 @@ function describeCron(expr: string): string {
     if (min !== '*' && !min.includes('*') && !min.includes(',') && !min.includes('-')) {
       time = `a las ${startHour}:${min.padStart(2, '0')} a ${endHour}:${min.padStart(2, '0')}`;
     } else if (min.startsWith('*/')) {
-      const step = min.slice(2);
-      time = `cada ${step} minutos de ${startHour}:00 a ${endHour}:59`;
+      time = `cada ${min.slice(2)} minutos de ${startHour}:00 a ${endHour}:59`;
     } else {
       time = `de las ${startHour}:00 a ${endHour}:59`;
     }
@@ -213,7 +212,6 @@ export default function EnviarAvisos() {
     }
   };
 
-
   const filtered = avisos.filter(a => a.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
@@ -287,6 +285,22 @@ export default function EnviarAvisos() {
           <DialogHeader>
             <DialogTitle>Preview: {previewAviso?.nombre}</DialogTitle>
           </DialogHeader>
+          <div className="bg-muted/30 rounded-lg p-3 mb-3 space-y-1.5">
+            <div className="flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Asunto:</span>
+              <span className="font-medium">{previewAviso?.asunto}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Destinatarios:</span>
+              <Badge variant="secondary">{previewAviso?.destinatarios_count ?? 0}</Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground text-xs">Template ID:</span>
+              <Badge variant="outline" className="font-mono text-xs">{previewAviso?.postmark_template_id || 36978552}</Badge>
+            </div>
+          </div>
           <div className="border rounded bg-background" style={{ height: '400px' }}>
             <iframe srcDoc={previewAviso?.mensaje_html || ''} className="w-full h-full" sandbox="" title="Preview" />
           </div>
@@ -299,13 +313,20 @@ export default function EnviarAvisos() {
           <DialogHeader>
             <DialogTitle>Confirmar envío</DialogTitle>
           </DialogHeader>
-          <p>
-            ¿Enviar el aviso <strong>"{confirmAviso?.nombre}"</strong> a{' '}
-            <strong>{confirmAviso?.destinatarios_count ?? 0}</strong> destinatario{confirmAviso?.destinatarios_count !== 1 ? 's' : ''}?
-          </p>
-          {confirmAviso?.destinatarios_count === 0 && (
-            <p className="text-sm text-destructive">Este aviso no tiene destinatarios configurados.</p>
-          )}
+          <div className="space-y-3">
+            <p>
+              ¿Enviar el aviso <strong>"{confirmAviso?.nombre}"</strong> a{' '}
+              <strong>{confirmAviso?.destinatarios_count ?? 0}</strong> destinatario{confirmAviso?.destinatarios_count !== 1 ? 's' : ''}?
+            </p>
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
+              <div><span className="text-muted-foreground">Asunto:</span> <strong>{confirmAviso?.asunto}</strong></div>
+              <div><span className="text-muted-foreground">Template Postmark:</span> <Badge variant="outline" className="font-mono text-xs ml-1">{confirmAviso?.postmark_template_id || 36978552}</Badge></div>
+              <div><span className="text-muted-foreground">Tipo:</span> {confirmAviso?.tipo_envio}</div>
+            </div>
+            {confirmAviso?.destinatarios_count === 0 && (
+              <p className="text-sm text-destructive">Este aviso no tiene destinatarios configurados.</p>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmAviso(null)}>Cancelar</Button>
             <Button onClick={() => confirmAviso && handleSend(confirmAviso)} disabled={confirmAviso?.destinatarios_count === 0}>
