@@ -84,6 +84,7 @@ export const EditEstacionamientoDialog = ({
       m2: 0,
       ubicacion: "",
       id_tipo: null,
+      es_incluido: true,
     });
   };
 
