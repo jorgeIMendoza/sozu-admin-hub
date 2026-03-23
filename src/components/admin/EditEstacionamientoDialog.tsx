@@ -146,6 +146,15 @@ export const EditEstacionamientoDialog = ({
             </Select>
           </div>
 
+          <div className="flex items-center justify-between">
+            <Label htmlFor="es_incluido">Es incluido (con el departamento)</Label>
+            <Switch
+              id="es_incluido"
+              checked={formData.es_incluido}
+              onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
+            />
+          </div>
+
           <div className="flex justify-end space-x-2 pt-4">
             <Button variant="outline" onClick={handleClose}>
               Cancelar
