@@ -358,6 +358,7 @@ export type Database = {
           id: number
           mensaje_html: string
           nombre: string
+          postmark_template_id: number
           tipo_envio: string
         }
         Insert: {
@@ -369,6 +370,7 @@ export type Database = {
           id?: never
           mensaje_html: string
           nombre: string
+          postmark_template_id?: number
           tipo_envio?: string
         }
         Update: {
@@ -380,6 +382,7 @@ export type Database = {
           id?: never
           mensaje_html?: string
           nombre?: string
+          postmark_template_id?: number
           tipo_envio?: string
         }
         Relationships: []

@@ -1,0 +1,1 @@
+ALTER TABLE public.avisos ADD COLUMN postmark_template_id integer NOT NULL DEFAULT 36978552;
