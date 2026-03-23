@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Users, Mail } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { AvisoDestinatariosSection } from "@/components/admin/AvisoDestinatariosSection";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -25,6 +25,7 @@ interface Aviso {
   cron_expression: string | null;
   activo: boolean;
   fecha_creacion: string;
+  postmark_template_id: number;
 }
 
 interface Rol {
@@ -42,7 +43,6 @@ const MESES: Record<string, string> = { '1': 'enero', '2': 'febrero', '3': 'marz
 
 function validateCronField(field: string, min: number, max: number, name: string): { valid: boolean; error?: string } {
   if (field === '*') return { valid: true };
-  // handle step: */n or range/n
   const stepMatch = field.match(/^(.+)\/(\d+)$/);
   let base = field;
   if (stepMatch) {
@@ -51,7 +51,6 @@ function validateCronField(field: string, min: number, max: number, name: string
     base = stepMatch[1];
     if (base === '*') return { valid: true };
   }
-  // split by comma for lists
   const parts = base.split(',');
   for (const part of parts) {
     if (part.includes('-')) {
@@ -98,33 +97,26 @@ function describeCron(expr: string): string {
   const parts = expr.trim().split(/\s+/);
   const [min, hour, dom, mon, dow] = parts;
 
-  // Time part
   let time = '';
   if (min.startsWith('*/') && hour === '*') {
     time = `cada ${min.slice(2)} minutos`;
   } else if (min.startsWith('*/') && hour !== '*' && !hour.startsWith('*/') && !hour.includes('-')) {
-    // Step minutes + fixed hour (e.g., */15 9)
     const step = min.slice(2);
     time = `cada ${step} minutos de ${hour}:00 a ${hour}:59`;
   } else if (min.includes(',') && hour !== '*' && !hour.startsWith('*/') && !hour.includes('-')) {
-    // List of minutes + fixed hour (e.g., 0,30 9)
     const mins = min.split(',').map(m => `${hour}:${m.padStart(2, '0')}`);
     time = `a las ${formatList(mins)}`;
   } else if (min.includes('-') && min.includes('/') && hour !== '*' && !hour.startsWith('*/') && !hour.includes('-')) {
-    // Range of minutes with step + fixed hour (e.g., 0-15/5 9)
     const [range, step] = min.split('/');
     const [minStart, minEnd] = range.split('-');
     time = `cada ${step} minutos de ${hour}:${minStart.padStart(2, '0')} a ${hour}:${minEnd.padStart(2, '0')}`;
   } else if (hour.startsWith('*/') && min === '*') {
     time = `cada ${hour.slice(2)} horas`;
   } else if (hour.includes('-') && !hour.startsWith('*/')) {
-    // Range of hours (e.g., 9-14)
     const [startHour, endHour] = hour.split('-');
     if (min !== '*' && !min.includes('*') && !min.includes(',') && !min.includes('-')) {
-      // Fixed minute with hour range (e.g., 0 9-14)
       time = `a las ${startHour}:${min.padStart(2, '0')} a ${endHour}:${min.padStart(2, '0')}`;
     } else if (min.startsWith('*/')) {
-      // Step minutes with hour range (e.g., */15 9-14)
       const step = min.slice(2);
       time = `cada ${step} minutos de ${startHour}:00 a ${endHour}:59`;
     } else {
@@ -138,7 +130,6 @@ function describeCron(expr: string): string {
     time = `en el minuto ${min}`;
   }
 
-  // Day of week
   let when = '';
   if (dow !== '*') {
     const dayParts = dow.replace(/\/\d+$/, '').split(',').map(d => {
@@ -151,7 +142,6 @@ function describeCron(expr: string): string {
     when = `los ${formatList(dayParts)}`;
   }
 
-  // Day of month
   if (dom !== '*') {
     const domParts = dom.replace(/\/\d+$/, '').split(',').map(d => {
       if (d.includes('-')) { const [a, b] = d.split('-'); return `${a} al ${b}`; }
@@ -163,7 +153,6 @@ function describeCron(expr: string): string {
     when += (when ? ' y ' : '') + domStr;
   }
 
-  // Month
   if (mon !== '*') {
     const monParts = mon.replace(/\/\d+$/, '').split(',').map(m => {
       if (m.includes('-')) {
@@ -213,6 +202,8 @@ export default function AdministrarAvisos() {
   const [activo, setActivo] = useState(true);
   const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
+  const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
+  const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
 
   const fetchAvisos = async () => {
     setIsLoading(true);
@@ -232,6 +223,7 @@ export default function AdministrarAvisos() {
     setEditingAviso(null);
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
     setCronExpression(""); setCronError(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
+    setPostmarkTemplateId("36978552"); setSelectedProyectos([]);
     setDialogOpen(true);
   };
 
@@ -240,6 +232,8 @@ export default function AdministrarAvisos() {
     setNombre(aviso.nombre); setAsunto(aviso.asunto); setMensajeHtml(aviso.mensaje_html);
     setTipoEnvio(aviso.tipo_envio); setCronExpression(aviso.cron_expression || "");
     setActivo(aviso.activo);
+    setPostmarkTemplateId(String(aviso.postmark_template_id || 36978552));
+    setSelectedProyectos([]);
 
     // Load existing roles and their correos
     const { data } = await supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id);
@@ -282,10 +276,17 @@ export default function AdministrarAvisos() {
       return;
     }
 
+    const templateId = parseInt(postmarkTemplateId, 10);
+    if (isNaN(templateId) || templateId <= 0) {
+      toast({ title: "Error", description: "El ID de template de Postmark debe ser un número válido", variant: "destructive" });
+      return;
+    }
+
     const payload = {
       nombre, asunto, mensaje_html: mensajeHtml, tipo_envio: tipoEnvio,
       cron_expression: tipoEnvio === 'automatico' ? cronExpression : null,
       activo, fecha_actualizacion: new Date().toISOString(),
+      postmark_template_id: templateId,
     };
 
     let avisoId: number;
@@ -299,7 +300,7 @@ export default function AdministrarAvisos() {
       avisoId = data.id;
     }
 
-    // Save roles with correos - store all destinatarios under each selected role
+    // Save roles with correos
     await supabase.from('avisos_roles_destinatarios').delete().eq('id_aviso', avisoId);
     const correosJson = JSON.parse(JSON.stringify({ destinatarios }));
     if (selectedRoles.length > 0) {
@@ -311,8 +312,6 @@ export default function AdministrarAvisos() {
         }))
       );
     } else if (destinatarios.length > 0) {
-      // Save manual destinatarios without a specific role (use rol 0 as placeholder)
-      // We need at least one row to store the correos JSON
       const { data: firstRole } = await supabase.from('roles').select('id').eq('activo', true).limit(1).single();
       if (firstRole) {
         await supabase.from('avisos_roles_destinatarios').insert({
@@ -351,12 +350,17 @@ export default function AdministrarAvisos() {
 
   if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
 
-  // Build preview HTML with subject header
+  // Build preview HTML with recipient info
   const previewHtml = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <div style="background: #f3f4f6; padding: 12px 16px; border-bottom: 2px solid #e5e7eb;">
         <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px;">Asunto:</div>
         <div style="font-size: 14px; font-weight: 600; color: #111827;">${asunto || '(Sin asunto)'}</div>
+      </div>
+      <div style="background: #eef2ff; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4338ca;">
+        <strong>Destinatarios:</strong> ${destinatarios.length} seleccionado${destinatarios.length !== 1 ? 's' : ''}
+        ${selectedProyectos.length > 0 ? ` | <strong>Proyectos:</strong> ${selectedProyectos.join(', ')}` : ''}
+        | <strong>Template ID:</strong> ${postmarkTemplateId}
       </div>
       <div style="padding: 16px;">
         ${mensajeHtml || '<p style="color:#999;">El contenido aparecerá aquí...</p>'}
@@ -384,6 +388,7 @@ export default function AdministrarAvisos() {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Tipo</TableHead>
+              <TableHead>Template ID</TableHead>
               <TableHead>Activo</TableHead>
               <TableHead>Fecha Creación</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -391,9 +396,9 @@ export default function AdministrarAvisos() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
             ) : filtered.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
@@ -416,6 +421,11 @@ export default function AdministrarAvisos() {
                   ) : (
                     <Badge variant="secondary">{aviso.tipo_envio}</Badge>
                   )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {aviso.postmark_template_id || 36978552}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <Switch checked={aviso.activo} onCheckedChange={() => canUpdate && toggleActivo(aviso)} disabled={!canUpdate} />
@@ -452,15 +462,27 @@ export default function AdministrarAvisos() {
                 <Label>Contenido del mensaje</Label>
                 <RichTextEditor value={mensajeHtml} onChange={setMensajeHtml} />
               </div>
-              <div>
-                <Label>Tipo de envío</Label>
-                <Select value={tipoEnvio} onValueChange={setTipoEnvio}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="manual">Manual</SelectItem>
-                    <SelectItem value="automatico">Automático</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tipo de envío</Label>
+                  <Select value={tipoEnvio} onValueChange={setTipoEnvio}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="manual">Manual</SelectItem>
+                      <SelectItem value="automatico">Automático</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>ID Template Postmark</Label>
+                  <Input
+                    value={postmarkTemplateId}
+                    onChange={e => setPostmarkTemplateId(e.target.value.replace(/\D/g, ''))}
+                    placeholder="36978552"
+                    className="font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Default: 36978552</p>
+                </div>
               </div>
               {tipoEnvio === 'automatico' && (
                 <div className="space-y-2">
@@ -500,6 +522,8 @@ export default function AdministrarAvisos() {
                 onToggleRole={toggleRole}
                 destinatarios={destinatarios}
                 onDestinatariosChange={setDestinatarios}
+                selectedProyectos={selectedProyectos}
+                onSelectedProyectosChange={setSelectedProyectos}
               />
             </div>
 
