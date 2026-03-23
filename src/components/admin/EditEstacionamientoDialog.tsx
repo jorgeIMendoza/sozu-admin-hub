@@ -66,6 +66,7 @@ export const EditEstacionamientoDialog = ({
         m2: estacionamiento.m2,
         ubicacion: estacionamiento.ubicacion,
         id_tipo: estacionamiento.id_tipo,
+        es_incluido: estacionamiento.es_incluido ?? true,
       });
     }
   }, [estacionamiento]);
