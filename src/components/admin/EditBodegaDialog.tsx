@@ -15,6 +15,7 @@ interface Bodega {
   proyecto_nombre: string;
   numero_propiedad: string;
   es_incluido?: boolean;
+  precio_final?: number | null;
 }
 
 interface EditBodegaDialogProps {
