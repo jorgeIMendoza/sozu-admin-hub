@@ -445,7 +445,11 @@ export default function AdministrarAvisos() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-mono text-xs">
-                    {aviso.postmark_template_id || 36978552}
+                    {(() => {
+                      const tid = aviso.postmark_template_id || 36978552;
+                      const tmpl = postmarkTemplates.find(t => t.id === tid);
+                      return tmpl ? `${tmpl.name}` : tid;
+                    })()}
                   </Badge>
                 </TableCell>
                 <TableCell>
