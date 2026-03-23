@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 interface Bodega {
   id: number;
@@ -13,6 +14,7 @@ interface Bodega {
   activo: boolean;
   proyecto_nombre: string;
   numero_propiedad: string;
+  es_incluido?: boolean;
 }
 
 interface EditBodegaDialogProps {
@@ -32,15 +34,16 @@ export const EditBodegaDialog = ({
     nombre: bodega?.nombre || "",
     m2: bodega?.m2 || 0,
     ubicacion: bodega?.ubicacion || "",
+    es_incluido: bodega?.es_incluido ?? true,
   }));
 
-  // Update form data when bodega changes
   useEffect(() => {
     if (bodega) {
       setFormData({
         nombre: bodega.nombre,
         m2: bodega.m2,
         ubicacion: bodega.ubicacion,
+        es_incluido: bodega.es_incluido ?? true,
       });
     }
   }, [bodega]);
@@ -57,6 +60,7 @@ export const EditBodegaDialog = ({
       nombre: "",
       m2: 0,
       ubicacion: "",
+      es_incluido: true,
     });
   };
 
@@ -96,6 +100,15 @@ export const EditBodegaDialog = ({
               value={formData.ubicacion}
               onChange={(e) => setFormData({ ...formData, ubicacion: e.target.value })}
               rows={3}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="es_incluido">Es incluido (con el departamento)</Label>
+            <Switch
+              id="es_incluido"
+              checked={formData.es_incluido}
+              onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
             />
           </div>
 

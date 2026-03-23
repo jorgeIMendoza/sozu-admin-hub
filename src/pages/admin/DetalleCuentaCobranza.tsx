@@ -1661,41 +1661,27 @@ export default function DetalleCuentaCobranza() {
       let precioBodegas = 0;
       let precioEstacionamientos = 0;
 
-      // Get bodegas not included (es_incluido = false)
-      const { data: bodegas } = await supabase
+      // Get ALL bodegas for this property
+      const { data: allBodegas } = await supabase
         .from('bodegas')
-        .select('id, id_producto')
+        .select('id, id_producto, es_incluido')
         .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true)
-        .eq('es_incluido', false);
+        .eq('activo', true);
 
-      // Get bodegas included (es_incluido = true)
-      const { data: bodegasIncluidas } = await supabase
-        .from('bodegas')
-        .select('id')
-        .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true)
-        .eq('es_incluido', true);
-
-      // Get estacionamientos not included (es_incluido = false)
-      const { data: estacionamientos } = await supabase
+      // Get ALL estacionamientos for this property
+      const { data: allEstacionamientos } = await supabase
         .from('estacionamientos')
-        .select('id, id_producto')
+        .select('id, id_producto, es_incluido')
         .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true)
-        .eq('es_incluido', false);
+        .eq('activo', true);
 
-      // Get estacionamientos included (es_incluido = true)
-      const { data: estacionamientosIncluidos } = await supabase
-        .from('estacionamientos')
-        .select('id')
-        .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true)
-        .eq('es_incluido', true);
+      // For bodegas: check if they have a separate cuenta_cobranza with precio > 0
+      const bodegasConPrecio = allBodegas?.filter(b => b.id_producto) || [];
+      const bodegasIncluidas = allBodegas?.filter(b => b.es_incluido) || [];
+      const bodegasNoPrecio = allBodegas?.filter(b => !b.es_incluido) || [];
 
-      // Get precio_final for bodegas
-      if (bodegas && bodegas.length > 0) {
-        const bodegaProductIds = bodegas.map(b => b.id_producto).filter(Boolean);
+      if (bodegasConPrecio.length > 0) {
+        const bodegaProductIds = bodegasConPrecio.map(b => b.id_producto).filter(Boolean);
         
         if (bodegaProductIds.length > 0) {
           const { data: ofertasBodegas } = await supabase
@@ -1721,9 +1707,13 @@ export default function DetalleCuentaCobranza() {
         }
       }
 
-      // Get precio_final for estacionamientos
-      if (estacionamientos && estacionamientos.length > 0) {
-        const estacionamientoProductIds = estacionamientos.map(e => e.id_producto).filter(Boolean);
+      // For estacionamientos: same logic
+      const estacionamientosConPrecio = allEstacionamientos?.filter(e => e.id_producto) || [];
+      const estacionamientosIncluidos = allEstacionamientos?.filter(e => e.es_incluido) || [];
+      const estacionamientosNoPrecio = allEstacionamientos?.filter(e => !e.es_incluido) || [];
+
+      if (estacionamientosConPrecio.length > 0) {
+        const estacionamientoProductIds = estacionamientosConPrecio.map(e => e.id_producto).filter(Boolean);
         
         if (estacionamientoProductIds.length > 0) {
           const { data: ofertasEstacionamientos } = await supabase
@@ -1754,10 +1744,10 @@ export default function DetalleCuentaCobranza() {
         precioPropiedad,
         precioBodegas,
         precioEstacionamientos,
-        tieneBodegas: (bodegas?.length || 0) > 0,
-        tieneEstacionamientos: (estacionamientos?.length || 0) > 0,
-        tieneBodegasIncluidas: (bodegasIncluidas?.length || 0) > 0,
-        tieneEstacionamientosIncluidos: (estacionamientosIncluidos?.length || 0) > 0
+        tieneBodegas: precioBodegas > 0,
+        tieneEstacionamientos: precioEstacionamientos > 0,
+        tieneBodegasIncluidas: bodegasIncluidas.filter(b => precioBodegas === 0 || !bodegasConPrecio.some(bc => bc.id === b.id)).length > 0,
+        tieneEstacionamientosIncluidos: estacionamientosIncluidos.filter(e => precioEstacionamientos === 0 || !estacionamientosConPrecio.some(ec => ec.id === e.id)).length > 0
       };
     },
     enabled: !!cuentaDetalle && cuentaDetalle.tipo_cuenta === 'Propiedad' && !!cuentaDetalle.id_propiedad,
