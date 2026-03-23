@@ -107,13 +107,23 @@ export const EditBodegaDialog = ({
             />
           </div>
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="es_incluido">Es incluido (con el departamento)</Label>
-            <Switch
-              id="es_incluido"
-              checked={formData.es_incluido}
-              onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
-            />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="es_incluido" className={!puedeSerIncluido ? "text-muted-foreground" : ""}>
+                Es incluido (con el departamento)
+              </Label>
+              <Switch
+                id="es_incluido"
+                checked={formData.es_incluido}
+                onCheckedChange={(checked) => setFormData({ ...formData, es_incluido: checked })}
+                disabled={!puedeSerIncluido}
+              />
+            </div>
+            {!puedeSerIncluido && (
+              <p className="text-xs text-destructive">
+                Solo se puede marcar como incluido cuando el precio final es $0.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end space-x-2 pt-4">
