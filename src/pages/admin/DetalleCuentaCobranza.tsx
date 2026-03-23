@@ -1661,83 +1661,86 @@ export default function DetalleCuentaCobranza() {
       let precioBodegas = 0;
       let precioEstacionamientos = 0;
 
-      // Get ALL bodegas for this property
-      const { data: allBodegas } = await supabase
-        .from('bodegas')
-        .select('id, id_producto, es_incluido')
-        .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true);
+      // Get ALL bodegas and estacionamientos for this property in parallel
+      const [{ data: allBodegas }, { data: allEstacionamientos }] = await Promise.all([
+        supabase
+          .from('bodegas')
+          .select('id, id_producto, es_incluido')
+          .eq('id_propiedad', cuentaDetalle.id_propiedad)
+          .eq('activo', true),
+        supabase
+          .from('estacionamientos')
+          .select('id, id_producto, es_incluido')
+          .eq('id_propiedad', cuentaDetalle.id_propiedad)
+          .eq('activo', true),
+      ]);
 
-      // Get ALL estacionamientos for this property
-      const { data: allEstacionamientos } = await supabase
-        .from('estacionamientos')
-        .select('id, id_producto, es_incluido')
-        .eq('id_propiedad', cuentaDetalle.id_propiedad)
-        .eq('activo', true);
+      const propiedadId = cuentaDetalle.id_propiedad;
+      const hasBodegas = (allBodegas || []).length > 0;
+      const hasEstacionamientos = (allEstacionamientos || []).length > 0;
 
-      // For bodegas: check if they have a separate cuenta_cobranza with precio > 0
-      const bodegasConPrecio = allBodegas?.filter(b => b.id_producto) || [];
-      const bodegasIncluidas = allBodegas?.filter(b => b.es_incluido) || [];
-      const bodegasNoPrecio = allBodegas?.filter(b => !b.es_incluido) || [];
+      // Collect all product IDs from bodegas and estacionamientos
+      const bodegaProductIds = [...new Set((allBodegas || []).map(b => b.id_producto).filter(Boolean))] as number[];
+      const estProductIds = [...new Set((allEstacionamientos || []).map(e => e.id_producto).filter(Boolean))] as number[];
+      const allProductIds = [...new Set([...bodegaProductIds, ...estProductIds])];
 
-      if (bodegasConPrecio.length > 0) {
-        const bodegaProductIds = bodegasConPrecio.map(b => b.id_producto).filter(Boolean);
-        
-        if (bodegaProductIds.length > 0) {
-          const { data: ofertasBodegas } = await supabase
-            .from('ofertas')
-            .select('id')
-            .in('id_producto', bodegaProductIds)
-            .eq('activo', true);
-
-          if (ofertasBodegas && ofertasBodegas.length > 0) {
-            const ofertaBodegaIds = ofertasBodegas.map(o => o.id);
-            
-            const { data: cuentasBodegas } = await supabase
-              .from('cuentas_cobranza')
-              .select('precio_final')
-              .in('id_oferta', ofertaBodegaIds)
-              .eq('activo', true);
-
-            if (cuentasBodegas && cuentasBodegas.length > 0) {
-              precioBodegas = cuentasBodegas.reduce((sum, c) => sum + (c.precio_final || 0), 0);
-              totalEscrituracion += precioBodegas;
-            }
-          }
-        }
+      // Find ofertas for these products scoped to THIS property
+      let ofertasByProduct = new Map<number, number[]>();
+      if (allProductIds.length > 0) {
+        const { data: ofertas } = await supabase
+          .from('ofertas')
+          .select('id, id_producto')
+          .in('id_producto', allProductIds)
+          .eq('id_propiedad', propiedadId)
+          .eq('activo', true);
+        (ofertas || []).forEach(o => {
+          const existing = ofertasByProduct.get(o.id_producto!) || [];
+          existing.push(o.id);
+          ofertasByProduct.set(o.id_producto!, existing);
+        });
       }
 
-      // For estacionamientos: same logic
-      const estacionamientosConPrecio = allEstacionamientos?.filter(e => e.id_producto) || [];
-      const estacionamientosIncluidos = allEstacionamientos?.filter(e => e.es_incluido) || [];
-      const estacionamientosNoPrecio = allEstacionamientos?.filter(e => !e.es_incluido) || [];
-
-      if (estacionamientosConPrecio.length > 0) {
-        const estacionamientoProductIds = estacionamientosConPrecio.map(e => e.id_producto).filter(Boolean);
-        
-        if (estacionamientoProductIds.length > 0) {
-          const { data: ofertasEstacionamientos } = await supabase
-            .from('ofertas')
-            .select('id')
-            .in('id_producto', estacionamientoProductIds)
-            .eq('activo', true);
-
-          if (ofertasEstacionamientos && ofertasEstacionamientos.length > 0) {
-            const ofertaEstacionamientoIds = ofertasEstacionamientos.map(o => o.id);
-            
-            const { data: cuentasEstacionamientos } = await supabase
-              .from('cuentas_cobranza')
-              .select('precio_final')
-              .in('id_oferta', ofertaEstacionamientoIds)
-              .eq('activo', true);
-
-            if (cuentasEstacionamientos && cuentasEstacionamientos.length > 0) {
-              precioEstacionamientos = cuentasEstacionamientos.reduce((sum, c) => sum + (c.precio_final || 0), 0);
-              totalEscrituracion += precioEstacionamientos;
-            }
-          }
-        }
+      // Find cuentas for those ofertas
+      const allOfertaIds = Array.from(ofertasByProduct.values()).flat();
+      let cuentasByOferta = new Map<number, number>();
+      if (allOfertaIds.length > 0) {
+        const { data: cuentas } = await supabase
+          .from('cuentas_cobranza')
+          .select('id_oferta, precio_final')
+          .in('id_oferta', allOfertaIds)
+          .eq('activo', true);
+        (cuentas || []).forEach(c => {
+          cuentasByOferta.set(c.id_oferta, (cuentasByOferta.get(c.id_oferta) || 0) + (c.precio_final || 0));
+        });
       }
+
+      // Sum bodega prices
+      const bodegaProductIdsWithPrice = new Set<number>();
+      bodegaProductIds.forEach(pid => {
+        const ofertaIds = ofertasByProduct.get(pid) || [];
+        const precio = ofertaIds.reduce((sum, oid) => sum + (cuentasByOferta.get(oid) || 0), 0);
+        if (precio > 0) {
+          precioBodegas += precio;
+          bodegaProductIdsWithPrice.add(pid);
+        }
+      });
+      totalEscrituracion += precioBodegas;
+
+      // Sum estacionamiento prices
+      const estProductIdsWithPrice = new Set<number>();
+      estProductIds.forEach(pid => {
+        const ofertaIds = ofertasByProduct.get(pid) || [];
+        const precio = ofertaIds.reduce((sum, oid) => sum + (cuentasByOferta.get(oid) || 0), 0);
+        if (precio > 0) {
+          precioEstacionamientos += precio;
+          estProductIdsWithPrice.add(pid);
+        }
+      });
+      totalEscrituracion += precioEstacionamientos;
+
+      // Determine icon visibility
+      const bodegasSinPrecio = (allBodegas || []).filter(b => !b.id_producto || !bodegaProductIdsWithPrice.has(b.id_producto));
+      const estSinPrecio = (allEstacionamientos || []).filter(e => !e.id_producto || !estProductIdsWithPrice.has(e.id_producto));
 
       return {
         totalEscrituracion,
@@ -1746,8 +1749,8 @@ export default function DetalleCuentaCobranza() {
         precioEstacionamientos,
         tieneBodegas: precioBodegas > 0,
         tieneEstacionamientos: precioEstacionamientos > 0,
-        tieneBodegasIncluidas: bodegasIncluidas.filter(b => precioBodegas === 0 || !bodegasConPrecio.some(bc => bc.id === b.id)).length > 0,
-        tieneEstacionamientosIncluidos: estacionamientosIncluidos.filter(e => precioEstacionamientos === 0 || !estacionamientosConPrecio.some(ec => ec.id === e.id)).length > 0
+        tieneBodegasIncluidas: hasBodegas && bodegasSinPrecio.length > 0,
+        tieneEstacionamientosIncluidos: hasEstacionamientos && estSinPrecio.length > 0
       };
     },
     enabled: !!cuentaDetalle && cuentaDetalle.tipo_cuenta === 'Propiedad' && !!cuentaDetalle.id_propiedad,
