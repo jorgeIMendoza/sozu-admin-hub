@@ -30,6 +30,7 @@ import { Edit } from "lucide-react";
 import { Combobox } from "@/components/ui/combobox";
 import { ModelCharacteristicsSection } from "./ModelCharacteristicsSection";
 import { PlanoArquitectonicoUpload } from "./PlanoArquitectonicoUpload";
+import { ImageUploadField } from "./ImageUploadField";
 
 const formSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
@@ -262,21 +263,11 @@ export const EditModeloDialog = ({ modelo, onModeloUpdated, proyectos }: EditMod
               />
             </div>
 
-            <div className="space-y-2">
-              <FormLabel>Imagen de Portada del Modelo</FormLabel>
-              <Input
-                placeholder="URL de la imagen de portada"
-                value={imagenPortadaUrl}
-                onChange={(e) => setImagenPortadaUrl(e.target.value)}
-              />
-              {imagenPortadaUrl && (
-                <img
-                  src={imagenPortadaUrl}
-                  alt="Portada del modelo"
-                  className="w-full h-32 object-cover rounded-md border"
-                />
-              )}
-            </div>
+            <ImageUploadField
+              label="Imagen de Portada del Modelo"
+              value={imagenPortadaUrl}
+              onChange={(url) => setImagenPortadaUrl(url)}
+            />
 
             <PlanoArquitectonicoUpload
               currentUrl={planoUrl}
