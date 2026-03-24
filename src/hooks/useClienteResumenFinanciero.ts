@@ -272,7 +272,12 @@ export function useClienteResumenFinanciero(personaId: number | null | undefined
         const propMultimedia = propId ? propMultimediaMap.get(propId) : undefined;
 
         // Priority: propiedad portada > modelo portada > multimedia propiedad > multimedia modelo > proyecto portada
-        const resolvedImage = propPortada || modeloPortada || propMultimedia || modelMultimedia || projInfo?.imageUrl || "";
+        // Skip legacy/broken URLs (api.sozu.com, string "null", base64 data URIs)
+        const isValidImageUrl = (url: string | null | undefined): string | undefined => {
+          if (!url || url === 'null' || url.includes('api.sozu.com') || url.startsWith('data:')) return undefined;
+          return url;
+        };
+        const resolvedImage = isValidImageUrl(propPortada) || isValidImageUrl(modeloPortada) || isValidImageUrl(propMultimedia) || isValidImageUrl(modelMultimedia) || isValidImageUrl(projInfo?.imageUrl) || "";
 
         properties.push({
           cuentaId: cuenta.id,
