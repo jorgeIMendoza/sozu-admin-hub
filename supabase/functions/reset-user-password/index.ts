@@ -329,6 +329,41 @@ async function handleJwtMode(req: Request, authHeader: string) {
   }, 200);
 }
 
+// --- Public mode: self-service password recovery for permitted roles ---
+const PERMITTED_PUBLIC_ROLES = [3, 4, 9, 23];
+
+async function handlePublicMode(req: Request) {
+  const { email } = await req.json() as ResetPasswordRequest;
+  if (!email) {
+    return jsonResponse({ error: 'Email is required' }, 400);
+  }
+
+  const emailLower = email.trim().toLowerCase();
+  console.log(`[Public mode] Password recovery request for: ${emailLower}`);
+  const supabaseAdmin = createAdminClient();
+
+  const { data: targetUser, error: targetUserError } = await supabaseAdmin
+    .from('usuarios')
+    .select('auth_user_id, nombre, rol_id, activo')
+    .ilike('email', emailLower)
+    .single();
+
+  if (targetUserError || !targetUser || !targetUser.activo || !PERMITTED_PUBLIC_ROLES.includes(targetUser.rol_id)) {
+    console.log('User not found or not eligible for public reset');
+    return jsonResponse({ error: 'No se encontró una cuenta activa con ese correo' }, 404);
+  }
+
+  const result = await resetPassword(supabaseAdmin, emailLower, targetUser.auth_user_id, targetUser.nombre, targetUser.rol_id);
+  if (result.error) {
+    return jsonResponse({ error: result.error }, 500);
+  }
+
+  return jsonResponse({
+    success: true,
+    message: `Se ha reseteado tu contraseña. Revisa tu correo para confirmar tu email y recibir tus nuevas credenciales temporales.`,
+  }, 200);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -346,7 +381,8 @@ Deno.serve(async (req) => {
       return await handleJwtMode(req, authHeader);
     }
 
-    return jsonResponse({ error: 'Se requiere Authorization header o x-api-key' }, 401);
+    // No auth headers = public self-service mode
+    return await handlePublicMode(req);
   } catch (error) {
     console.error('Unexpected error:', error);
     return jsonResponse({ error: `Error inesperado: ${error.message}` }, 500);

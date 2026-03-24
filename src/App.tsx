@@ -35,6 +35,7 @@ const lazyRetry = (importFn: () => Promise<any>) =>
 const Login = lazyRetry(() => import("./pages/auth/Login"));
 const ChangePassword = lazyRetry(() => import("./pages/auth/ChangePassword"));
 const ConfirmacionEmail = lazyRetry(() => import("./pages/auth/ConfirmacionEmail"));
+const ForgotPassword = lazyRetry(() => import("./pages/auth/ForgotPassword"));
 
 // Lazy load non-critical route components
 const Proyectos = lazyRetry(() => import("./pages/admin/Proyectos"));
@@ -188,6 +189,7 @@ const App = () => (
                 <Route path="/auth/login" element={<Login />} />
                 <Route path="/auth/change-password" element={<ChangePassword />} />
                 <Route path="/auth/confirmacion-email" element={<ConfirmacionEmail />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                 
                 {/* Public Routes */}
                 <Route path="/registro" element={<Registro />} />
