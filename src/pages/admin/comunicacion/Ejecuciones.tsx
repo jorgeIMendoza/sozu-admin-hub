@@ -201,7 +201,7 @@ export default function Ejecuciones() {
             <div className="text-sm text-muted-foreground mb-2">
               {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? 'es' : ''} de {errorDetail?.total_destinatarios} destinatarios
             </div>
-            <div className="bg-muted rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
+            <div className="bg-muted rounded-lg p-4 max-h-[350px] overflow-y-scroll space-y-2 scrollbar-thin">
               {(() => {
                 const raw = errorDetail?.detalle_error || '';
                 // Try to parse structured JSON errors (new format)
@@ -247,12 +247,18 @@ export default function Ejecuciones() {
               size="sm"
               onClick={() => {
                 if (!errorDetail?.detalle_error) return;
-                // For copy, extract just emails
                 const parts = errorDetail.detalle_error.split(' | ');
                 const parsed = parts.map(p => { try { return JSON.parse(p); } catch { return null; } }).filter(Boolean);
-                const text = parsed.length > 0
-                  ? parsed.map((e: any) => `${e.email} - ${e.motivo}`).join('\n')
-                  : errorDetail.detalle_error;
+                let text: string;
+                if (parsed.length > 0) {
+                  text = parsed.map((e: any) => `${e.email} - ${e.motivo}`).join('\n');
+                } else {
+                  // Old format: extract emails and translate
+                  text = parts.map((part: string) => {
+                    const match = part.trim().match(/addresses?:\s*([^\s.]+)/i);
+                    return match ? `${match[1]} - Correo inactivo (rebote previo o queja de spam)` : part.trim();
+                  }).join('\n');
+                }
                 handleCopyError(text);
               }}
               disabled={!errorDetail?.detalle_error}
