@@ -19,9 +19,9 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }> = {
-  1: { label: "Agendada", variant: "outline", color: "text-blue-600" },
-  2: { label: "Pendiente", variant: "secondary", color: "text-amber-600" },
-  3: { label: "Confirmada", variant: "default", color: "text-emerald-600" },
+  1: { label: "Agendada", variant: "outline", color: "text-primary" },
+  2: { label: "Pendiente", variant: "secondary", color: "text-warning" },
+  3: { label: "Confirmada", variant: "default", color: "text-success" },
 };
 
 interface ConfigCita {
@@ -69,9 +69,10 @@ interface Cita extends CitaRaw {
 }
 
 interface CalendarSlot {
-  type: "empty" | "cita";
+  type: "empty" | "cita" | "group";
   config?: ConfigCita;
   cita?: Cita;
+  citas?: Cita[];
   hora: number;
   configId: number;
   agendados?: number;
@@ -103,23 +104,24 @@ function DetailRow({ icon: Icon, label, children, className }: {
 
 // ─── Slot Card ───
 function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calendarStatus: CalendarStatus; onClick: () => void }) {
-  if (slot.type === "empty") {
+  if (slot.type === "empty" || slot.type === "group") {
     const isGroup = (slot.maxInvitados || 0) > 1;
     const agendados = slot.agendados || 0;
     const hasBookings = isGroup && agendados > 0;
+    const isFull = isGroup && agendados >= (slot.maxInvitados || 0);
     return (
       <div
         onClick={onClick}
         className={cn(
           "absolute inset-x-1 inset-y-0.5 rounded-md border px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all group",
           hasBookings
-            ? "bg-primary/8 border-primary/25 hover:bg-primary/15 hover:shadow-sm"
+            ? "bg-primary/15 border-primary/50 hover:bg-primary/20 hover:shadow-sm"
             : "border-dashed border-muted-foreground/20 bg-muted/5 hover:border-primary/40 hover:bg-primary/5"
         )}
       >
         <div className="flex items-center gap-1.5 truncate">
           {hasBookings ? (
-            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+            <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
           ) : (
             <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 flex-shrink-0" />
           )}
@@ -127,7 +129,7 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
         </div>
         <div className="text-[9px] truncate mt-0.5">
           {isGroup
-            ? <span className={hasBookings ? "text-primary font-medium" : "opacity-60"}>{agendados}/{slot.maxInvitados} agendados</span>
+            ? <span className={hasBookings ? "text-primary font-semibold" : "opacity-60"}>{agendados}/{slot.maxInvitados} agendados{isFull ? " · Completa" : ""}</span>
             : <span className="opacity-60">{slot.config?.id_usuario_email}</span>}
         </div>
       </div>
@@ -156,14 +158,14 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
         {isCancelledCalendar ? (
           <AlertTriangle className="h-3 w-3 flex-shrink-0 text-destructive" />
         ) : calendarStatus === "verified" ? (
-          <CheckCircle2 className="h-3 w-3 flex-shrink-0 text-emerald-500" />
+          <CheckCircle2 className="h-3 w-3 flex-shrink-0 text-success" />
         ) : calendarStatus === "pending" ? (
           <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-muted-foreground" />
         ) : (
           <div className={cn("w-2 h-2 rounded-full flex-shrink-0",
-            cita.id_estatus_cita === 1 ? "bg-blue-500" :
-            cita.id_estatus_cita === 2 ? "bg-amber-500" :
-            cita.id_estatus_cita === 3 ? "bg-emerald-500" : "bg-muted-foreground"
+            cita.id_estatus_cita === 1 ? "bg-primary" :
+            cita.id_estatus_cita === 2 ? "bg-warning" :
+            cita.id_estatus_cita === 3 ? "bg-success" : "bg-muted-foreground"
           )} />
         )}
         <span className="truncate">{slot.config?.nombre || "Cita"}</span>
@@ -383,19 +385,48 @@ export default function TodasLasCitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reservas_citas")
-        .select("id, id_configuracion_cita, id_estatus_cita, estatus, fecha, hora_inicio, hora_fin, id_persona_prospecto, id_agente, notas, google_calendar_event_id, activo, prospecto:personas!reservas_citas_id_persona_prospecto_fkey(nombre, apellido_paterno, email), agente:personas!reservas_citas_id_agente_fkey(nombre, apellido_paterno, email)")
+        .select("id, id_configuracion_cita, id_estatus_cita, estatus, fecha, hora_inicio, hora_fin, id_persona_prospecto, id_agente, notas, google_calendar_event_id, activo")
         .eq("activo", true)
         .gte("fecha", format(weekStart, "yyyy-MM-dd"))
         .lte("fecha", format(weekEnd, "yyyy-MM-dd"))
         .order("hora_inicio", { ascending: true });
       if (error) { console.error("Error fetching citas:", error); return []; }
-      return ((data || []) as unknown as CitaRaw[]).map(r => ({
+
+      const rawCitas = ((data || []) as unknown as CitaRaw[]).map(r => ({
         ...r,
         id_configuracion_cita: r.id_configuracion_cita || 0,
         id_estatus_cita: r.id_estatus_cita || 0,
-        nombre_prospecto: r.prospecto ? `${r.prospecto.nombre} ${r.prospecto.apellido_paterno}` : null,
-        email_agente: r.agente?.email || null,
-      })) as Cita[];
+      }));
+
+      const personaIds = Array.from(new Set(rawCitas.flatMap((r) => [r.id_persona_prospecto, r.id_agente]).filter((id): id is number => !!id)));
+
+      let personasMap = new Map<number, { nombre_legal: string | null; email: string | null }>();
+
+      if (personaIds.length > 0) {
+        const { data: personas, error: personasError } = await supabase
+          .from("personas")
+          .select("id, nombre_legal, email")
+          .in("id", personaIds);
+
+        if (personasError) {
+          console.warn("Error fetching personas for citas:", personasError);
+        } else {
+          personasMap = new Map((personas || []).map((persona) => [persona.id, persona]));
+        }
+      }
+
+      return rawCitas.map((r) => {
+        const prospecto = r.id_persona_prospecto ? personasMap.get(r.id_persona_prospecto) : null;
+        const agente = r.id_agente ? personasMap.get(r.id_agente) : null;
+
+        return {
+          ...r,
+          nombre_prospecto: prospecto
+            ? prospecto.nombre_legal || prospecto.email || null
+            : null,
+          email_agente: agente?.email || null,
+        };
+      }) as Cita[];
     },
   });
 
@@ -457,6 +488,20 @@ export default function TodasLasCitas() {
     return map;
   }, [filteredCitas]);
 
+  const ocupacionSlots = useMemo(() => {
+    const map = new Map<string, Cita[]>();
+
+    filteredCitas.forEach((cita) => {
+      const slotHour = Math.floor(parseTime(cita.hora_inicio));
+      const key = `${cita.fecha}_${cita.id_configuracion_cita}_${slotHour}`;
+
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(cita);
+    });
+
+    return map;
+  }, [filteredCitas]);
+
   const filteredHorarios = useMemo(() => {
     if (ownerFilter === "all") return horarios;
     return horarios.filter(h => {
@@ -465,7 +510,7 @@ export default function TodasLasCitas() {
     });
   }, [horarios, ownerFilter, configMap]);
 
-  const emptySlotsByDay = useMemo(() => {
+  const singleEmptySlotsByDay = useMemo(() => {
     const map = new Map<string, CalendarSlot[]>();
     days.forEach(day => {
       const dayOfWeek = getDay(day);
@@ -482,29 +527,61 @@ export default function TodasLasCitas() {
         }
 
         const key = `${dayKey}_${h.hora}`;
-        const existingCitas = citasIndex.get(key) || [];
-        const citasForConfig = existingCitas.filter(c => c.id_configuracion_cita === h.id_configuracion_cita);
         const maxInv = config?.max_invitados || 1;
-        
-        // For group sessions: show slot with count until full
-        // For 1:1 sessions: hide slot if any booking exists
-        if (maxInv > 1) {
-          if (citasForConfig.length < maxInv) {
-            const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0, agendados: citasForConfig.length, maxInvitados: maxInv };
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(slot);
-          }
-        } else {
-          if (citasForConfig.length === 0) {
-            const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0 };
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(slot);
-          }
+
+        if (maxInv > 1) return;
+
+        const citasForConfig = ocupacionSlots.get(`${dayKey}_${h.id_configuracion_cita || 0}_${h.hora}`) || [];
+
+        if (citasForConfig.length === 0) {
+          const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0 };
+          if (!map.has(key)) map.set(key, []);
+          map.get(key)!.push(slot);
         }
       });
     });
     return map;
-  }, [days, filteredHorarios, citasIndex, configMap]);
+  }, [days, filteredHorarios, ocupacionSlots, configMap]);
+
+  const groupSlotsByDay = useMemo(() => {
+    const map = new Map<string, CalendarSlot[]>();
+
+    days.forEach((day) => {
+      const dayOfWeek = getDay(day);
+      const dayHorarios = filteredHorarios.filter((h) => h.dia_semana === dayOfWeek);
+      const dayKey = format(day, "yyyy-MM-dd");
+
+      dayHorarios.forEach((h) => {
+        const config = h.id_configuracion_cita ? configMap.get(h.id_configuracion_cita) : undefined;
+
+        if (config?.fecha_fin_recurrencia) {
+          const endDate = new Date(config.fecha_fin_recurrencia + "T23:59:59");
+          if (day > endDate) return;
+        }
+
+        const maxInv = config?.max_invitados || 1;
+        if (maxInv <= 1) return;
+
+        const key = `${dayKey}_${h.hora}`;
+        const citasForConfig = ocupacionSlots.get(`${dayKey}_${h.id_configuracion_cita || 0}_${h.hora}`) || [];
+
+        const slot: CalendarSlot = {
+          type: "group",
+          config,
+          hora: h.hora,
+          configId: h.id_configuracion_cita || 0,
+          agendados: citasForConfig.length,
+          maxInvitados: maxInv,
+          citas: citasForConfig,
+        };
+
+        if (!map.has(key)) map.set(key, []);
+        map.get(key)!.push(slot);
+      });
+    });
+
+    return map;
+  }, [days, filteredHorarios, ocupacionSlots, configMap]);
 
   // ─── Batch verify ───
 
@@ -549,7 +626,8 @@ export default function TodasLasCitas() {
 
   // Stats
   const totalAgendadas = filteredCitas.length;
-  const totalDisponibles = Array.from(emptySlotsByDay.values()).reduce((acc, slots) => acc + slots.length, 0);
+  const totalDisponibles = Array.from(singleEmptySlotsByDay.values()).reduce((acc, slots) => acc + slots.length, 0)
+    + Array.from(groupSlotsByDay.values()).reduce((acc, slots) => acc + slots.filter((slot) => (slot.agendados || 0) < (slot.maxInvitados || 0)).length, 0);
 
   return (
     <div className="space-y-5">
@@ -601,15 +679,15 @@ export default function TodasLasCitas() {
           Disponible
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-primary" />
           Agendada
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-warning" />
           Pendiente
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span className="w-2.5 h-2.5 rounded-full bg-success" />
           Confirmada
         </span>
         <span className="flex items-center gap-1.5">
@@ -617,7 +695,7 @@ export default function TodasLasCitas() {
           No en Calendar
         </span>
         <span className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+          <CheckCircle2 className="h-3 w-3 text-success" />
           Verificada
         </span>
       </div>
@@ -683,7 +761,8 @@ export default function TodasLasCitas() {
                     configId: cita.id_configuracion_cita,
                   }));
 
-                  const emptySlots = emptySlotsByDay.get(key) || [];
+                  const groupSlots = groupSlotsByDay.get(key) || [];
+                  const emptySlots = singleEmptySlotsByDay.get(key) || [];
 
                   return (
                     <div
@@ -700,24 +779,25 @@ export default function TodasLasCitas() {
 
                       {/* Render all items side by side when multiple */}
                       {(() => {
-                        // For group configs, merge the empty slot + its individual citas into one card
-                        // so we don't render them separately
                         const groupConfigIds = new Set<number>();
-                        emptySlots.forEach(slot => {
-                          if ((slot.maxInvitados || 0) > 1) groupConfigIds.add(slot.configId);
+                        groupSlots.forEach(slot => {
+                          groupConfigIds.add(slot.configId);
                         });
 
                         const allItems: { slot: CalendarSlot; top: number; height: number; status: CalendarStatus }[] = [];
 
-                        // Add empty slots (group slots already have the count)
+                        groupSlots.forEach((slot) => {
+                          const duration = slot.config?.duracion_minutos || 60;
+                          const cardHeight = (duration / 60) * slotHeight;
+                          allItems.push({ slot, top: 0, height: cardHeight, status: "unknown" });
+                        });
+
                         emptySlots.forEach((slot) => {
                           const duration = slot.config?.duracion_minutos || 60;
                           const cardHeight = (duration / 60) * slotHeight;
                           allItems.push({ slot, top: 0, height: cardHeight, status: "unknown" });
                         });
 
-                        // Add individual citas but skip those belonging to a group config
-                        // (they're already counted in the group empty slot)
                         slotCitas.forEach(slot => {
                           if (groupConfigIds.has(slot.configId)) return;
                           const start = slot.hora;
