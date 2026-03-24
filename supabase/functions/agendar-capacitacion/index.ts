@@ -221,7 +221,8 @@ async function getAvailableSlots(
 async function checkAvailability(
   token: string, fecha: string, horaInicio: string, horaFin: string,
   calendarId: string, excludeEventId?: string, supabaseClient?: any,
-  calendarOwnerEmail?: string, tipoCitaId?: number, configId?: number
+  calendarOwnerEmail?: string, tipoCitaId?: number, configId?: number,
+  maxInvitados?: number
 ): Promise<boolean> {
   if (supabaseClient && calendarOwnerEmail) {
     const dayOfWeek = getDayOfWeek(fecha);
@@ -249,6 +250,13 @@ async function checkAvailability(
       console.log(`[checkAvailability] Slot ${horaInicio} on day ${dayOfWeek} not configured (configId=${configId || "none"}) for ${calendarOwnerEmail}`);
       return false;
     }
+  }
+
+  // For group sessions (maxInvitados > 1), availability is managed by DB slot config + booking count.
+  // Skip Google Calendar free/busy check to avoid blocking on recurring events created by service account.
+  if (maxInvitados && maxInvitados > 1) {
+    console.log(`[checkAvailability] Group session (maxInvitados=${maxInvitados}), skipping GCal check`);
+    return true;
   }
 
   const timeMin = `${fecha}T${horaInicio}:00-06:00`;
@@ -1530,7 +1538,7 @@ Deno.serve(async (req) => {
     const existingCitaId = oldCitas?.[0]?.id;
 
     // Check availability (only non-service-account events block)
-    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, scheduleCalendarId, existingEventId, supabase, scheduleCalendarOwner, tipoCitaId, config_id);
+    const available = await checkAvailability(token, fecha, hora_inicio, horaFin, scheduleCalendarId, existingEventId, supabase, scheduleCalendarOwner, tipoCitaId, config_id, scheduleMaxInvitados);
     if (!available) {
       return new Response(JSON.stringify({ error: "no_disponible", message: "El horario seleccionado no está disponible." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
