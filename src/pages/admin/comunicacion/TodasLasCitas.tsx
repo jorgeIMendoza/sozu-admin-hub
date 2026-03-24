@@ -106,24 +106,29 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
   if (slot.type === "empty") {
     const isGroup = (slot.maxInvitados || 0) > 1;
     const agendados = slot.agendados || 0;
+    const hasBookings = isGroup && agendados > 0;
     return (
       <div
         onClick={onClick}
         className={cn(
-          "absolute inset-x-1 inset-y-0.5 rounded-md border border-dashed px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all group",
-          isGroup && agendados > 0
-            ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
-            : "border-muted-foreground/20 bg-muted/5 hover:border-primary/40 hover:bg-primary/5"
+          "absolute inset-x-1 inset-y-0.5 rounded-md border px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all group",
+          hasBookings
+            ? "bg-primary/8 border-primary/25 hover:bg-primary/15 hover:shadow-sm"
+            : "border-dashed border-muted-foreground/20 bg-muted/5 hover:border-primary/40 hover:bg-primary/5"
         )}
       >
         <div className="flex items-center gap-1.5 truncate">
-          <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", isGroup && agendados > 0 ? "bg-primary/50" : "bg-muted-foreground/30")} />
-          <span className="truncate font-medium text-muted-foreground">{slot.config?.nombre || "Disponible"}</span>
+          {hasBookings ? (
+            <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+          ) : (
+            <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 flex-shrink-0" />
+          )}
+          <span className={cn("truncate font-medium", hasBookings ? "text-foreground" : "text-muted-foreground")}>{slot.config?.nombre || "Disponible"}</span>
         </div>
-        <div className="text-[9px] truncate opacity-60 mt-0.5">
+        <div className="text-[9px] truncate mt-0.5">
           {isGroup
-            ? `${agendados}/${slot.maxInvitados} agendados`
-            : slot.config?.id_usuario_email}
+            ? <span className={hasBookings ? "text-primary font-medium" : "opacity-60"}>{agendados}/{slot.maxInvitados} agendados</span>
+            : <span className="opacity-60">{slot.config?.id_usuario_email}</span>}
         </div>
       </div>
     );
