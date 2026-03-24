@@ -452,9 +452,8 @@ export default function TodasLasCitas() {
 
         return {
           ...r,
-          nombre_prospecto: prospecto
-            ? prospecto.nombre_legal || prospecto.email || null
-            : null,
+          nombre_prospecto: prospecto?.nombre_legal || null,
+          email_prospecto: prospecto?.email || null,
           email_agente: agente?.email || null,
         };
       }) as Cita[];
