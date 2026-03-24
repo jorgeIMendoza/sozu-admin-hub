@@ -111,7 +111,7 @@ export default function UsuariosClientes() {
     onSuccess: (data, email) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios-clientes'] });
       registrarActualizacion('usuario_cliente_password', { email }, { email, password_reset: true });
-      toast({ title: "Contraseña Reseteada", description: data.message || "La contraseña fue reseteada a Temporal123!" });
+      toast({ title: "Contraseña Reseteada", description: data.message || "Se envió un correo de confirmación. Una vez confirmado, recibirá sus credenciales temporales." });
       setIsResetPasswordDialogOpen(false);
       setSelectedUserEmail(null);
     },

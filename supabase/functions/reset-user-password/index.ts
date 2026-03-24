@@ -219,7 +219,7 @@ async function handleApiKeyMode(req: Request, apiKey: string) {
 
   return jsonResponse({
     success: true,
-    message: `Contraseña reseteada exitosamente. Nueva contraseña temporal: ${TEMP_PASSWORD}`,
+    message: `Contraseña reseteada. Se envió un correo de confirmación a ${email}. Una vez confirmado, recibirá sus credenciales temporales.`,
   }, 200);
 }
 
@@ -307,7 +307,7 @@ async function handleJwtMode(req: Request, authHeader: string) {
 
   return jsonResponse({
     success: true,
-    message: `Contraseña reseteada exitosamente. Nueva contraseña temporal: ${TEMP_PASSWORD}`,
+    message: `Contraseña reseteada. Se envió un correo de confirmación a ${email}. Una vez confirmado, recibirá sus credenciales temporales.`,
   }, 200);
 }
 

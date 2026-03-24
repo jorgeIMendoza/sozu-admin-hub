@@ -264,7 +264,7 @@ export default function UsuariosDirectivos() {
     onSuccess: (data, email) => {
       queryClient.invalidateQueries({ queryKey: ['usuarios-directivos'] });
       registrarActualizacion('usuario_directivo_password', { email }, { email, password_reset: true });
-      toast({ title: "Contraseña Reseteada", description: data.message || "La contraseña fue reseteada a Temporal123!" });
+      toast({ title: "Contraseña Reseteada", description: data.message || "Se envió un correo de confirmación. Una vez confirmado, recibirá sus credenciales temporales." });
       setIsResetPasswordDialogOpen(false);
       setSelectedUserEmail(null);
     },
