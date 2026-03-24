@@ -159,8 +159,16 @@ Deno.serve(async (req) => {
               totalEnviados++;
             } else {
               totalErrores++;
-              const errMsg = `${r.To}: [${r.ErrorCode}] ${r.Message || 'Error desconocido'}`;
-              errorMessages.push(errMsg);
+              // Translate common Postmark errors to Spanish
+              let reason = r.Message || 'Error desconocido';
+              if (r.ErrorCode === 406) {
+                reason = 'Correo inactivo (rebote previo o queja de spam)';
+              } else if (r.ErrorCode === 300) {
+                reason = 'Correo inválido';
+              } else if (r.ErrorCode === 405) {
+                reason = 'No permitido enviar a este destinatario';
+              }
+              errorMessages.push(JSON.stringify({ email: r.To || '', codigo: r.ErrorCode, motivo: reason }));
               console.error('Postmark email error:', { to: r.To, errorCode: r.ErrorCode, message: r.Message });
             }
           });

@@ -198,13 +198,63 @@ export default function Ejecuciones() {
             <p className="text-sm text-muted-foreground">
               Aviso: <strong>{(errorDetail?.avisos as any)?.nombre}</strong> — {errorDetail && new Date(errorDetail.fecha_ejecucion).toLocaleString('es-MX')}
             </p>
-            <div className="bg-muted rounded-lg p-4 text-sm font-mono whitespace-pre-wrap break-all">
-              {errorDetail?.detalle_error || 'Sin detalle disponible'}
+            <div className="text-sm text-muted-foreground mb-2">
+              {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? 'es' : ''} de {errorDetail?.total_destinatarios} destinatarios
+            </div>
+            <div className="bg-muted rounded-lg p-4 max-h-[300px] overflow-y-auto space-y-2">
+              {(() => {
+                const raw = errorDetail?.detalle_error || '';
+                // Try to parse structured JSON errors (new format)
+                const parts = raw.split(' | ');
+                const parsed = parts.map(p => {
+                  try { return JSON.parse(p); } catch { return null; }
+                }).filter(Boolean);
+
+                if (parsed.length > 0) {
+                  return parsed.map((err: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                      <Badge variant="destructive" className="shrink-0 text-xs">{err.codigo}</Badge>
+                      <div>
+                        <p className="font-medium break-all">{err.email}</p>
+                        <p className="text-muted-foreground text-xs">{err.motivo}</p>
+                      </div>
+                    </div>
+                  ));
+                }
+
+                // Fallback: old format - split by | and show as list
+                return parts.map((part: string, i: number) => {
+                  const trimmed = part.trim();
+                  // Try to extract email from old format "email: [code] message"
+                  const match = trimmed.match(/^(?:undefined:\s*)?\[(\d+)\]\s*.*?addresses?:\s*([^\s.]+)/i);
+                  if (match) {
+                    return (
+                      <div key={i} className="flex items-start gap-2 text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                        <Badge variant="destructive" className="shrink-0 text-xs">{match[1]}</Badge>
+                        <div>
+                          <p className="font-medium break-all">{match[2]}</p>
+                          <p className="text-muted-foreground text-xs">Correo inactivo (rebote previo o queja de spam)</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return <p key={i} className="text-sm text-muted-foreground break-all">{trimmed}</p>;
+                });
+              })()}
             </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => errorDetail?.detalle_error && handleCopyError(errorDetail.detalle_error)}
+              onClick={() => {
+                if (!errorDetail?.detalle_error) return;
+                // For copy, extract just emails
+                const parts = errorDetail.detalle_error.split(' | ');
+                const parsed = parts.map(p => { try { return JSON.parse(p); } catch { return null; } }).filter(Boolean);
+                const text = parsed.length > 0
+                  ? parsed.map((e: any) => `${e.email} - ${e.motivo}`).join('\n')
+                  : errorDetail.detalle_error;
+                handleCopyError(text);
+              }}
               disabled={!errorDetail?.detalle_error}
             >
               {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
