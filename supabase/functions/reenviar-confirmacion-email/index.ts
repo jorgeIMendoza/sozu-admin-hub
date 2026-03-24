@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // Get user info
     const { data: usuario } = await supabase
       .from('usuarios')
-      .select('nombre, email_confirmado')
+      .select('nombre, email_confirmado, rol_id')
       .ilike('email', emailLower)
       .maybeSingle();
 
@@ -50,7 +50,9 @@ Deno.serve(async (req) => {
     }
 
     // Generate confirmation link - redirect to frontend thank-you page
-    const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(usuario.nombre || '')}`;
+    const portal = usuario.rol_id === 23 ? 'clientes' : 'inmobiliarias';
+    const host = usuario.rol_id === 23 ? 'https://clientes.sozu.com' : 'https://inmobiliarias.sozu.com';
+    const thankYouUrl = `${host}/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(usuario.nombre || '')}&portal=${portal}&destination=change-password`;
 
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'magiclink',

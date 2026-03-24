@@ -3,9 +3,16 @@ import { CheckCircle, Mail } from 'lucide-react';
 import sozuLogo from '@/assets/sozu-logo-black.png';
 import { supabase } from '@/integrations/supabase/client';
 
+const getPortalUrl = (portal: string | null, destination: string | null) => {
+  const host = portal === 'clientes' ? 'https://clientes.sozu.com' : 'https://inmobiliarias.sozu.com';
+  const path = destination === 'login' ? '/auth/login' : '/auth/change-password';
+  return `${host}${path}`;
+};
+
 export default function ConfirmacionEmail() {
   const calledRef = useRef(false);
-  const [loginUrl, setLoginUrl] = useState('/auth/login');
+  const [ctaUrl, setCtaUrl] = useState('https://inmobiliarias.sozu.com/auth/change-password');
+  const [ctaLabel, setCtaLabel] = useState('Ir a Cambiar Contraseña');
 
   useEffect(() => {
     if (calledRef.current) return;
@@ -14,26 +21,29 @@ export default function ConfirmacionEmail() {
     const params = new URLSearchParams(window.location.search);
     const email = params.get('email');
     const nombre = params.get('nombre') || '';
+    const portal = params.get('portal');
+    const destination = params.get('destination');
+
+    setCtaUrl(getPortalUrl(portal, destination));
+    setCtaLabel(destination === 'login' ? 'Ir a Iniciar Sesión' : 'Ir a Cambiar Contraseña');
 
     if (email) {
-      // Fire-and-forget: trigger post-confirmation logic
       supabase.functions.invoke('post-confirmacion-registro', {
         body: { email, nombre },
-      }).catch(err => console.error('Post-confirm error:', err));
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('Post-confirm error:', error);
+          return;
+        }
 
-      // Determine redirect URL based on user role
-      supabase
-        .from('usuarios')
-        .select('rol_id')
-        .ilike('email', email.toLowerCase())
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.rol_id === 23) {
-            setLoginUrl('https://clientes.sozu.com/auth/login');
-          } else {
-            setLoginUrl('https://inmobiliarias.sozu.com/auth/login');
-          }
-        });
+        if (data?.ctaUrl) {
+          setCtaUrl(data.ctaUrl);
+        }
+
+        if (data?.ctaLabel) {
+          setCtaLabel(data.ctaLabel);
+        }
+      }).catch(err => console.error('Post-confirm error:', err));
     }
   }, []);
 
@@ -77,10 +87,10 @@ export default function ConfirmacionEmail() {
 
         {/* CTA */}
         <a
-          href={loginUrl}
+          href={ctaUrl}
           className="login-btn-primary flex items-center justify-center gap-2 no-underline"
         >
-          Ir a Iniciar Sesión
+          {ctaLabel}
         </a>
       </div>
     </div>

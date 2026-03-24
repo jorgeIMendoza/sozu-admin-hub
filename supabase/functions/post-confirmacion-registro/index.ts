@@ -5,6 +5,27 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const TEMP_PASSWORD = 'Temporal123!';
+const CLIENTE_ROLE_ID = 23;
+
+function safeDecode(value: string | null | undefined, fallback = 'Agente') {
+  if (!value) return fallback;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getPortalConfig(rolId: number | null | undefined) {
+  const host = rolId === CLIENTE_ROLE_ID ? 'https://clientes.sozu.com' : 'https://inmobiliarias.sozu.com';
+  return {
+    portalHost: host,
+    ctaUrl: `${host}/auth/change-password`,
+    ctaLabel: 'Ir a Cambiar Contraseña',
+  };
+}
+
 // This edge function is called from the ConfirmacionEmail page after the user confirms their email.
 // It sends the welcome/credentials email and performs post-confirmation tasks.
 
@@ -28,9 +49,12 @@ Deno.serve(async (req) => {
       nombre = url.searchParams.get('nombre') || 'Agente';
     }
 
-    console.log('Post-confirmacion-registro called for:', email?.substring(0, 5) + '***');
+    const normalizedEmail = email?.toLowerCase().trim() || null;
+    const decodedNombre = safeDecode(nombre);
 
-    if (!email) {
+    console.log('Post-confirmacion-registro called for:', normalizedEmail?.substring(0, 5) + '***');
+
+    if (!normalizedEmail) {
       return new Response(JSON.stringify({ error: 'Parámetros inválidos' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
@@ -42,24 +66,44 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const POSTMARK_TOKEN = Deno.env.get('POSTMARK_SERVER_TOKEN');
 
-    // Find the auth user by email
-    const { data: authUsers } = await supabase.auth.admin.listUsers();
-    let authUser = authUsers?.users?.find(
-      u => u.email?.toLowerCase() === email.toLowerCase()
-    );
+    const { data: usuarioRecord, error: usuarioError } = await supabase
+      .from('usuarios')
+      .select('id_persona, nombre, auth_user_id, rol_id')
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+
+    if (usuarioError) {
+      console.error('Error fetching usuario record:', usuarioError);
+    }
+
+    const rolId = usuarioRecord?.rol_id ?? null;
+    const portalConfig = getPortalConfig(rolId);
+    const nombreUsuario = usuarioRecord?.nombre?.trim() || decodedNombre;
+
+    let authUser = null;
+
+    if (usuarioRecord?.auth_user_id) {
+      const { data: authUserById, error: authUserByIdError } = await supabase.auth.admin.getUserById(usuarioRecord.auth_user_id);
+      if (authUserByIdError) {
+        console.error('Error fetching auth user by id:', authUserByIdError);
+      } else {
+        authUser = authUserById.user;
+      }
+    }
+
+    if (!authUser) {
+      const { data: authUsers } = await supabase.auth.admin.listUsers();
+      authUser = authUsers?.users?.find(
+        u => u.email?.toLowerCase() === normalizedEmail
+      ) ?? null;
+    }
 
     // If no auth user exists (e.g. client flow), create one with temporary password
     if (!authUser) {
-      console.log('Auth user not found, checking usuarios table:', email);
-
-      const { data: usuarioRecord } = await supabase
-        .from('usuarios')
-        .select('id, nombre, auth_user_id')
-        .ilike('email', email.toLowerCase())
-        .maybeSingle();
+      console.log('Auth user not found, checking usuarios table:', normalizedEmail);
 
       if (!usuarioRecord) {
-        console.log('No usuario record found either:', email);
+        console.log('No usuario record found either:', normalizedEmail);
         return new Response(JSON.stringify({ error: 'Usuario no encontrado' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 404,
@@ -67,12 +111,11 @@ Deno.serve(async (req) => {
       }
 
       // Create auth user with temporary password
-      const TEMP_PASSWORD = 'Temporal123!';
       const { data: newAuthUser, error: createAuthError } = await supabase.auth.admin.createUser({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         password: TEMP_PASSWORD,
         email_confirm: true,
-        user_metadata: { name: usuarioRecord.nombre || nombre },
+        user_metadata: { name: nombreUsuario },
       });
 
       if (createAuthError) {
@@ -94,7 +137,7 @@ Deno.serve(async (req) => {
           debe_cambiar_password: true,
           fecha_actualizacion: new Date().toISOString() 
         })
-        .eq('id', usuarioRecord.id);
+        .ilike('email', normalizedEmail);
 
       if (linkError) {
         console.error('Error linking auth_user_id:', linkError);
@@ -128,17 +171,17 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             From: 'Notificaciones Sozu <notificaciones@sozu.com>',
-            To: email.toLowerCase(),
+            To: normalizedEmail,
             TemplateId: 41353048,
             TemplateModel: {
               mensaje: {
-                nombre: decodeURIComponent(nombre),
+                nombre: nombreUsuario,
                 actividad: 'Registro exitoso como Agente Inmobiliario',
                 asunto: 'Bienvenido a Sozu - Tu cuenta ha sido activada',
                 detalles: `
-                  <tr><td class='label'>Email de acceso:</td><td class='value'>${email.toLowerCase()}</td></tr>
+                  <tr><td class='label'>Email de acceso:</td><td class='value'>${normalizedEmail}</td></tr>
                   <tr><td class='label'>Contraseña temporal:</td><td class='value'>Temporal123!</td></tr>
-                  <tr><td class='label'>Portal de acceso:</td><td class='value'><a href="https://inmobiliarias.sozu.com/auth/login">inmobiliarias.sozu.com</a></td></tr>
+                  <tr><td class='label'>Portal de acceso:</td><td class='value'><a href="${portalConfig.ctaUrl}">${portalConfig.portalHost.replace('https://', '')}</a></td></tr>
                   <tr><td class='label'>Importante:</td><td class='value'>Deberás cambiar tu contraseña en tu primer inicio de sesión.</td></tr>
                 `,
               },
@@ -158,13 +201,13 @@ Deno.serve(async (req) => {
         const { data: usuarioData } = await supabase
           .from('usuarios')
           .select('nombre, telefono')
-          .ilike('email', email.toLowerCase())
+          .ilike('email', normalizedEmail)
           .maybeSingle();
 
         // Fallback: get phone from personas table if not in usuarios
         let telefonoAdmin = usuarioData?.telefono;
         if (!telefonoAdmin) {
-          const { data: personaData } = await supabase.from('personas').select('telefono').ilike('email', email.toLowerCase()).maybeSingle();
+          const { data: personaData } = await supabase.from('personas').select('telefono').ilike('email', normalizedEmail).maybeSingle();
           telefonoAdmin = personaData?.telefono;
         }
 
@@ -194,8 +237,8 @@ Deno.serve(async (req) => {
               mensaje: {
                 nombre: 'Administrador',
                 actividad: 'Agente confirmó su correo electrónico',
-                asunto: 'Agente confirmado - ' + decodeURIComponent(nombre),
-                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${decodeURIComponent(nombre)}</td></tr><tr><td class='label'>Email:</td><td class='value'>${email.toLowerCase()}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${telefonoAdmin || 'N/A'}</td></tr><tr><td class='label'>Estado:</td><td class='value'>✅ Email confirmado - Credenciales enviadas</td></tr>`,
+                asunto: 'Agente confirmado - ' + nombreUsuario,
+                detalles: `<tr><td class='label'>Nombre:</td><td class='value'>${nombreUsuario}</td></tr><tr><td class='label'>Email:</td><td class='value'>${normalizedEmail}</td></tr><tr><td class='label'>Teléfono:</td><td class='value'>${telefonoAdmin || 'N/A'}</td></tr><tr><td class='label'>Estado:</td><td class='value'>✅ Email confirmado - Credenciales enviadas</td></tr>`,
               },
             },
             MessageStream: 'outbound',
@@ -222,7 +265,7 @@ Deno.serve(async (req) => {
       await supabase
         .from('usuarios')
         .update({ email_confirmado: true })
-        .ilike('email', email.toLowerCase());
+        .ilike('email', normalizedEmail);
       console.log('Updated email_confirmado to true');
     } catch (updateErr) {
       console.error('Error updating email_confirmado:', updateErr);
@@ -233,14 +276,14 @@ Deno.serve(async (req) => {
       await supabase.from('logs_actividad').insert({
         tipo_accion: 'confirmacion_email',
         tipo_entidad: 'agente',
-        descripcion: `Agente confirmó su correo: ${email.toLowerCase()}`,
+        descripcion: `Agente confirmó su correo: ${normalizedEmail}`,
       });
     } catch (logErr) {
       console.error('Error logging:', logErr);
     }
 
     // Return success
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, rolId, ...portalConfig }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

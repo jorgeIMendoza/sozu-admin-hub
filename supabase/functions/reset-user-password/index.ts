@@ -35,11 +35,16 @@ async function findUserByEmail(supabaseAdmin: any, email: string) {
   return { data, error };
 }
 
-async function sendConfirmationEmail(supabaseAdmin: any, email: string, nombre: string | null) {
+function getConfirmationPortalUrl(email: string, nombre: string | null, rolId: number | null | undefined) {
+  const host = rolId === 23 ? 'https://clientes.sozu.com' : 'https://inmobiliarias.sozu.com';
+  return `${host}/auth/confirmacion-email?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombre || '')}&portal=${rolId === 23 ? 'clientes' : 'inmobiliarias'}&destination=change-password`;
+}
+
+async function sendConfirmationEmail(supabaseAdmin: any, email: string, nombre: string | null, rolId: number | null | undefined) {
   const POSTMARK_TOKEN = Deno.env.get('POSTMARK_SERVER_TOKEN');
   const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 
-  const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(email)}&nombre=${encodeURIComponent(nombre || '')}`;
+  const thankYouUrl = getConfirmationPortalUrl(email, nombre, rolId);
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',
@@ -118,7 +123,7 @@ async function sendConfirmationEmail(supabaseAdmin: any, email: string, nombre: 
   return { success: true };
 }
 
-async function resetPassword(supabaseAdmin: any, email: string, authUserId: string | null, nombre: string | null) {
+async function resetPassword(supabaseAdmin: any, email: string, authUserId: string | null, nombre: string | null, rolId: number | null | undefined) {
   let finalAuthUserId = authUserId;
 
   if (!finalAuthUserId) {
@@ -174,7 +179,7 @@ async function resetPassword(supabaseAdmin: any, email: string, authUserId: stri
   }
 
   // Send confirmation email
-  const confirmResult = await sendConfirmationEmail(supabaseAdmin, email, nombre);
+  const confirmResult = await sendConfirmationEmail(supabaseAdmin, email, nombre, rolId);
   if (confirmResult.error) {
     console.error('Error sending confirmation email:', confirmResult.error);
     // Don't fail the whole operation, password was already reset
@@ -212,7 +217,7 @@ async function handleApiKeyMode(req: Request, apiKey: string) {
     return jsonResponse({ error: 'Esta API key solo permite resetear usuarios con rol Cliente' }, 403);
   }
 
-  const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre);
+  const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre, targetUser.rol_id);
   if (result.error) {
     return jsonResponse({ error: result.error }, 500);
   }
@@ -300,7 +305,7 @@ async function handleJwtMode(req: Request, authHeader: string) {
     return jsonResponse({ error: 'Solo puedes resetear contraseñas de usuarios con rol Inmobiliaria, Agente Inmobiliario o Agente Interno' }, 403);
   }
 
-  const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre);
+  const result = await resetPassword(supabaseAdmin, email, targetUser.auth_user_id, targetUser.nombre, targetUser.rol_id);
   if (result.error) {
     return jsonResponse({ error: result.error }, 500);
   }
