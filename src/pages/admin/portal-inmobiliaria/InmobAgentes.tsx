@@ -835,7 +835,7 @@ export default function InmobAgentes() {
           toast.success("Agente reactivado.");
           toast.warning("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
         } else {
-          toast.success("Agente reactivado. Contraseña reseteada a Temporal123!");
+          toast.success("Agente reactivado. Se envió correo de confirmación para resetear contraseña.");
         }
       } catch {
         toast.success("Agente reactivado.");
@@ -866,7 +866,7 @@ export default function InmobAgentes() {
       if (resetData?.error) {
         toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
       } else {
-        toast.success("Contraseña reseteada a Temporal123!");
+        toast.success("Se envió un correo de confirmación. Una vez confirmado, recibirá sus credenciales temporales.");
       }
     } catch {
       toast.error("Para resetear la contraseña de este usuario tienes que solicitar al administrador.");
