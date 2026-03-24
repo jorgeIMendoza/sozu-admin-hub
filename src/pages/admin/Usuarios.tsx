@@ -312,6 +312,16 @@ export default function Usuarios() {
   
   const [isInmobiliariaLocked, setIsInmobiliariaLocked] = useState(false);
   const [isInmobiliariaPopoverOpen, setIsInmobiliariaPopoverOpen] = useState(false);
+  
+  // Persona lookup state
+  const [matchedPersona, setMatchedPersona] = useState<{
+    id: number;
+    nombre_legal: string;
+    email: string;
+    tipos: string[];
+  } | null>(null);
+  const [isPersonaLinked, setIsPersonaLinked] = useState(false);
+  const [isSearchingPersona, setIsSearchingPersona] = useState(false);
   // Pagination state
   const [currentPageActive, setCurrentPageActive] = useState(1);
   const [currentPageInactive, setCurrentPageInactive] = useState(1);
