@@ -13,6 +13,8 @@ interface RequestBody {
   proyecto_ids?: number[];
 }
 
+const AGENTE_PORTAL_URL = 'https://inmobiliarias.sozu.com';
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -282,7 +284,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── 6. Generate email confirmation link ───
-    const thankYouUrl = `https://inmobiliarias.sozu.com/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(nombre.trim())}`;
+    const thankYouUrl = `${AGENTE_PORTAL_URL}/auth/confirmacion-email?email=${encodeURIComponent(emailLower)}&nombre=${encodeURIComponent(nombre.trim())}&portal=inmobiliarias&destination=change-password`;
     
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: 'signup',
