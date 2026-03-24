@@ -75,6 +75,7 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
         numero_completo_banos: values.numero_completo_banos ? parseInt(values.numero_completo_banos) : null,
         numero_medio_bano: values.numero_medio_bano ? parseInt(values.numero_medio_bano) : null,
         plano_arquitectonico: planoUrl,
+        url_imagen_portada: imagenPortadaUrl || null,
       };
 
       const { data: newModelo, error } = await supabase
@@ -106,6 +107,7 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
 
       form.reset();
       setPlanoUrl(null);
+      setImagenPortadaUrl("");
       setOpen(false);
       onModeloAdded();
     } catch (error) {
@@ -234,6 +236,12 @@ export const NewModeloDialog = ({ onModeloAdded, proyectos }: NewModeloDialogPro
                 )}
               />
             </div>
+
+            <ImageUploadField
+              label="Imagen de Portada del Modelo"
+              value={imagenPortadaUrl}
+              onChange={(url) => setImagenPortadaUrl(url)}
+            />
 
             <PlanoArquitectonicoUpload
               currentUrl={planoUrl}
