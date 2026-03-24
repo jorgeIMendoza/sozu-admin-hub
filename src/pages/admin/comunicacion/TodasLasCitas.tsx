@@ -74,6 +74,8 @@ interface CalendarSlot {
   cita?: Cita;
   hora: number;
   configId: number;
+  agendados?: number;
+  maxInvitados?: number;
 }
 
 type CalendarStatus = "verified" | "missing" | "pending" | "unknown";
@@ -102,16 +104,27 @@ function DetailRow({ icon: Icon, label, children, className }: {
 // ─── Slot Card ───
 function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calendarStatus: CalendarStatus; onClick: () => void }) {
   if (slot.type === "empty") {
+    const isGroup = (slot.maxInvitados || 0) > 1;
+    const agendados = slot.agendados || 0;
     return (
       <div
         onClick={onClick}
-        className="absolute inset-x-1 inset-y-0.5 rounded-md border border-dashed border-muted-foreground/20 px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all hover:border-primary/40 hover:bg-primary/5 bg-muted/5 text-muted-foreground group"
+        className={cn(
+          "absolute inset-x-1 inset-y-0.5 rounded-md border border-dashed px-2 py-1 text-[10px] leading-tight cursor-pointer transition-all group",
+          isGroup && agendados > 0
+            ? "border-primary/30 bg-primary/5 hover:bg-primary/10"
+            : "border-muted-foreground/20 bg-muted/5 hover:border-primary/40 hover:bg-primary/5"
+        )}
       >
         <div className="flex items-center gap-1.5 truncate">
-          <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 flex-shrink-0" />
-          <span className="truncate font-medium">{slot.config?.nombre || "Disponible"}</span>
+          <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", isGroup && agendados > 0 ? "bg-primary/50" : "bg-muted-foreground/30")} />
+          <span className="truncate font-medium text-muted-foreground">{slot.config?.nombre || "Disponible"}</span>
         </div>
-        <div className="text-[9px] truncate opacity-60 mt-0.5">{slot.config?.id_usuario_email}</div>
+        <div className="text-[9px] truncate opacity-60 mt-0.5">
+          {isGroup
+            ? `${agendados}/${slot.maxInvitados} agendados`
+            : slot.config?.id_usuario_email}
+        </div>
       </div>
     );
   }
@@ -245,7 +258,12 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
             </>
           )}
 
-          {/* Duration */}
+          {config && (config.max_invitados || 1) > 1 && (
+            <DetailRow icon={Users} label="Capacidad">
+              {slot.agendados ?? 0}/{config.max_invitados} agendados
+            </DetailRow>
+          )}
+
           {config && (
             <DetailRow icon={Clock} label="Duración">
               {config.duracion_minutos} minutos
@@ -460,11 +478,23 @@ export default function TodasLasCitas() {
 
         const key = `${dayKey}_${h.hora}`;
         const existingCitas = citasIndex.get(key) || [];
-        const hasCitaForConfig = existingCitas.some(c => c.id_configuracion_cita === h.id_configuracion_cita);
-        if (!hasCitaForConfig) {
-          const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0 };
-          if (!map.has(key)) map.set(key, []);
-          map.get(key)!.push(slot);
+        const citasForConfig = existingCitas.filter(c => c.id_configuracion_cita === h.id_configuracion_cita);
+        const maxInv = config?.max_invitados || 1;
+        
+        // For group sessions: show slot with count until full
+        // For 1:1 sessions: hide slot if any booking exists
+        if (maxInv > 1) {
+          if (citasForConfig.length < maxInv) {
+            const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0, agendados: citasForConfig.length, maxInvitados: maxInv };
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(slot);
+          }
+        } else {
+          if (citasForConfig.length === 0) {
+            const slot: CalendarSlot = { type: "empty", config, hora: h.hora, configId: h.id_configuracion_cita || 0 };
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(slot);
+          }
         }
       });
     });
@@ -663,31 +693,48 @@ export default function TodasLasCitas() {
                       {/* Half-hour guide */}
                       <div className="absolute left-0 right-0 border-b border-dashed border-border/20" style={{ top: slotHeight / 2 }} />
 
-                      {/* Empty slots */}
-                      {emptySlots.map((slot, idx) => {
-                        const duration = slot.config?.duracion_minutos || 60;
-                        const cardHeight = (duration / 60) * slotHeight;
-                        return (
-                          <div key={`empty-${idx}`} className="absolute inset-x-0" style={{ top: 0, height: cardHeight, zIndex: 5 }}>
-                            <SlotCard slot={slot} calendarStatus="unknown" onClick={() => setSelectedSlot(slot)} />
-                          </div>
-                        );
-                      })}
+                      {/* Render all items (empty + citas) side by side when multiple */}
+                      {(() => {
+                        const allItems: { slot: CalendarSlot; top: number; height: number; status: CalendarStatus }[] = [];
+                        
+                        emptySlots.forEach((slot, idx) => {
+                          const duration = slot.config?.duracion_minutos || 60;
+                          const cardHeight = (duration / 60) * slotHeight;
+                          allItems.push({ slot, top: 0, height: cardHeight, status: "unknown" });
+                        });
 
-                      {/* Citas */}
-                      {slotCitas.map(slot => {
-                        const start = slot.hora;
-                        const end = parseTime(slot.cita!.hora_fin);
-                        const topOffset = (start - hour) * slotHeight;
-                        const cardHeight = (end - start) * slotHeight;
-                        const status = calendarStatuses.get(slot.cita!.id) || (slot.cita!.estatus === "cancelada_calendar" ? "missing" : "unknown");
+                        slotCitas.forEach(slot => {
+                          const start = slot.hora;
+                          const end = parseTime(slot.cita!.hora_fin);
+                          const topOffset = (start - hour) * slotHeight;
+                          const cardHeight = (end - start) * slotHeight;
+                          const status = calendarStatuses.get(slot.cita!.id) || (slot.cita!.estatus === "cancelada_calendar" ? "missing" : "unknown");
+                          allItems.push({ slot, top: topOffset, height: cardHeight, status });
+                        });
 
-                        return (
-                          <div key={slot.cita!.id} className="absolute inset-x-0" style={{ top: topOffset, height: cardHeight, zIndex: 10 }}>
-                            <SlotCard slot={slot} calendarStatus={status} onClick={() => setSelectedSlot(slot)} />
-                          </div>
-                        );
-                      })}
+                        const totalItems = allItems.length;
+
+                        return allItems.map((item, idx) => {
+                          const widthPercent = totalItems > 1 ? (100 / totalItems) : 100;
+                          const leftPercent = totalItems > 1 ? (idx * widthPercent) : 0;
+                          
+                          return (
+                            <div
+                              key={`item-${idx}`}
+                              className="absolute"
+                              style={{
+                                top: item.top,
+                                height: item.height,
+                                left: `calc(${leftPercent}% + ${idx > 0 ? 1 : 0}px)`,
+                                width: `calc(${widthPercent}% - ${totalItems > 1 ? 1 : 0}px)`,
+                                zIndex: item.slot.type === "cita" ? 10 : 5,
+                              }}
+                            >
+                              <SlotCard slot={item.slot} calendarStatus={item.status} onClick={() => setSelectedSlot(item.slot)} />
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   );
                 })}
