@@ -271,6 +271,37 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
             </DetailRow>
           )}
 
+          {/* Group attendees list */}
+          {slot.type === "group" && slot.citas && slot.citas.length > 0 && (
+            <>
+              <Separator className="my-2" />
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1">Asistentes agendados</p>
+              <div className="space-y-1.5 mt-1">
+                {slot.citas.map((c, i) => (
+                  <div key={c.id} className="flex items-center gap-2 rounded-md bg-primary/5 border border-primary/15 px-3 py-2">
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex-shrink-0">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {c.nombre_prospecto && (
+                        <p className="text-sm font-medium text-foreground truncate">{c.nombre_prospecto}</p>
+                      )}
+                      {c.email_agente && (
+                        <p className="text-[11px] text-muted-foreground truncate">{c.email_agente}</p>
+                      )}
+                      {!c.nombre_prospecto && !c.email_agente && (
+                        <p className="text-sm text-muted-foreground italic">Invitado #{c.id}</p>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                      {STATUS_MAP[c.id_estatus_cita ?? 0]?.label || "—"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {config && (
             <DetailRow icon={Clock} label="Duración">
               {config.duracion_minutos} minutos
