@@ -135,7 +135,7 @@ export default function Modelos() {
 
       let query = supabase
         .from("modelos")
-        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo, plano_arquitectonico", { count: 'exact' })
+        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo, plano_arquitectonico, url_imagen_portada", { count: 'exact' })
         .eq("activo", true);
 
       // Apply project access filter for non-admin users
@@ -173,7 +173,7 @@ export default function Modelos() {
 
       let query = supabase
         .from("modelos")
-        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo, plano_arquitectonico", { count: 'exact' })
+        .select("id, nombre, descripcion, numero_recamaras, numero_completo_banos, numero_medio_bano, id_proyecto, activo, plano_arquitectonico, url_imagen_portada", { count: 'exact' })
         .eq("activo", false);
 
       // Apply filters
