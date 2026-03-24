@@ -991,7 +991,7 @@ export default function Usuarios() {
       setNewUserForm(prev => ({
         ...prev,
         id_persona: matchedPersona.id.toString(),
-        nombre: prev.nombre || matchedPersona.nombre_legal,
+        nombre: matchedPersona.nombre_legal,
       }));
       setIsPersonaLinked(true);
     }
@@ -1597,7 +1597,6 @@ export default function Usuarios() {
                   <div className="text-sm text-amber-700 dark:text-amber-300">
                     <p><strong>{matchedPersona.nombre_legal}</strong></p>
                     <p>Tipo(s): {matchedPersona.tipos.length > 0 ? matchedPersona.tipos.join(', ') : 'Sin tipo de entidad'}</p>
-                    <p className="text-xs text-muted-foreground">ID Persona: {matchedPersona.id}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -1631,7 +1630,7 @@ export default function Usuarios() {
                     Vinculado a: {matchedPersona.nombre_legal}
                   </p>
                   <p className="text-xs text-green-600 dark:text-green-400">
-                    Tipo(s): {matchedPersona.tipos.join(', ')} · ID: {matchedPersona.id}
+                    Tipo(s): {matchedPersona.tipos.join(', ')}
                   </p>
                   <Button
                     type="button"
