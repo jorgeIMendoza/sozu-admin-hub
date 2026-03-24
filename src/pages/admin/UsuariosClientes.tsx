@@ -410,7 +410,7 @@ export default function UsuariosClientes() {
             <AlertDialogDescription>
               ¿Estás seguro de que deseas resetear la contraseña del usuario <strong>{selectedUserEmail}</strong>?
               <br /><br />
-              La nueva contraseña será: <strong>Temporal123!</strong>
+              Primero se enviará un correo para que el cliente confirme su email. Una vez confirmado, recibirá otro correo con su contraseña temporal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

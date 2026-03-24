@@ -124,7 +124,9 @@ export default function ChangePassword() {
         'exito'
       );
 
-      navigate('/admin', { replace: true });
+      await signOut();
+      window.location.href = '/auth/login?reason=password-updated';
+      return;
     } catch (err) {
       setError('Error al cambiar la contraseña. Intenta de nuevo.');
       setIsLoading(false);

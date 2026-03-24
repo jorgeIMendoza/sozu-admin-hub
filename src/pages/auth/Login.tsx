@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert, Building2, User } from 'lucide-react';
+import { Loader2, LogIn, AlertCircle, RefreshCw, Clock, ShieldAlert, Building2, User, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 import { checkForUpdates, clearCacheAndReload } from '@/utils/versionUtils';
 import { APP_VERSION } from '@/lib/config';
@@ -55,6 +55,7 @@ export default function Login() {
   const [searchParams] = useSearchParams();
   
   const inactivityLogout = searchParams.get('reason') === 'inactivity';
+  const passwordUpdated = searchParams.get('reason') === 'password-updated';
   if (user) {
     const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
     navigate(from, { replace: true });
@@ -275,6 +276,13 @@ export default function Login() {
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ color: 'hsl(43 80% 30%)', background: 'hsl(43 80% 95%)' }}>
               <Clock className="h-4 w-4 flex-shrink-0" />
               <span>Tu sesión expiró por inactividad.</span>
+            </div>
+          )}
+
+          {passwordUpdated && !error && !isUpdating && (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm" style={{ color: 'hsl(145 45% 28%)', background: 'hsl(145 45% 94%)' }}>
+              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Tu contraseña se cambió correctamente. Inicia sesión con tu nueva contraseña.</span>
             </div>
           )}
           

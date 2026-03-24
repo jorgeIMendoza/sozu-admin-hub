@@ -1042,7 +1042,7 @@ export default function InmobAgentes() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Resetear contraseña?</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Confirmas resetear la contraseña de <strong>{resetTarget?.email}</strong>? La nueva contraseña será <strong>Temporal123!</strong>.
+              ¿Confirmas resetear la contraseña de <strong>{resetTarget?.email}</strong>? Primero se enviará un correo para confirmar su email y, una vez confirmado, recibirá otro correo con su contraseña temporal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

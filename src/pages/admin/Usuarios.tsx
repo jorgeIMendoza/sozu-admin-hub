@@ -1685,7 +1685,7 @@ export default function Usuarios() {
             <DialogDescription>
               ¿Estás seguro de que deseas resetear la contraseña del usuario <strong>{selectedUserEmail}</strong>?
               <br /><br />
-              La nueva contraseña será: <code className="bg-muted px-2 py-1 rounded">Temporal123!</code>
+              Primero se enviará un correo para que confirme su email. Una vez confirmado, recibirá otro correo con su contraseña temporal.
             </DialogDescription>
           </DialogHeader>
           
