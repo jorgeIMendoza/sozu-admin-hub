@@ -23,6 +23,7 @@ export default function ConfirmacionEmail() {
     const nombre = params.get('nombre') || '';
     const portal = params.get('portal');
     const destination = params.get('destination');
+    const currentHost = window.location.hostname;
 
     setCtaUrl(getPortalUrl(portal, destination));
     setCtaLabel(destination === 'login' ? 'Ir a Iniciar Sesión' : 'Ir a Cambiar Contraseña');
@@ -33,6 +34,15 @@ export default function ConfirmacionEmail() {
       }).then(({ data, error }) => {
         if (error) {
           console.error('Post-confirm error:', error);
+          return;
+        }
+
+        const expectedHost = data?.portalHost ? new URL(data.portalHost).hostname : null;
+        if (expectedHost && expectedHost !== currentHost) {
+          const nextUrl = new URL(window.location.href);
+          nextUrl.protocol = 'https:';
+          nextUrl.host = expectedHost;
+          window.location.replace(nextUrl.toString());
           return;
         }
 
