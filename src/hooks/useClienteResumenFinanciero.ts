@@ -201,7 +201,7 @@ export function useClienteResumenFinanciero(personaId: number | null | undefined
           }
         });
 
-        // Fetch model images (ver_como_imagen_de_propiedad = true)
+        // Fetch model multimedia images (fallback)
         const modeloIds = [...new Set(Array.from(buildingMap.values()).map(b => b.modeloId).filter(Boolean))];
         if (modeloIds.length > 0) {
           const { data: modelImages } = await (supabase as any)
@@ -209,26 +209,35 @@ export function useClienteResumenFinanciero(personaId: number | null | undefined
             .select("id_modelo, url")
             .in("id_modelo", modeloIds)
             .eq("ver_como_imagen_de_propiedad", true)
-            .eq("activo", true)
-            .limit(1);
+            .eq("activo", true);
 
           const modelImageMap = new Map<number, string>();
           (modelImages || []).forEach((img: any) => {
             if (!modelImageMap.has(img.id_modelo)) modelImageMap.set(img.id_modelo, img.url);
           });
 
-          // Override project image with model image if available
           buildingMap.forEach((val, emId) => {
             const modelImg = modelImageMap.get(val.modeloId);
             if (modelImg) {
-              const projInfo = projectInfoMap.get(val.proyectoId);
-              if (projInfo) {
-                // Store per-modelo image keyed by emId for later use
-                (buildingMap.get(emId) as any).modelImageUrl = modelImg;
-              }
+              (buildingMap.get(emId) as any).modelImageUrl = modelImg;
             }
           });
         }
+      }
+
+      // Fetch property multimedia images (fallback before model multimedia)
+      let propMultimediaMap = new Map<number, string>();
+      if (propiedadIds.length > 0) {
+        const { data: propImages } = await supabase
+          .from("multimedias_propiedad")
+          .select("id_propiedad, url")
+          .in("id_propiedad", propiedadIds)
+          .eq("es_imagen", true)
+          .eq("activo", true);
+
+        (propImages || []).forEach((img) => {
+          if (!propMultimediaMap.has(img.id_propiedad)) propMultimediaMap.set(img.id_propiedad, img.url);
+        });
       }
 
       // 5. Build per-property summaries
