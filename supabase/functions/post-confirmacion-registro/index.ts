@@ -44,25 +44,73 @@ Deno.serve(async (req) => {
 
     // Find the auth user by email
     const { data: authUsers } = await supabase.auth.admin.listUsers();
-    const authUser = authUsers?.users?.find(
+    let authUser = authUsers?.users?.find(
       u => u.email?.toLowerCase() === email.toLowerCase()
     );
 
+    // If no auth user exists (e.g. client flow), create one with temporary password
     if (!authUser) {
-      console.log('Auth user not found:', email);
-      return Response.redirect('https://inmobiliarias.sozu.com/auth/login', 302);
-    }
+      console.log('Auth user not found, checking usuarios table:', email);
 
-    // Confirm the email in Auth if not already confirmed
-    if (!authUser.email_confirmed_at) {
-      const { error: confirmError } = await supabase.auth.admin.updateUserById(
-        authUser.id,
-        { email_confirm: true }
-      );
-      if (confirmError) {
-        console.error('Error confirming email in Auth:', confirmError);
-      } else {
-        console.log('Email confirmed in Auth for user:', authUser.id);
+      const { data: usuarioRecord } = await supabase
+        .from('usuarios')
+        .select('id, nombre, auth_user_id')
+        .ilike('email', email.toLowerCase())
+        .maybeSingle();
+
+      if (!usuarioRecord) {
+        console.log('No usuario record found either:', email);
+        return new Response(JSON.stringify({ error: 'Usuario no encontrado' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        });
+      }
+
+      // Create auth user with temporary password
+      const TEMP_PASSWORD = 'Temporal123!';
+      const { data: newAuthUser, error: createAuthError } = await supabase.auth.admin.createUser({
+        email: email.toLowerCase(),
+        password: TEMP_PASSWORD,
+        email_confirm: true,
+        user_metadata: { name: usuarioRecord.nombre || nombre },
+      });
+
+      if (createAuthError) {
+        console.error('Error creating auth user:', createAuthError);
+        return new Response(JSON.stringify({ error: 'Error al crear usuario' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        });
+      }
+
+      authUser = newAuthUser.user;
+      console.log('Auth user created:', authUser.id);
+
+      // Link auth_user_id to usuarios record
+      const { error: linkError } = await supabase
+        .from('usuarios')
+        .update({ 
+          auth_user_id: authUser.id, 
+          debe_cambiar_password: true,
+          fecha_actualizacion: new Date().toISOString() 
+        })
+        .eq('id', usuarioRecord.id);
+
+      if (linkError) {
+        console.error('Error linking auth_user_id:', linkError);
+      }
+    } else {
+      // Confirm the email in Auth if not already confirmed
+      if (!authUser.email_confirmed_at) {
+        const { error: confirmError } = await supabase.auth.admin.updateUserById(
+          authUser.id,
+          { email_confirm: true }
+        );
+        if (confirmError) {
+          console.error('Error confirming email in Auth:', confirmError);
+        } else {
+          console.log('Email confirmed in Auth for user:', authUser.id);
+        }
       }
     }
 

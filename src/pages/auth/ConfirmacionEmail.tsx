@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, Mail } from 'lucide-react';
 import sozuLogo from '@/assets/sozu-logo-black.png';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function ConfirmacionEmail() {
   const calledRef = useRef(false);
+  const [loginUrl, setLoginUrl] = useState('/auth/login');
 
   useEffect(() => {
     if (calledRef.current) return;
@@ -19,6 +20,20 @@ export default function ConfirmacionEmail() {
       supabase.functions.invoke('post-confirmacion-registro', {
         body: { email, nombre },
       }).catch(err => console.error('Post-confirm error:', err));
+
+      // Determine redirect URL based on user role
+      supabase
+        .from('usuarios')
+        .select('rol_id')
+        .ilike('email', email.toLowerCase())
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.rol_id === 23) {
+            setLoginUrl('https://clientes.sozu.com/auth/login');
+          } else {
+            setLoginUrl('https://inmobiliarias.sozu.com/auth/login');
+          }
+        });
     }
   }, []);
 
@@ -62,7 +77,7 @@ export default function ConfirmacionEmail() {
 
         {/* CTA */}
         <a
-          href="/auth/login"
+          href={loginUrl}
           className="login-btn-primary flex items-center justify-center gap-2 no-underline"
         >
           Ir a Iniciar Sesión
