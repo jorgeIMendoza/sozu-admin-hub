@@ -1569,9 +1569,81 @@ export default function Usuarios() {
                 id="email"
                 type="email"
                 value={newUserForm.email}
-                onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => {
+                  setNewUserForm(prev => ({ ...prev, email: e.target.value }));
+                  // Reset persona match when email changes
+                  if (matchedPersona) {
+                    setMatchedPersona(null);
+                    setIsPersonaLinked(false);
+                    setNewUserForm(prev => ({ ...prev, email: e.target.value, id_persona: "" }));
+                  }
+                }}
+                onBlur={(e) => handleEmailLookup(e.target.value)}
                 placeholder="usuario@email.com"
               />
+              {isSearchingPersona && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Buscando persona asociada...
+                </p>
+              )}
+              
+              {/* Persona match notification */}
+              {matchedPersona && !isPersonaLinked && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    ⚠️ Se encontró una persona existente con este email:
+                  </p>
+                  <div className="text-sm text-amber-700 dark:text-amber-300">
+                    <p><strong>{matchedPersona.nombre_legal}</strong></p>
+                    <p>Tipo(s): {matchedPersona.tipos.length > 0 ? matchedPersona.tipos.join(', ') : 'Sin tipo de entidad'}</p>
+                    <p className="text-xs text-muted-foreground">ID Persona: {matchedPersona.id}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      className="text-xs"
+                      onClick={handleLinkPersona}
+                    >
+                      <UserCheck className="h-3 w-3 mr-1" />
+                      Vincular usuario a esta persona
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={() => setMatchedPersona(null)}
+                    >
+                      Ignorar
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Linked confirmation */}
+              {isPersonaLinked && matchedPersona && (
+                <div className="rounded-md border border-green-500/30 bg-green-50 dark:bg-green-950/20 p-3 space-y-1">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200 flex items-center gap-1">
+                    <UserCheck className="h-4 w-4" />
+                    Vinculado a: {matchedPersona.nombre_legal}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    Tipo(s): {matchedPersona.tipos.join(', ')} · ID: {matchedPersona.id}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-xs text-destructive hover:text-destructive"
+                    onClick={handleUnlinkPersona}
+                  >
+                    Desvincular
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
