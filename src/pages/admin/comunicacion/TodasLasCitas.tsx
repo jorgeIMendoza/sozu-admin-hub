@@ -65,6 +65,7 @@ interface CitaRaw {
 
 interface Cita extends CitaRaw {
   nombre_prospecto: string | null;
+  email_prospecto: string | null;
   email_agente: string | null;
 }
 
@@ -283,13 +284,14 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
                       {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      {c.nombre_prospecto && (
-                        <p className="text-sm font-medium text-foreground truncate">{c.nombre_prospecto}</p>
-                      )}
-                      {c.email_agente && (
-                        <p className="text-[11px] text-muted-foreground truncate">{c.email_agente}</p>
-                      )}
-                      {!c.nombre_prospecto && !c.email_agente && (
+                      {(c.nombre_prospecto || c.email_prospecto) ? (
+                        <>
+                          <p className="text-sm font-medium text-foreground truncate">{c.nombre_prospecto || c.email_prospecto}</p>
+                          {c.email_prospecto && c.nombre_prospecto && (
+                            <p className="text-[11px] text-muted-foreground truncate">{c.email_prospecto}</p>
+                          )}
+                        </>
+                      ) : (
                         <p className="text-sm text-muted-foreground italic">Invitado #{c.id}</p>
                       )}
                     </div>
@@ -452,9 +454,8 @@ export default function TodasLasCitas() {
 
         return {
           ...r,
-          nombre_prospecto: prospecto
-            ? prospecto.nombre_legal || prospecto.email || null
-            : null,
+          nombre_prospecto: prospecto?.nombre_legal || null,
+          email_prospecto: prospecto?.email || null,
           email_agente: agente?.email || null,
         };
       }) as Cita[];
