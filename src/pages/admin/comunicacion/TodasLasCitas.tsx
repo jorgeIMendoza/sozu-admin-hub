@@ -54,6 +54,7 @@ interface CitaRaw {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
+  id_persona: number | null;
   id_persona_prospecto: number | null;
   id_agente: number | null;
   notas: string | null;
@@ -64,8 +65,11 @@ interface CitaRaw {
 }
 
 interface Cita extends CitaRaw {
+  nombre_invitado: string | null;
+  email_invitado: string | null;
   nombre_prospecto: string | null;
   email_prospecto: string | null;
+  nombre_agente: string | null;
   email_agente: string | null;
 }
 
@@ -139,7 +143,7 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
 
   const cita = slot.cita!;
   const st = STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" };
-  const hasInvitados = !!(cita.email_agente || cita.nombre_prospecto);
+  const hasInvitados = !!(cita.email_invitado || cita.nombre_invitado);
   const isCancelledCalendar = cita.estatus === "cancelada_calendar" || calendarStatus === "missing";
 
   return (
@@ -173,10 +177,10 @@ function SlotCard({ slot, calendarStatus, onClick }: { slot: CalendarSlot; calen
       </div>
 
       {/* Invitado */}
-      {cita.nombre_prospecto && (
+      {cita.nombre_invitado && (
         <div className="truncate flex items-center gap-1 mt-0.5 text-muted-foreground">
           <User className="h-2.5 w-2.5 flex-shrink-0" />
-          <span className="truncate">{cita.nombre_prospecto}</span>
+          <span className="truncate">{cita.nombre_invitado}</span>
         </div>
       )}
     </div>
@@ -284,11 +288,11 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
                       {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      {(c.nombre_prospecto || c.email_prospecto) ? (
+                      {(c.nombre_invitado || c.email_invitado) ? (
                         <>
-                          <p className="text-sm font-medium text-foreground truncate">{c.nombre_prospecto || c.email_prospecto}</p>
-                          {c.email_prospecto && c.nombre_prospecto && (
-                            <p className="text-[11px] text-muted-foreground truncate">{c.email_prospecto}</p>
+                          <p className="text-sm font-medium text-foreground truncate">{c.nombre_invitado || c.email_invitado}</p>
+                          {c.email_invitado && c.nombre_invitado && (
+                            <p className="text-[11px] text-muted-foreground truncate">{c.email_invitado}</p>
                           )}
                         </>
                       ) : (
@@ -311,18 +315,29 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
           )}
 
           {/* Invitados section */}
-          {cita && (cita.nombre_prospecto || cita.email_agente) && (
+          {cita && (cita.nombre_invitado || cita.email_invitado || cita.nombre_prospecto || cita.email_prospecto || cita.nombre_agente || cita.email_agente) && (
             <>
               <Separator className="my-2" />
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1">Invitados</p>
 
-              {cita.nombre_prospecto && (
+              {(cita.nombre_invitado || cita.email_invitado) && (
+                <DetailRow icon={Users} label="Invitado">
+                  <div className="space-y-0.5">
+                    <p className="font-medium">{cita.nombre_invitado || cita.email_invitado}</p>
+                    {cita.email_invitado && cita.nombre_invitado && (
+                      <p className="text-xs text-muted-foreground">{cita.email_invitado}</p>
+                    )}
+                  </div>
+                </DetailRow>
+              )}
+
+              {cita.nombre_prospecto && cita.nombre_prospecto !== cita.nombre_invitado && (
                 <DetailRow icon={Users} label="Prospecto">
                   <span className="font-medium">{cita.nombre_prospecto}</span>
                 </DetailRow>
               )}
 
-              {cita.email_agente && (
+              {cita.email_agente && cita.email_agente !== cita.email_invitado && (
                 <DetailRow icon={Mail} label="Agente">
                   {cita.email_agente}
                 </DetailRow>
@@ -418,7 +433,7 @@ export default function TodasLasCitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reservas_citas")
-        .select("id, id_configuracion_cita, id_estatus_cita, estatus, fecha, hora_inicio, hora_fin, id_persona_prospecto, id_agente, notas, google_calendar_event_id, activo")
+        .select("id, id_configuracion_cita, id_estatus_cita, estatus, fecha, hora_inicio, hora_fin, id_persona, id_persona_prospecto, id_agente, notas, google_calendar_event_id, activo")
         .eq("activo", true)
         .gte("fecha", format(weekStart, "yyyy-MM-dd"))
         .lte("fecha", format(weekEnd, "yyyy-MM-dd"))
@@ -431,7 +446,7 @@ export default function TodasLasCitas() {
         id_estatus_cita: r.id_estatus_cita || 0,
       }));
 
-      const personaIds = Array.from(new Set(rawCitas.flatMap((r) => [r.id_persona_prospecto, r.id_agente]).filter((id): id is number => !!id)));
+      const personaIds = Array.from(new Set(rawCitas.flatMap((r) => [r.id_persona, r.id_persona_prospecto, r.id_agente]).filter((id): id is number => !!id)));
 
       let personasMap = new Map<number, { nombre_legal: string | null; email: string | null }>();
 
@@ -449,13 +464,17 @@ export default function TodasLasCitas() {
       }
 
       return rawCitas.map((r) => {
+        const invitado = r.id_persona ? personasMap.get(r.id_persona) : null;
         const prospecto = r.id_persona_prospecto ? personasMap.get(r.id_persona_prospecto) : null;
         const agente = r.id_agente ? personasMap.get(r.id_agente) : null;
 
         return {
           ...r,
+          nombre_invitado: prospecto?.nombre_legal || invitado?.nombre_legal || agente?.nombre_legal || null,
+          email_invitado: prospecto?.email || invitado?.email || agente?.email || null,
           nombre_prospecto: prospecto?.nombre_legal || null,
           email_prospecto: prospecto?.email || null,
+          nombre_agente: agente?.nombre_legal || null,
           email_agente: agente?.email || null,
         };
       }) as Cita[];
