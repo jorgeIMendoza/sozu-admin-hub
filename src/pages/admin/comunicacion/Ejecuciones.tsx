@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Search, Copy, Check } from "lucide-react";
+import { Search, Copy, Check, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,10 +30,81 @@ interface AvisoOption {
   nombre: string;
 }
 
+interface ParsedErrorItem {
+  email: string;
+  codigo: string;
+  motivo: string;
+}
+
 const estadoColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   completado: 'default',
   error: 'destructive',
 };
+
+const EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+
+function translateErrorMessage(code: string | undefined, raw: string) {
+  const normalized = raw.replace(/^undefined:\s*/i, '').trim();
+
+  if (code === '406' || /marked as inactive|inactive recipients/i.test(normalized)) {
+    return 'Correo inactivo (rebote previo o queja de spam)';
+  }
+
+  if (code === '300' || /invalid email|is not a valid email/i.test(normalized)) {
+    return 'Correo inválido';
+  }
+
+  if (code === '405') {
+    return 'No permitido enviar a este destinatario';
+  }
+
+  if (/From' address you supplied/i.test(normalized)) {
+    return 'El remitente configurado no está autorizado en Postmark';
+  }
+
+  return normalized || 'Error desconocido';
+}
+
+function parseDetalleErrores(raw: string): ParsedErrorItem[] {
+  if (!raw.trim()) return [];
+
+  return raw
+    .split(' | ')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      try {
+        const parsed = JSON.parse(part);
+        return {
+          email: String(parsed.email || 'Correo no identificado'),
+          codigo: String(parsed.codigo || '—'),
+          motivo: String(parsed.motivo || 'Error desconocido'),
+        };
+      } catch {
+        const email = part.match(EMAIL_REGEX)?.[0] || 'Correo no identificado';
+        const codigo = part.match(/\[(\d+)\]/)?.[1] || '—';
+
+        return {
+          email,
+          codigo,
+          motivo: translateErrorMessage(codigo === '—' ? undefined : codigo, part),
+        };
+      }
+    });
+}
+
+function buildCopyText(items: ParsedErrorItem[], totalErrores: number) {
+  const lines = items.map((item, index) => {
+    const suffix = item.codigo !== '—' ? ` (código ${item.codigo})` : '';
+    return `${index + 1}. ${item.email} — ${item.motivo}${suffix}`;
+  });
+
+  if (totalErrores > items.length) {
+    lines.push('', `Nota: esta ejecución antigua solo guardó ${items.length} de ${totalErrores} errores en el detalle.`);
+  }
+
+  return lines.join('\n');
+}
 
 export default function Ejecuciones() {
   const { isLoading: permLoading } = usePagePermissions('/admin/comunicacion/ejecuciones');
@@ -46,6 +118,16 @@ export default function Ejecuciones() {
   const [searchTerm, setSearchTerm] = useState("");
   const [errorDetail, setErrorDetail] = useState<Ejecucion | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const parsedErrors = useMemo(
+    () => parseDetalleErrores(errorDetail?.detalle_error || ''),
+    [errorDetail?.detalle_error]
+  );
+
+  const hiddenErrorCount = Math.max(
+    0,
+    (errorDetail?.total_errores ?? 0) - parsedErrors.length
+  );
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -111,7 +193,6 @@ export default function Ejecuciones() {
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex gap-4 flex-wrap">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -134,7 +215,6 @@ export default function Ejecuciones() {
         </Select>
       </div>
 
-      {/* Table */}
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -188,9 +268,8 @@ export default function Ejecuciones() {
         </Table>
       </div>
 
-      {/* Error Detail Dialog */}
       <Dialog open={!!errorDetail} onOpenChange={() => setErrorDetail(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Detalle de Error</DialogTitle>
           </DialogHeader>
@@ -198,70 +277,42 @@ export default function Ejecuciones() {
             <p className="text-sm text-muted-foreground">
               Aviso: <strong>{(errorDetail?.avisos as any)?.nombre}</strong> — {errorDetail && new Date(errorDetail.fecha_ejecucion).toLocaleString('es-MX')}
             </p>
-            <div className="text-sm text-muted-foreground mb-2">
-              {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? 'es' : ''} de {errorDetail?.total_destinatarios} destinatarios
-            </div>
-            <div className="bg-muted rounded-lg p-4 max-h-[350px] overflow-y-scroll space-y-2 scrollbar-thin">
-              {(() => {
-                const raw = errorDetail?.detalle_error || '';
-                // Try to parse structured JSON errors (new format)
-                const parts = raw.split(' | ');
-                const parsed = parts.map(p => {
-                  try { return JSON.parse(p); } catch { return null; }
-                }).filter(Boolean);
 
-                if (parsed.length > 0) {
-                  return parsed.map((err: any, i: number) => (
-                    <div key={i} className="flex items-start gap-2 text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
-                      <Badge variant="destructive" className="shrink-0 text-xs">{err.codigo}</Badge>
-                      <div>
-                        <p className="font-medium break-all">{err.email}</p>
-                        <p className="text-muted-foreground text-xs">{err.motivo}</p>
-                      </div>
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">
+                {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? 'es' : ''} de {errorDetail?.total_destinatarios} destinatarios
+              </div>
+              {hiddenErrorCount > 0 && (
+                <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-muted-foreground">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />
+                  <span>
+                    Esta ejecución antigua solo guardó <strong>{parsedErrors.length}</strong> detalles de <strong>{errorDetail?.total_errores}</strong> errores. Los próximos envíos ya guardan todos completos.
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <ScrollArea className="h-[360px] rounded-lg border bg-muted/40 pr-3">
+              <div className="space-y-2 p-4">
+                {parsedErrors.length > 0 ? parsedErrors.map((err, i) => (
+                  <div key={`${err.email}-${i}`} className="flex items-start gap-2 rounded-md border border-border/60 bg-background/80 p-3 text-sm">
+                    <Badge variant="destructive" className="shrink-0 text-xs">{err.codigo}</Badge>
+                    <div className="min-w-0">
+                      <p className="font-medium break-all">{err.email}</p>
+                      <p className="text-muted-foreground text-xs mt-0.5">{err.motivo}</p>
                     </div>
-                  ));
-                }
+                  </div>
+                )) : (
+                  <p className="p-4 text-sm text-muted-foreground">Sin detalle disponible.</p>
+                )}
+              </div>
+            </ScrollArea>
 
-                // Fallback: old format - split by | and show as list
-                return parts.map((part: string, i: number) => {
-                  const trimmed = part.trim();
-                  // Try to extract email from old format "email: [code] message"
-                  const match = trimmed.match(/^(?:undefined:\s*)?\[(\d+)\]\s*.*?addresses?:\s*([^\s.]+)/i);
-                  if (match) {
-                    return (
-                      <div key={i} className="flex items-start gap-2 text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
-                        <Badge variant="destructive" className="shrink-0 text-xs">{match[1]}</Badge>
-                        <div>
-                          <p className="font-medium break-all">{match[2]}</p>
-                          <p className="text-muted-foreground text-xs">Correo inactivo (rebote previo o queja de spam)</p>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return <p key={i} className="text-sm text-muted-foreground break-all">{trimmed}</p>;
-                });
-              })()}
-            </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (!errorDetail?.detalle_error) return;
-                const parts = errorDetail.detalle_error.split(' | ');
-                const parsed = parts.map(p => { try { return JSON.parse(p); } catch { return null; } }).filter(Boolean);
-                let text: string;
-                if (parsed.length > 0) {
-                  text = parsed.map((e: any) => `${e.email} - ${e.motivo}`).join('\n');
-                } else {
-                  // Old format: extract emails and translate
-                  text = parts.map((part: string) => {
-                    const match = part.trim().match(/addresses?:\s*([^\s.]+)/i);
-                    return match ? `${match[1]} - Correo inactivo (rebote previo o queja de spam)` : part.trim();
-                  }).join('\n');
-                }
-                handleCopyError(text);
-              }}
-              disabled={!errorDetail?.detalle_error}
+              onClick={() => handleCopyError(buildCopyText(parsedErrors, errorDetail?.total_errores ?? parsedErrors.length))}
+              disabled={parsedErrors.length === 0}
             >
               {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
               {copied ? 'Copiado' : 'Copiar detalle'}
