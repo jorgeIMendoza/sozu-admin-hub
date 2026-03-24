@@ -258,7 +258,12 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
             </>
           )}
 
-          {/* Duration */}
+          {config && (config.max_invitados || 1) > 1 && (
+            <DetailRow icon={Users} label="Capacidad">
+              {slot.agendados ?? 0}/{config.max_invitados} agendados
+            </DetailRow>
+          )}
+
           {config && (
             <DetailRow icon={Clock} label="Duración">
               {config.duracion_minutos} minutos
