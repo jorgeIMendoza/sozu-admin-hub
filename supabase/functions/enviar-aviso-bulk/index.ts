@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
     }
 
     const detalleError = totalErrores > 0 
-      ? errorMessages.slice(0, 20).join(' | ') 
+      ? errorMessages.join(' | ') 
       : null;
 
     await supabaseAdmin
