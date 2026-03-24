@@ -932,6 +932,77 @@ export default function Usuarios() {
     setIsFieldsLocked(false);
     setSelectedPersonaTipo(null);
     setIsInmobiliariaLocked(false);
+    setMatchedPersona(null);
+    setIsPersonaLinked(false);
+    setIsSearchingPersona(false);
+  };
+
+  const handleEmailLookup = async (email: string) => {
+    const emailLower = email.toLowerCase().trim();
+    if (!emailLower || !emailLower.includes('@')) {
+      setMatchedPersona(null);
+      setIsPersonaLinked(false);
+      return;
+    }
+
+    setIsSearchingPersona(true);
+    try {
+      // Search for personas with this email and their entity types
+      const { data: personas } = await supabase
+        .from('personas')
+        .select('id, nombre_legal, email')
+        .ilike('email', emailLower)
+        .eq('activo', true)
+        .limit(1);
+
+      if (personas && personas.length > 0) {
+        const persona = personas[0];
+        
+        // Get entity types for this persona
+        const { data: entidades } = await supabase
+          .from('entidades_relacionadas')
+          .select('id_tipo_entidad, tipos_entidad!inner(nombre)')
+          .eq('id_persona', persona.id)
+          .eq('activo', true);
+
+        const tipos = (entidades || []).map((e: any) => e.tipos_entidad?.nombre || 'Desconocido');
+        
+        setMatchedPersona({
+          id: persona.id,
+          nombre_legal: persona.nombre_legal || '',
+          email: persona.email || '',
+          tipos,
+        });
+        setIsPersonaLinked(false);
+      } else {
+        setMatchedPersona(null);
+        setIsPersonaLinked(false);
+      }
+    } catch (error) {
+      console.error('Error searching persona:', error);
+      setMatchedPersona(null);
+    } finally {
+      setIsSearchingPersona(false);
+    }
+  };
+
+  const handleLinkPersona = () => {
+    if (matchedPersona) {
+      setNewUserForm(prev => ({
+        ...prev,
+        id_persona: matchedPersona.id.toString(),
+        nombre: prev.nombre || matchedPersona.nombre_legal,
+      }));
+      setIsPersonaLinked(true);
+    }
+  };
+
+  const handleUnlinkPersona = () => {
+    setNewUserForm(prev => ({
+      ...prev,
+      id_persona: "",
+    }));
+    setIsPersonaLinked(false);
   };
 
   const handlePersonaSelect = (personaId: string) => {
