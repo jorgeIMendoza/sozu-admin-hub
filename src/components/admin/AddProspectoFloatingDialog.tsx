@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,18 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
   const [curp, setCurp] = useState("");
   // Projects assigned to the selected prospect in edit mode
   const [editProyectos, setEditProyectos] = useState<ProspectoRelacion[]>([]);
+  const hasAppliedPreselect = useRef(false);
+
+  // Auto-select prospect when preSelectedPersonaId is provided
+  useEffect(() => {
+    if (open && preSelectedPersonaId && misProspectos.length > 0 && !hasAppliedPreselect.current) {
+      hasAppliedPreselect.current = true;
+      handleSelectProspecto(preSelectedPersonaId.toString());
+    }
+    if (!open) {
+      hasAppliedPreselect.current = false;
+    }
+  }, [open, preSelectedPersonaId, misProspectos]);
 
   // Fetch agent's existing prospects (grouped by persona)
   const { data: misProspectos = [] } = useQuery({

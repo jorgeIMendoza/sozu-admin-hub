@@ -449,7 +449,6 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                   (() => {
                     const p = selectedProspectoData.proyectos[0];
                     const color = projectColorMap.get(p.id) || PROJECT_COLORS[0];
-                    if (!selectedProyectoId) handleSelectProject(p.id);
                     return (
                       <div className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-muted/30 text-sm">
                         <span className={cn("h-2 w-2 rounded-full", color.dot)} />
