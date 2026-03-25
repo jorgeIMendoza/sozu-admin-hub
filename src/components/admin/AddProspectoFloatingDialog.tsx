@@ -223,14 +223,20 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         }]);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
       queryClient.invalidateQueries({ queryKey: ["prospectos"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-prospectos"] });
+      queryClient.invalidateQueries({ queryKey: ["mis-prospectos-showroom"] });
       toast.success("Proyecto agregado al prospecto");
-      // Refresh edit state
-      if (selectedProspectoId) {
-        setTimeout(() => handleSelectProspecto(selectedProspectoId.toString()), 500);
+      // Optimistically add to local state
+      const proj = proyectos.find(p => p.id === variables.proyectoId);
+      if (proj) {
+        setEditProyectos(prev => [...prev, {
+          entidad_relacionada_id: Date.now(), // temporary ID until refetch
+          id_proyecto: proj.id,
+          proyecto_nombre: proj.nombre,
+        }]);
       }
     },
     onError: (error: any) => {
@@ -251,16 +257,12 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
         .eq("id", entidadRelacionadaId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, removedId) => {
       queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
       queryClient.invalidateQueries({ queryKey: ["prospectos"] });
       queryClient.invalidateQueries({ queryKey: ["inmob-prospectos"] });
+      queryClient.invalidateQueries({ queryKey: ["mis-prospectos-showroom"] });
       toast.success("Proyecto removido del prospecto");
-      if (selectedProspectoId) {
-        // Update local state immediately
-        setEditProyectos((prev) => prev.filter((p) => prev.length > 1 ? true : true));
-        setTimeout(() => handleSelectProspecto(selectedProspectoId.toString()), 500);
-      }
     },
     onError: (error: any) => {
       toast.error("Error al remover proyecto: " + error.message);
