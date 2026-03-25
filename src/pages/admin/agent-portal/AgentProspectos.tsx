@@ -9,7 +9,7 @@ import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Search, UserPlus, Mail, Phone, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Search, UserPlus, Mail, Phone, Pencil } from "lucide-react";
 
 interface ProspectoAgrupado {
   id_persona: number;
@@ -29,6 +29,7 @@ const AgentProspectos = () => {
   const { permissions } = useAgentPortalPermissions();
   const perms = permissions['/admin/agent/prospectos'] || permissions['/admin/agent/inicio'] || { canRead: true, canCreate: true };
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
+  const [editPersonaId, setEditPersonaId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -182,6 +183,16 @@ const AgentProspectos = () => {
                       )}
                     </div>
                   </div>
+                  <button
+                    onClick={() => {
+                      setEditPersonaId(p.id_persona);
+                      setAddProspectoOpen(true);
+                    }}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title="Editar prospecto"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
                 </div>
                 {/* Project badges */}
                 <div className="flex flex-wrap gap-1.5">
@@ -204,8 +215,12 @@ const AgentProspectos = () => {
         open={addProspectoOpen}
         onOpenChange={(v) => {
           setAddProspectoOpen(v);
-          if (!v) queryClient.invalidateQueries({ queryKey: ["agent-prospectos"] });
+          if (!v) {
+            setEditPersonaId(null);
+            queryClient.invalidateQueries({ queryKey: ["agent-prospectos"] });
+          }
         }}
+        preSelectedPersonaId={editPersonaId}
       />
     </div>
   );
