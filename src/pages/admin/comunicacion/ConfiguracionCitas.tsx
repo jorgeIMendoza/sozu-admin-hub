@@ -905,6 +905,21 @@ export default function ConfiguracionCitas() {
                           </div>
 
                           <div className="space-y-2">
+                            <div className="p-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
+                                  <p className="font-medium">Configuración previa requerida</p>
+                                  <p>Antes de ingresar el email, comparta el calendario con la cuenta de servicio y otorgue permiso de <strong>"Realizar cambios en eventos"</strong>.</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <code className="bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded text-[11px] select-all break-all">{SERVICE_ACCOUNT_EMAIL}</code>
+                                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { navigator.clipboard.writeText(SERVICE_ACCOUNT_EMAIL); toast.success("Email copiado"); }}>
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                             <Label>Email del calendario Google</Label>
                             <div className="flex items-center gap-2 max-w-md">
                               <Input
@@ -932,27 +947,12 @@ export default function ConfiguracionCitas() {
                               {!calendarVerifying && calendarAccessStatus === "error" && <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />}
                             </div>
                             {calendarAccessStatus === "error" && (
-                              <p className="text-xs text-destructive">La cuenta de servicio no tiene permisos en este calendario. Verifique la configuración de Google Calendar.</p>
+                              <p className="text-xs text-destructive">La cuenta de servicio no tiene permiso de "Realizar cambios en eventos" en este calendario. Comparta el calendario y otorgue el permiso antes de continuar.</p>
                             )}
                             {calendarAccessStatus === "ok" && (
-                              <p className="text-xs text-green-600">✓ Acceso verificado correctamente</p>
+                              <p className="text-xs text-green-600">✓ Acceso de escritura verificado correctamente</p>
                             )}
                             <p className="text-xs text-muted-foreground">Calendario donde se agendan las citas</p>
-                            <div className="mt-2 p-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
-                              <div className="flex items-start gap-2">
-                                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                <div className="text-xs text-amber-800 dark:text-amber-200 space-y-1">
-                                  <p className="font-medium">Configuración previa requerida</p>
-                                  <p>Otorgue permisos a la cuenta de servicio para <strong>"Realizar cambios en eventos"</strong>.</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <code className="bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded text-[11px] select-all break-all">{SERVICE_ACCOUNT_EMAIL}</code>
-                                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => { navigator.clipboard.writeText(SERVICE_ACCOUNT_EMAIL); toast.success("Email copiado"); }}>
-                                      <Copy className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
                           </div>
 
                           {/* Proyectos multi-selector */}

@@ -545,23 +545,58 @@ Deno.serve(async (req) => {
     const token = await getAccessToken(sa, dwdSubject);
     console.log(`[auth] Token generated with DWD subject: ${dwdSubject} (config owner: ${calendarOwnerEmail})`);
 
-    // ---- Action: verify-calendar-access (check if service account has calendar access) ----
+    // ---- Action: verify-calendar-access (check if SA has WRITE access to the calendar) ----
     if (body.action === "verify-calendar-access") {
       const targetEmail = body.calendar_email;
       if (!targetEmail) {
         return new Response(JSON.stringify({ error: "Falta calendar_email" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       try {
-        const verifyToken = await getAccessToken(sa, targetEmail);
-        const calUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetEmail)}/events?maxResults=1&timeMin=${encodeURIComponent(new Date().toISOString())}`;
-        const calRes = await fetch(calUrl, { headers: { Authorization: `Bearer ${verifyToken}` } });
-        if (calRes.ok) {
-          console.log(`[verify-calendar-access] Access OK for ${targetEmail}`);
+        // Use the service account's OWN token (no DWD/subject impersonation)
+        // This only works if the calendar was explicitly shared with the SA
+        const saToken = await getAccessToken(sa); // no subject = SA's own identity
+        
+        // Try to create a temporary test event to verify WRITE access ("Realizar cambios en eventos")
+        const now = new Date();
+        const testStart = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000); // 1 year from now
+        const testEnd = new Date(testStart.getTime() + 15 * 60 * 1000);
+        const testEvent = {
+          summary: "__SOZU_VERIFY_WRITE_ACCESS__",
+          start: { dateTime: testStart.toISOString() },
+          end: { dateTime: testEnd.toISOString() },
+        };
+        
+        const createUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetEmail)}/events`;
+        const createRes = await fetch(createUrl, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${saToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(testEvent),
+        });
+        
+        if (createRes.ok) {
+          // Write access confirmed — delete the test event immediately
+          const created = await createRes.json();
+          if (created.id) {
+            const deleteUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetEmail)}/events/${created.id}`;
+            await fetch(deleteUrl, { method: "DELETE", headers: { Authorization: `Bearer ${saToken}` } });
+          }
+          console.log(`[verify-calendar-access] WRITE access OK for ${targetEmail}`);
           return new Response(JSON.stringify({ success: true, accessible: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        const errText = await calRes.text();
-        console.log(`[verify-calendar-access] Access DENIED for ${targetEmail}: ${calRes.status} ${errText}`);
-        return new Response(JSON.stringify({ success: true, accessible: false, status: calRes.status, detail: errText }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        
+        // Write failed — check if it's a permission issue
+        const errText = await createRes.text();
+        console.log(`[verify-calendar-access] WRITE access DENIED for ${targetEmail}: ${createRes.status} ${errText}`);
+        
+        // Provide a specific message depending on the error
+        let detail = errText;
+        if (createRes.status === 404) {
+          detail = "Calendario no encontrado. Verifique que el email sea correcto.";
+        } else if (createRes.status === 403) {
+          detail = "La cuenta de servicio no tiene permiso de 'Realizar cambios en eventos' en este calendario.";
+        }
+        
+        return new Response(JSON.stringify({ success: true, accessible: false, status: createRes.status, detail }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (e: any) {
         console.error(`[verify-calendar-access] Error: ${e.message}`);
         return new Response(JSON.stringify({ success: true, accessible: false, error: e.message }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
