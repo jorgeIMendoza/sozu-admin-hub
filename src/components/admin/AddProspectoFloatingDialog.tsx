@@ -299,14 +299,13 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
           }]);
         if (error) {
           if (error.code === "23505") {
-            // Unique constraint — row exists but was hidden by RLS; try to reactivate
+            // Unique constraint — row exists but was hidden by RLS; try to reactivate/reassign
             const { error: updateError } = await supabase
               .from("entidades_relacionadas")
               .update({ activo: true, id_persona_duena_lead: profile?.id_persona || null })
               .eq("id_persona", personaId)
               .eq("id_tipo_entidad", 7)
-              .eq("id_proyecto", projId)
-              .eq("activo", false);
+              .eq("id_proyecto", projId);
             if (updateError) throw updateError;
           } else {
             throw error;
