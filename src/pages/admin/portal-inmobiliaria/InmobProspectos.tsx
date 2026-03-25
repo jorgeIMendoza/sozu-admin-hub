@@ -9,16 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, UserSearch } from "lucide-react";
+import { Search } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+
+interface ProspectoProyecto {
+  id_proyecto: number;
+  nombre: string;
+}
 
 interface Prospecto {
   id: number;
   nombre: string;
   email: string;
   telefono: string;
-  proyecto_nombre: string;
+  proyectos: ProspectoProyecto[];
   agente_nombre: string;
   estatus: string;
   fecha_creacion: string;
@@ -42,13 +47,11 @@ export default function InmobProspectos() {
     return m;
   }, [agents]);
 
-  // Fetch prospectos linked to agents (tipo 7, id_persona_duena_lead = agent persona id)
   const { data: prospectos = [], isLoading: prospectosLoading } = useQuery({
     queryKey: ["inmob-prospectos", agentPersonaIds],
     queryFn: async () => {
       if (!agentPersonaIds.length) return [];
 
-      // Get entidades_relacionadas type 7 (Prospecto) owned by these agents
       const { data: rels } = await supabase
         .from("entidades_relacionadas")
         .select("id, id_persona, id_persona_duena_lead, id_proyecto, id_estatus_persona")
@@ -83,19 +86,45 @@ export default function InmobProspectos() {
       const estatusMap = new Map<number, string>();
       (estatusRes.data || []).forEach((e: any) => estatusMap.set(e.id, e.nombre));
 
-      return rels.map((r: any) => {
-        const p = personaMap.get(r.id_persona);
-        return {
-          id: r.id_persona,
-          nombre: p?.nombre_legal || p?.nombre_comercial || "Sin nombre",
-          email: p?.email || "",
-          telefono: p?.telefono || "",
-          proyecto_nombre: r.id_proyecto ? proyectoMap.get(r.id_proyecto) || "" : "",
-          agente_nombre: agentNameMap.get(r.id_persona_duena_lead) || "",
-          estatus: r.id_estatus_persona ? estatusMap.get(r.id_estatus_persona) || "—" : "—",
-          fecha_creacion: p?.fecha_creacion || "",
-        } as Prospecto;
-      });
+      // Group relations by id_persona to consolidate multiple projects
+      const grouped = new Map<number, { rels: any[]; agentId: number | null; estatusId: number | null }>();
+      for (const r of rels) {
+        if (!r.id_persona) continue;
+        if (!grouped.has(r.id_persona)) {
+          grouped.set(r.id_persona, { rels: [], agentId: r.id_persona_duena_lead, estatusId: r.id_estatus_persona });
+        }
+        grouped.get(r.id_persona)!.rels.push(r);
+      }
+
+      const result: Prospecto[] = [];
+      for (const [personaId, group] of grouped) {
+        const p = personaMap.get(personaId);
+        if (!p) continue;
+
+        const proyectos: ProspectoProyecto[] = group.rels
+          .filter((r: any) => r.id_proyecto)
+          .map((r: any) => ({
+            id_proyecto: r.id_proyecto,
+            nombre: proyectoMap.get(r.id_proyecto) || "",
+          }))
+          // Deduplicate by project id
+          .filter((proj: ProspectoProyecto, idx: number, arr: ProspectoProyecto[]) =>
+            arr.findIndex((x) => x.id_proyecto === proj.id_proyecto) === idx
+          );
+
+        result.push({
+          id: personaId,
+          nombre: p.nombre_legal || p.nombre_comercial || "Sin nombre",
+          email: p.email || "",
+          telefono: p.telefono || "",
+          proyectos,
+          agente_nombre: agentNameMap.get(group.agentId!) || "",
+          estatus: group.estatusId ? estatusMap.get(group.estatusId) || "—" : "—",
+          fecha_creacion: p.fecha_creacion || "",
+        });
+      }
+
+      return result;
     },
     enabled: agentPersonaIds.length > 0,
     staleTime: 3 * 60_000,
@@ -110,7 +139,7 @@ export default function InmobProspectos() {
       (p) =>
         p.nombre.toLowerCase().includes(q) ||
         p.email.toLowerCase().includes(q) ||
-        p.proyecto_nombre.toLowerCase().includes(q) ||
+        p.proyectos.some((proj) => proj.nombre.toLowerCase().includes(q)) ||
         p.agente_nombre.toLowerCase().includes(q)
     );
   }, [prospectos, search]);
@@ -147,7 +176,7 @@ export default function InmobProspectos() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Teléfono</TableHead>
-                  <TableHead>Proyecto</TableHead>
+                  <TableHead>Proyectos</TableHead>
                   <TableHead>Agente</TableHead>
                   <TableHead>Estatus</TableHead>
                   <TableHead>Registro</TableHead>
@@ -166,7 +195,19 @@ export default function InmobProspectos() {
                       <TableCell className="font-medium">{p.nombre}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{p.email || "—"}</TableCell>
                       <TableCell className="text-sm">{p.telefono || "—"}</TableCell>
-                      <TableCell className="text-sm">{p.proyecto_nombre || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {p.proyectos.length > 0 ? (
+                            p.proyectos.map((proj) => (
+                              <Badge key={proj.id_proyecto} variant="secondary" className="text-xs">
+                                {proj.nombre}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm">{p.agente_nombre}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">{p.estatus}</Badge>

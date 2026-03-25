@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +17,12 @@ import { useCtaTracker } from "@/hooks/useCtaTracker";
 interface AddProspectoFloatingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface ProspectoRelacion {
+  entidad_relacionada_id: number;
+  id_proyecto: number;
+  proyecto_nombre: string;
 }
 
 export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoFloatingDialogProps) {
@@ -34,8 +41,10 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const [telefono, setTelefono] = useState("");
   const [rfc, setRfc] = useState("");
   const [curp, setCurp] = useState("");
+  // Projects assigned to the selected prospect in edit mode
+  const [editProyectos, setEditProyectos] = useState<ProspectoRelacion[]>([]);
 
-  // Fetch agent's existing prospects
+  // Fetch agent's existing prospects (grouped by persona)
   const { data: misProspectos = [] } = useQuery({
     queryKey: ["mis-prospectos-floating", profile?.id_persona],
     queryFn: async () => {
@@ -43,6 +52,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
       const { data, error } = await supabase
         .from("entidades_relacionadas")
         .select(`
+          id,
           id_persona,
           id_proyecto,
           personas!entidades_relacionadas_id_persona_fkey (
@@ -57,6 +67,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
       return (data || [])
         .filter((er: any) => er.personas)
         .map((er: any) => ({
+          entidad_relacionada_id: er.id,
           id_persona: er.personas.id,
           nombre_legal: er.personas.nombre_legal || "",
           email: er.personas.email || "",
@@ -71,8 +82,27 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     enabled: open && !!profile?.id_persona,
   });
 
+  // Fetch project names for assigned projects
+  const assignedProjectIds = useMemo(() => {
+    return [...new Set(misProspectos.map((p) => p.id_proyecto).filter(Boolean))] as number[];
+  }, [misProspectos]);
+
+  const { data: projectNamesMap = new Map<number, string>() } = useQuery({
+    queryKey: ["project-names-floating", assignedProjectIds],
+    queryFn: async () => {
+      if (assignedProjectIds.length === 0) return new Map<number, string>();
+      const { data } = await supabase
+        .from("proyectos")
+        .select("id, nombre")
+        .in("id", assignedProjectIds);
+      const m = new Map<number, string>();
+      (data || []).forEach((p: any) => m.set(p.id, p.nombre));
+      return m;
+    },
+    enabled: assignedProjectIds.length > 0,
+  });
+
   const prospectoOptions = useMemo(() => {
-    // Deduplicate by id_persona
     const seen = new Set<number>();
     return misProspectos
       .filter((p) => { if (seen.has(p.id_persona)) return false; seen.add(p.id_persona); return true; })
@@ -82,22 +112,36 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const handleSelectProspecto = (value: string) => {
     if (!value) {
       setSelectedProspectoId(null);
+      setEditProyectos([]);
       return;
     }
     const id = parseInt(value);
-    const prospecto = misProspectos.find((p) => p.id_persona === id);
-    if (prospecto) {
+    // Get all relations for this persona
+    const relations = misProspectos.filter((p) => p.id_persona === id);
+    const firstRelation = relations[0];
+    if (firstRelation) {
       setSelectedProspectoId(id);
-      setNombre(prospecto.nombre_legal);
-      setEmail(prospecto.email);
-      setTelefono(prospecto.telefono);
-      setClavePais(prospecto.clave_pais_telefono);
-      setTipoPersona(prospecto.tipo_persona);
-      setRfc(prospecto.rfc);
-      setCurp(prospecto.curp);
-      if (prospecto.id_proyecto) {
-        setProyectoId(prospecto.id_proyecto.toString());
-      }
+      setNombre(firstRelation.nombre_legal);
+      setEmail(firstRelation.email);
+      setTelefono(firstRelation.telefono);
+      setClavePais(firstRelation.clave_pais_telefono);
+      setTipoPersona(firstRelation.tipo_persona);
+      setRfc(firstRelation.rfc);
+      setCurp(firstRelation.curp);
+
+      // Collect all assigned projects
+      const proyectos: ProspectoRelacion[] = relations
+        .filter((r) => r.id_proyecto)
+        .map((r) => ({
+          entidad_relacionada_id: r.entidad_relacionada_id,
+          id_proyecto: r.id_proyecto,
+          proyecto_nombre: projectNamesMap.get(r.id_proyecto) || `Proyecto ${r.id_proyecto}`,
+        }))
+        // Deduplicate
+        .filter((p, idx, arr) => arr.findIndex((x) => x.id_proyecto === p.id_proyecto) === idx);
+
+      setEditProyectos(proyectos);
+      setProyectoId(""); // Clear the add-project selector
     }
   };
 
@@ -107,7 +151,6 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
   const { data: proyectos = [] } = useQuery({
     queryKey: ["desarrollos-activos-floating", accessibleProjectIds, hasUnrestrictedAccess],
     queryFn: async () => {
-      // Step 1: Get user's accessible projects
       let candidateQuery = supabase
         .from("proyectos")
         .select("id, nombre")
@@ -123,10 +166,8 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
       if (error) throw error;
       if (!candidates || candidates.length === 0) return [];
 
-      // Step 2: For each candidate project, check if it has available properties via SQL count
       const candidateIds = candidates.map(c => c.id);
       
-      // Use a simple RPC-like approach: query edificios scoped to these projects
       const { data: edificios } = await supabase
         .from('edificios')
         .select('id, id_proyecto')
@@ -147,7 +188,6 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
 
       const emIds = ems.map(em => em.id);
 
-      // Query available propiedades scoped to these edificio_modelos only (small set)
       const { data: availProps } = await supabase
         .from('propiedades')
         .select('id_edificio_modelo')
@@ -158,7 +198,6 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
 
       if (!availProps || availProps.length === 0) return [];
 
-      // Map back to project IDs
       const availEmSet = new Set(availProps.map(p => p.id_edificio_modelo));
       const availEdSet = new Set(ems.filter(em => availEmSet.has(em.id)).map(em => em.id_edificio));
       const availProjSet = new Set(edificios.filter(e => availEdSet.has(e.id)).map(e => e.id_proyecto));
@@ -170,9 +209,67 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
 
   const showSearch = proyectos.length > 10;
 
+  // Add project to existing prospect
+  const addProjectToProspectMutation = useMutation({
+    mutationFn: async ({ personaId, proyectoId: projId }: { personaId: number; proyectoId: number }) => {
+      const { error } = await supabase
+        .from("entidades_relacionadas")
+        .insert([{
+          id_persona: personaId,
+          id_tipo_entidad: 7,
+          id_proyecto: projId,
+          id_persona_duena_lead: profile?.id_persona || null,
+          activo: true,
+        }]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
+      queryClient.invalidateQueries({ queryKey: ["prospectos"] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-prospectos"] });
+      toast.success("Proyecto agregado al prospecto");
+      // Refresh edit state
+      if (selectedProspectoId) {
+        setTimeout(() => handleSelectProspecto(selectedProspectoId.toString()), 500);
+      }
+    },
+    onError: (error: any) => {
+      if (error.message?.includes("uq_entrel_persona_tipo_proy")) {
+        toast.error("Este proyecto ya está asignado al prospecto.");
+      } else {
+        toast.error("Error al agregar proyecto: " + error.message);
+      }
+    },
+  });
+
+  // Remove project from prospect
+  const removeProjectFromProspectMutation = useMutation({
+    mutationFn: async (entidadRelacionadaId: number) => {
+      const { error } = await supabase
+        .from("entidades_relacionadas")
+        .update({ activo: false })
+        .eq("id", entidadRelacionadaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
+      queryClient.invalidateQueries({ queryKey: ["prospectos"] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-prospectos"] });
+      toast.success("Proyecto removido del prospecto");
+      if (selectedProspectoId) {
+        // Update local state immediately
+        setEditProyectos((prev) => prev.filter((p) => prev.length > 1 ? true : true));
+        setTimeout(() => handleSelectProspecto(selectedProspectoId.toString()), 500);
+      }
+    },
+    onError: (error: any) => {
+      toast.error("Error al remover proyecto: " + error.message);
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!proyectoId || !nombre || !email || !telefono) {
+      if (!nombre || !email || !telefono) {
         throw new Error("Completa los campos obligatorios");
       }
       if (!/^\d{10}$/.test(telefono)) {
@@ -203,18 +300,12 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
           .eq("id", selectedProspectoId);
 
         if (updateError) throw updateError;
-
-        // Update entidad_relacionada project if changed
-        const { error: entidadError } = await supabase
-          .from("entidades_relacionadas")
-          .update({ id_proyecto: parseInt(proyectoId) })
-          .eq("id_persona", selectedProspectoId)
-          .eq("id_tipo_entidad", 7)
-          .eq("activo", true)
-          .eq("id_persona_duena_lead", profile?.id_persona || 0);
-
-        if (entidadError) throw entidadError;
       } else {
+        // Validate project for new prospect
+        if (!proyectoId) {
+          throw new Error("Completa los campos obligatorios");
+        }
+
         // Create new persona
         const { data: persona, error: personaError } = await supabase
           .from("personas")
@@ -249,6 +340,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["prospectos"] });
       queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });
+      queryClient.invalidateQueries({ queryKey: ["inmob-prospectos"] });
       toast.success(isEditMode ? "Prospecto actualizado exitosamente" : "Prospecto creado exitosamente");
       handleClose();
     },
@@ -285,9 +377,16 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
     setTelefono("");
     setRfc("");
     setCurp("");
+    setEditProyectos([]);
     hasTrackedFieldFill.current = false;
     onOpenChange(false);
   };
+
+  // Available projects to add (not already assigned)
+  const availableProjectsForAdd = useMemo(() => {
+    const assignedIds = new Set(editProyectos.map((p) => p.id_proyecto));
+    return proyectos.filter((p) => !assignedIds.has(p.id));
+  }, [proyectos, editProyectos]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -323,31 +422,98 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
             )}
           </div>
 
-          {/* Desarrollo de Interés */}
-          <div className="space-y-2">
-            <Label>Desarrollo de Interés <span className="text-destructive">*</span></Label>
-            {showSearch ? (
-              <Combobox
-                value={proyectoId}
-                onValueChange={setProyectoId}
-                options={proyectos.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
-                placeholder="Seleccionar desarrollo..."
-                searchPlaceholder="Buscar desarrollo..."
-                emptyText="No se encontró el desarrollo"
-              />
-            ) : (
-              <Select value={proyectoId} onValueChange={setProyectoId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar desarrollo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {proyectos.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+          {/* Projects section */}
+          {isEditMode ? (
+            <div className="space-y-2">
+              <Label>Proyectos de Interés</Label>
+              <div className="flex flex-wrap gap-1.5 min-h-[36px] items-center p-2 border border-border rounded-md bg-background">
+                {editProyectos.map((p) => (
+                  <Badge key={p.entidad_relacionada_id} variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                    {p.proyecto_nombre}
+                    {editProyectos.length > 1 && (
+                      <button
+                        onClick={() => {
+                          setEditProyectos((prev) => prev.filter((x) => x.entidad_relacionada_id !== p.entidad_relacionada_id));
+                          removeProjectFromProspectMutation.mutate(p.entidad_relacionada_id);
+                        }}
+                        className="ml-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {editProyectos.length === 0 && (
+                  <span className="text-sm text-muted-foreground">Sin proyectos asignados</span>
+                )}
+              </div>
+              {availableProjectsForAdd.length > 0 && (
+                showSearch ? (
+                  <Combobox
+                    value=""
+                    onValueChange={(value) => {
+                      if (value && selectedProspectoId) {
+                        addProjectToProspectMutation.mutate({
+                          personaId: selectedProspectoId,
+                          proyectoId: parseInt(value),
+                        });
+                      }
+                    }}
+                    options={availableProjectsForAdd.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
+                    placeholder="Agregar otro proyecto..."
+                    searchPlaceholder="Buscar desarrollo..."
+                    emptyText="No se encontró el desarrollo"
+                  />
+                ) : (
+                  <Select
+                    value=""
+                    onValueChange={(value) => {
+                      if (value && selectedProspectoId) {
+                        addProjectToProspectMutation.mutate({
+                          personaId: selectedProspectoId,
+                          proyectoId: parseInt(value),
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Agregar otro proyecto..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableProjectsForAdd.map((p) => (
+                        <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Desarrollo de Interés <span className="text-destructive">*</span></Label>
+              {showSearch ? (
+                <Combobox
+                  value={proyectoId}
+                  onValueChange={setProyectoId}
+                  options={proyectos.map((p) => ({ value: p.id.toString(), label: p.nombre }))}
+                  placeholder="Seleccionar desarrollo..."
+                  searchPlaceholder="Buscar desarrollo..."
+                  emptyText="No se encontró el desarrollo"
+                />
+              ) : (
+                <Select value={proyectoId} onValueChange={setProyectoId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar desarrollo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {proyectos.map((p) => (
+                      <SelectItem key={p.id} value={p.id.toString()}>{p.nombre}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           {/* Información Básica section */}
           <div className="border rounded-lg p-4 space-y-4">
@@ -430,7 +596,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange }: AddProspectoF
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => { track({ page: "modal_prospecto", elementId: "modal_prospecto_guardar" }); createMutation.mutate(); }}
-              disabled={createMutation.isPending || !proyectoId || !nombre || !email || !telefono}
+              disabled={createMutation.isPending || (!isEditMode && !proyectoId) || !nombre || !email || !telefono}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : isEditMode ? "Actualizar" : "Guardar"}

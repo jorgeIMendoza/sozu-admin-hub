@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, Users, RotateCcw, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Users, RotateCcw, FileSpreadsheet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useExportToExcel } from "@/hooks/useExportToExcel";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Combobox } from "@/components/ui/combobox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +31,12 @@ import { format } from "date-fns";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { PhoneDisplay } from "@/components/admin/PhoneDisplay";
 
+type ProspectoProyecto = {
+  id: number;
+  nombre: string;
+  entidad_relacionada_id: number;
+};
+
 type Prospecto = {
   id: number;
   nombre_legal: string;
@@ -45,10 +52,10 @@ type Prospecto = {
   representante_legal_nombre?: string;
   estatus_nombre?: string;
   id_estatus_persona?: number;
-  proyecto_nombre?: string;
-  id_proyecto?: number;
+  proyectos: ProspectoProyecto[];
   id_persona_duena_lead?: number;
   agente_nombre?: string;
+  entidad_relacionada_id?: number;
 };
 
 export default function Prospectos() {
@@ -88,6 +95,85 @@ export default function Prospectos() {
   const [newProspectoAgente, setNewProspectoAgente] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Helper to map query results to Prospecto type (shared between active/deleted)
+  const mapProspectosData = (data: any[], proyectosMap: Map<number, string>, conyugesMap: Map<number, string>) => {
+    return (data || []).map((item: any) => {
+      const allRelaciones = item.entidades_relacionadas || [];
+      const firstRelacion = allRelaciones[0];
+
+      const proyectos: ProspectoProyecto[] = allRelaciones
+        .filter((er: any) => er.id_proyecto)
+        .map((er: any) => ({
+          id: er.id_proyecto,
+          nombre: proyectosMap.get(er.id_proyecto) || '',
+          entidad_relacionada_id: er.id,
+        }))
+        // Deduplicate by project id
+        .filter((p: ProspectoProyecto, idx: number, arr: ProspectoProyecto[]) =>
+          arr.findIndex((x) => x.id === p.id) === idx
+        );
+
+      return {
+        id: item.id,
+        entidad_relacionada_id: firstRelacion?.id,
+        id_tipo_entidad: firstRelacion?.id_tipo_entidad,
+        nombre_legal: item.nombre_legal,
+        email: item.email,
+        telefono: item.telefono,
+        clave_pais_telefono: item.clave_pais_telefono,
+        curp: item.curp,
+        rfc: item.rfc,
+        tipo_persona: item.tipo_persona,
+        activo: item.activo,
+        fecha_creacion: item.fecha_creacion,
+        id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
+        id_estado_civil: item.id_estado_civil,
+        id_conyuge: item.id_conyuge,
+        representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
+        estado_civil_nombre: item.estados_civil?.nombre,
+        conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
+        id_estatus_persona: firstRelacion?.id_estatus_persona,
+        estatus_nombre: firstRelacion?.estatus?.nombre,
+        proyectos,
+        id_persona_duena_lead: firstRelacion?.id_persona_duena_lead,
+        agente_nombre: firstRelacion?.agente?.nombre_legal,
+      } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
+    });
+  };
+
+  // Helper to fetch conyuges and proyectos maps
+  const fetchMaps = async (data: any[]) => {
+    const personasConConyuge = data?.filter((p: any) => p.id_conyuge) || [];
+    const idsConyuges = personasConConyuge.map((p: any) => p.id_conyuge);
+    
+    let conyugesMap = new Map<number, string>();
+    if (idsConyuges.length > 0) {
+      const { data: conyugesData } = await supabase
+        .from('personas')
+        .select('id, nombre_legal')
+        .in('id', idsConyuges);
+      conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
+    }
+    
+    // Collect ALL project IDs from ALL entidades_relacionadas
+    const proyectoIds = [...new Set(
+      (data || [])
+        .flatMap((item: any) => (item.entidades_relacionadas || []).map((er: any) => er.id_proyecto))
+        .filter(Boolean)
+    )];
+    
+    let proyectosMap = new Map<number, string>();
+    if (proyectoIds.length > 0) {
+      const { data: proyectosData } = await supabase
+        .from('proyectos')
+        .select('id, nombre')
+        .in('id', proyectoIds);
+      proyectosMap = new Map(proyectosData?.map((p: any) => [p.id, p.nombre]) || []);
+    }
+
+    return { conyugesMap, proyectosMap };
+  };
 
   const { data: activeProspectosData, isLoading: loadingActive } = useQuery({
     queryKey: ['prospectos', 'active', currentPageActive, searchTerm],
@@ -155,68 +241,10 @@ export default function Prospectos() {
         throw error;
       }
       
-      // Obtener nombres de cónyuges en una segunda consulta
-      const personasConConyuge = data?.filter((p: any) => p.id_conyuge) || [];
-      const idsConyuges = personasConConyuge.map((p: any) => p.id_conyuge);
-      
-      let conyugesMap = new Map();
-      if (idsConyuges.length > 0) {
-        const { data: conyugesData } = await supabase
-          .from('personas')
-          .select('id, nombre_legal')
-          .in('id', idsConyuges);
-        
-        conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
-      }
-      
-      // Obtener IDs de proyectos únicos para buscar nombres
-      const proyectoIds = [...new Set(
-        (data || [])
-          .map((item: any) => item.entidades_relacionadas[0]?.id_proyecto)
-          .filter(Boolean)
-      )];
-      
-      let proyectosMap = new Map();
-      if (proyectoIds.length > 0) {
-        const { data: proyectosData } = await supabase
-          .from('proyectos')
-          .select('id, nombre')
-          .in('id', proyectoIds);
-        
-        proyectosMap = new Map(proyectosData?.map((p: any) => [p.id, p.nombre]) || []);
-      }
+      const { conyugesMap, proyectosMap } = await fetchMaps(data || []);
       
       return {
-        prospectos: (data || []).map((item: any) => {
-          const entidadRelacionada = item.entidades_relacionadas[0];
-          
-          return {
-            id: item.id,
-            entidad_relacionada_id: entidadRelacionada.id,
-            id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
-            nombre_legal: item.nombre_legal,
-            email: item.email,
-            telefono: item.telefono,
-            clave_pais_telefono: item.clave_pais_telefono,
-            curp: item.curp,
-            rfc: item.rfc,
-            tipo_persona: item.tipo_persona,
-            activo: item.activo,
-            fecha_creacion: item.fecha_creacion,
-            id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-            id_estado_civil: item.id_estado_civil,
-            id_conyuge: item.id_conyuge,
-            representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-            estado_civil_nombre: item.estados_civil?.nombre,
-            conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
-            id_estatus_persona: entidadRelacionada.id_estatus_persona,
-            estatus_nombre: entidadRelacionada.estatus?.nombre,
-            id_proyecto: entidadRelacionada.id_proyecto,
-            proyecto_nombre: entidadRelacionada.id_proyecto ? proyectosMap.get(entidadRelacionada.id_proyecto) : null,
-            id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
-            agente_nombre: entidadRelacionada.agente?.nombre_legal,
-          } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
-        }),
+        prospectos: mapProspectosData(data || [], proyectosMap, conyugesMap),
         count: count || 0
       };
     },
@@ -288,68 +316,10 @@ export default function Prospectos() {
         throw error;
       }
       
-      // Obtener nombres de cónyuges en una segunda consulta
-      const personasConConyuge = data?.filter((p: any) => p.id_conyuge) || [];
-      const idsConyuges = personasConConyuge.map((p: any) => p.id_conyuge);
-      
-      let conyugesMap = new Map();
-      if (idsConyuges.length > 0) {
-        const { data: conyugesData } = await supabase
-          .from('personas')
-          .select('id, nombre_legal')
-          .in('id', idsConyuges);
-        
-        conyugesMap = new Map(conyugesData?.map((c: any) => [c.id, c.nombre_legal]) || []);
-      }
-      
-      // Obtener IDs de proyectos únicos para buscar nombres
-      const proyectoIds = [...new Set(
-        (data || [])
-          .map((item: any) => item.entidades_relacionadas[0]?.id_proyecto)
-          .filter(Boolean)
-      )];
-      
-      let proyectosMap = new Map();
-      if (proyectoIds.length > 0) {
-        const { data: proyectosData } = await supabase
-          .from('proyectos')
-          .select('id, nombre')
-          .in('id', proyectoIds);
-        
-        proyectosMap = new Map(proyectosData?.map((p: any) => [p.id, p.nombre]) || []);
-      }
+      const { conyugesMap, proyectosMap } = await fetchMaps(data || []);
       
       return {
-        prospectos: (data || []).map((item: any) => {
-          const entidadRelacionada = item.entidades_relacionadas[0];
-          
-          return {
-            id: item.id,
-            entidad_relacionada_id: entidadRelacionada.id,
-            id_tipo_entidad: entidadRelacionada.id_tipo_entidad,
-            nombre_legal: item.nombre_legal,
-            email: item.email,
-            telefono: item.telefono,
-            clave_pais_telefono: item.clave_pais_telefono,
-            curp: item.curp,
-            rfc: item.rfc,
-            tipo_persona: item.tipo_persona,
-            activo: item.activo,
-            fecha_creacion: item.fecha_creacion,
-            id_entidad_relacionada_rep_leg: item.id_entidad_relacionada_rep_leg,
-            id_estado_civil: item.id_estado_civil,
-            id_conyuge: item.id_conyuge,
-            representante_legal_nombre: item.representante_legal?.personas?.nombre_legal,
-            estado_civil_nombre: item.estados_civil?.nombre,
-            conyuge_nombre: item.id_conyuge ? conyugesMap.get(item.id_conyuge) : null,
-            id_estatus_persona: entidadRelacionada.id_estatus_persona,
-            estatus_nombre: entidadRelacionada.estatus?.nombre,
-            id_proyecto: entidadRelacionada.id_proyecto,
-            proyecto_nombre: entidadRelacionada.id_proyecto ? proyectosMap.get(entidadRelacionada.id_proyecto) : null,
-            id_persona_duena_lead: entidadRelacionada.id_persona_duena_lead,
-            agente_nombre: entidadRelacionada.agente?.nombre_legal,
-          } as Prospecto & { entidad_relacionada_id: number; id_tipo_entidad: number };
-        }),
+        prospectos: mapProspectosData(data || [], proyectosMap, conyugesMap),
         count: count || 0
       };
     },
@@ -433,7 +403,7 @@ export default function Prospectos() {
         .from('estatus_persona')
         .select('id, nombre')
         .eq('activo', true)
-        .eq('id_tipo_entidad', 7) // Prospecto type
+        .eq('id_tipo_entidad', 7)
         .order('nombre', { ascending: true });
       
       if (error) throw error;
@@ -469,7 +439,6 @@ export default function Prospectos() {
     mutationFn: async (personData: any) => {
       const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, id_proyecto, id_persona_duena_lead, ...cleanPersonData } = personData;
       
-      // Lista blanca de campos válidos para la tabla personas
       const validPersonaFields = [
         'tipo_persona', 'email', 'telefono', 'nombre_legal', 'nombre_comercial',
         'id_entidad_relacionada_rep_leg', 'id_entidad_relacionada_rep_com', 'sexo', 'fecha_nacimiento',
@@ -484,7 +453,6 @@ export default function Prospectos() {
         'activo', 'clave_pais_telefono', 'url_logo', 'id_conyuge'
       ];
       
-      // Filtrar solo campos válidos para la tabla personas
       const safePersonData: Record<string, unknown> = {};
       for (const key of Object.keys(cleanPersonData)) {
         if (validPersonaFields.includes(key)) {
@@ -492,7 +460,6 @@ export default function Prospectos() {
         }
       }
       
-      // Obtener id_persona del usuario actual si no es admin
       let finalIdPersonaDuenaLead = id_persona_duena_lead ? parseInt(id_persona_duena_lead) : null;
       
       if (!finalIdPersonaDuenaLead) {
@@ -504,7 +471,6 @@ export default function Prospectos() {
             .eq('auth_user_id', session.user.id)
             .single();
           
-          // Si no es admin (rol 1 o 2), asignar automáticamente
           if (currentUser && currentUser.rol_id !== 1 && currentUser.rol_id !== 2 && currentUser.id_persona) {
             finalIdPersonaDuenaLead = currentUser.id_persona;
           }
@@ -523,7 +489,7 @@ export default function Prospectos() {
         .from('entidades_relacionadas')
         .insert([{
           id_persona: personResult.id,
-          id_tipo_entidad: 7, // Prospecto
+          id_tipo_entidad: 7,
           id_proyecto: id_proyecto !== "null" && id_proyecto ? parseInt(id_proyecto) : null,
           id_persona_duena_lead: finalIdPersonaDuenaLead,
           activo: true
@@ -540,12 +506,10 @@ export default function Prospectos() {
         if (updateError) throw updateError;
       }
 
-      // Handle pending documents
       if (pendingDocuments && pendingDocuments.length > 0) {
         for (let i = 0; i < pendingDocuments.length; i++) {
           const doc = pendingDocuments[i];
           try {
-            // Upload file to Supabase Storage
             const fileExt = doc.file.name.split('.').pop();
             const fileName = `persona_${personResult.id}_${Date.now()}_${i}.${fileExt}`;
             const filePath = `documentos/${fileName}`;
@@ -556,18 +520,16 @@ export default function Prospectos() {
 
             if (uploadError) throw uploadError;
 
-            // Get public URL
             const { data: urlData } = supabase.storage
               .from('documentos')
               .getPublicUrl(filePath);
 
-            // Save document record
             const { error: dbError } = await supabase
               .from('documentos')
               .insert({
                 numero: (i + 1).toString(),
                 url: urlData.publicUrl,
-                id_estatus_verificacion: 1, // 1 = Pendiente
+                id_estatus_verificacion: 1,
                 activo: true,
                 id_tipo_documento: parseInt(doc.tipoDocumento),
                 id_persona: personResult.id
@@ -576,7 +538,6 @@ export default function Prospectos() {
             if (dbError) throw dbError;
           } catch (docError) {
             console.error('Error uploading document:', docError);
-            // Continue with other documents even if one fails
           }
         }
       }
@@ -604,7 +565,6 @@ export default function Prospectos() {
     mutationFn: async (personData: any) => {
       const { entityType, representativeId, commercialRepresentativeId, inmobiliariaId, tempBankAccounts, tempBeneficiaries, pendingDocuments, id_proyecto, id_persona_duena_lead, id, ...cleanPersonData } = personData;
       
-      // Lista blanca de campos válidos para la tabla personas
       const validPersonaFields = [
         'tipo_persona', 'email', 'telefono', 'nombre_legal', 'nombre_comercial',
         'id_entidad_relacionada_rep_leg', 'id_entidad_relacionada_rep_com', 'sexo', 'fecha_nacimiento',
@@ -619,7 +579,6 @@ export default function Prospectos() {
         'activo', 'clave_pais_telefono', 'url_logo', 'id_conyuge'
       ];
       
-      // Filtrar solo campos válidos para la tabla personas
       const safePersonData: Record<string, unknown> = {};
       for (const key of Object.keys(cleanPersonData)) {
         if (validPersonaFields.includes(key)) {
@@ -627,7 +586,6 @@ export default function Prospectos() {
         }
       }
       
-      // Solo actualizar la tabla personas cuando se edita desde el diálogo
       if (editingProspecto) {
         const { error: updateError } = await supabase
           .from('personas')
@@ -636,7 +594,6 @@ export default function Prospectos() {
         
         if (updateError) throw updateError;
         
-        // Actualizar representante legal si aplica
         if (representativeId !== undefined && safePersonData.tipo_persona === 'pm') {
           const { error: repError } = await supabase
             .from('personas')
@@ -646,7 +603,6 @@ export default function Prospectos() {
           if (repError) throw repError;
         }
         
-        // Actualizar representante comercial si aplica
         if (commercialRepresentativeId !== undefined) {
           const { error: repComError } = await supabase
             .from('personas')
@@ -657,46 +613,26 @@ export default function Prospectos() {
         }
       }
 
-      // Usar el entidad_relacionada_id específico para evitar violar unique constraint
+      // Update agent on first relation if provided
       const entidadRelacionadaId = (editingProspecto as any)?.entidad_relacionada_id;
 
-      // Construir un solo objeto de actualización para entidades_relacionadas
-      // para evitar estados intermedios que violen la unique constraint
-      if (entidadRelacionadaId) {
-        const entidadUpdate: Record<string, unknown> = {};
-
-        if (id_proyecto !== undefined) {
-          if (id_proyecto === null || id_proyecto === '' || id_proyecto === 'null' || id_proyecto === 'undefined') {
-            entidadUpdate.id_proyecto = null;
-          } else if (typeof id_proyecto === 'number') {
-            entidadUpdate.id_proyecto = id_proyecto;
+      if (entidadRelacionadaId && id_persona_duena_lead !== undefined) {
+        let agenteValue: number | null = null;
+        if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
+          if (typeof id_persona_duena_lead === 'number') {
+            agenteValue = id_persona_duena_lead;
           } else {
-            const parsed = parseInt(id_proyecto as string, 10);
-            entidadUpdate.id_proyecto = Number.isNaN(parsed) ? null : parsed;
+            const parsed = parseInt(id_persona_duena_lead as string, 10);
+            agenteValue = Number.isNaN(parsed) ? null : parsed;
           }
         }
 
-        if (id_persona_duena_lead !== undefined) {
-          let agenteValue: number | null = null;
-          if (id_persona_duena_lead !== null && id_persona_duena_lead !== '' && id_persona_duena_lead !== 'undefined') {
-            if (typeof id_persona_duena_lead === 'number') {
-              agenteValue = id_persona_duena_lead;
-            } else {
-              const parsed = parseInt(id_persona_duena_lead as string, 10);
-              agenteValue = Number.isNaN(parsed) ? null : parsed;
-            }
-          }
-          entidadUpdate.id_persona_duena_lead = agenteValue;
-        }
+        const { error: entidadError } = await supabase
+          .from('entidades_relacionadas')
+          .update({ id_persona_duena_lead: agenteValue })
+          .eq('id', entidadRelacionadaId);
 
-        if (Object.keys(entidadUpdate).length > 0) {
-          const { error: entidadError } = await supabase
-            .from('entidades_relacionadas')
-            .update(entidadUpdate)
-            .eq('id', entidadRelacionadaId);
-
-          if (entidadError) throw entidadError;
-        }
+        if (entidadError) throw entidadError;
       }
     },
     onSuccess: () => {
@@ -767,27 +703,54 @@ export default function Prospectos() {
     },
   });
 
-  // Mutation to update project assignment
-  const updateProjectMutation = useMutation({
-    mutationFn: async ({ entidadRelacionadaId, proyectoId }: { entidadRelacionadaId: number; proyectoId: number | null }) => {
+  // Mutation to add a project to a prospect
+  const addProjectMutation = useMutation({
+    mutationFn: async ({ personaId, proyectoId, agenteId }: { personaId: number; proyectoId: number; agenteId: number | null }) => {
       const { error } = await supabase
         .from('entidades_relacionadas')
-        .update({ id_proyecto: proyectoId })
+        .insert([{
+          id_persona: personaId,
+          id_tipo_entidad: 7,
+          id_proyecto: proyectoId,
+          id_persona_duena_lead: agenteId,
+          activo: true,
+        }]);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospectos'] });
+      toast({ title: "Éxito", description: "Proyecto agregado al prospecto." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message?.includes('uq_entrel_persona_tipo_proy')
+          ? "Este proyecto ya está asignado al prospecto."
+          : `Error al agregar proyecto: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to remove a project from a prospect (deactivate the relation)
+  const removeProjectMutation = useMutation({
+    mutationFn: async (entidadRelacionadaId: number) => {
+      const { error } = await supabase
+        .from('entidades_relacionadas')
+        .update({ activo: false })
         .eq('id', entidadRelacionadaId);
       
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['prospectos'] });
-      toast({
-        title: "Éxito",
-        description: "Proyecto asignado correctamente.",
-      });
+      toast({ title: "Éxito", description: "Proyecto removido del prospecto." });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: `Error al asignar el proyecto: ${error.message}`,
+        description: `Error al remover proyecto: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -819,11 +782,9 @@ export default function Prospectos() {
     },
   });
 
-  // Helper function to get status badge variant and color
   const getStatusBadge = (statusId?: number, statusName?: string) => {
     if (!statusName) return null;
     
-    // Define color variants based on status ID or name
     const getVariantFromId = (id?: number) => {
       switch (id) {
         case 1: return { variant: "default" as const, className: "bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300" };
@@ -844,7 +805,6 @@ export default function Prospectos() {
     );
   };
 
-  // Helper function to format date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const monthNames = [
@@ -939,7 +899,7 @@ export default function Prospectos() {
               <TableHead className="font-semibold text-foreground">RFC</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground w-40">Estatus</TableHead>
-              <TableHead className="font-semibold text-foreground">Proyecto de Interés</TableHead>
+              <TableHead className="font-semibold text-foreground">Proyectos de Interés</TableHead>
               <TableHead className="font-semibold text-foreground">Agente</TableHead>
               <TableHead className="font-semibold text-foreground">Fecha de Creación</TableHead>
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
@@ -985,40 +945,54 @@ export default function Prospectos() {
                   </Select>
                 </TableCell>
                 <TableCell>
-                  <Combobox
-                    value={prospecto.id_proyecto?.toString() || ""}
-                    onValueChange={(value) => {
-                      const proyectoId = value ? parseInt(value) : null;
-                      updateProjectMutation.mutate({
-                        entidadRelacionadaId: (prospecto as any).entidad_relacionada_id,
-                        proyectoId
-                      });
-                    }}
-                    options={(() => {
-                      // Crear un Set con todos los proyectos disponibles
-                      const allOptions = proyectos.map((proyecto) => ({
-                        value: proyecto.id.toString(),
-                        label: proyecto.nombre
-                      }));
-                      
-                      // Si el prospecto tiene un proyecto asignado que no está en la lista, agregarlo
-                      if (prospecto.id_proyecto && prospecto.proyecto_nombre) {
-                        const exists = allOptions.some(opt => opt.value === prospecto.id_proyecto.toString());
-                        if (!exists) {
-                          allOptions.unshift({
-                            value: prospecto.id_proyecto.toString(),
-                            label: prospecto.proyecto_nombre
-                          });
-                        }
-                      }
-                      
-                      return allOptions;
-                    })()}
-                    placeholder="Sin proyecto asignado"
-                    emptyText="No se encontró el proyecto"
-                    searchPlaceholder="Buscar proyecto..."
-                    className="w-full"
-                  />
+                  <div className="flex flex-wrap gap-1 items-center">
+                    {prospecto.proyectos.map((p) => (
+                      <Badge key={p.entidad_relacionada_id} variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                        <span className="max-w-[120px] truncate">{p.nombre}</span>
+                        {(canUpdate || isSuperAdmin) && prospecto.proyectos.length > 1 && (
+                          <button
+                            onClick={() => removeProjectMutation.mutate(p.entidad_relacionada_id)}
+                            className="ml-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive p-0.5"
+                            title="Quitar proyecto"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                    {prospecto.proyectos.length === 0 && (
+                      <span className="text-sm text-muted-foreground">Sin proyecto</span>
+                    )}
+                    {(canUpdate || isSuperAdmin) && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full">
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-2" align="start">
+                          <Combobox
+                            value=""
+                            onValueChange={(value) => {
+                              if (value) {
+                                addProjectMutation.mutate({
+                                  personaId: prospecto.id,
+                                  proyectoId: parseInt(value),
+                                  agenteId: prospecto.id_persona_duena_lead || null,
+                                });
+                              }
+                            }}
+                            options={proyectos
+                              .filter((p) => !prospecto.proyectos.some((pp) => pp.id === p.id))
+                              .map((p) => ({ value: p.id.toString(), label: p.nombre }))}
+                            placeholder="Agregar proyecto..."
+                            searchPlaceholder="Buscar proyecto..."
+                            emptyText="No hay proyectos disponibles"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Combobox
@@ -1116,7 +1090,7 @@ export default function Prospectos() {
                       'RFC': p.rfc || '',
                       'CURP': p.curp || '',
                       'Estatus': p.estatus_nombre || '',
-                      'Proyecto': p.proyecto_nombre || '',
+                      'Proyectos': p.proyectos.map(pp => pp.nombre).join(', ') || '',
                       'Agente': p.agente_nombre || '',
                       'Representante Legal': p.representante_legal_nombre || '',
                     }));
@@ -1329,7 +1303,6 @@ export default function Prospectos() {
             </div>
             <PersonForm
               onSubmit={(data) => {
-                // Validar que el proyecto esté seleccionado
                 if (!newProspectoProyecto) {
                   toast({
                     title: "Error",
@@ -1339,7 +1312,6 @@ export default function Prospectos() {
                   return;
                 }
                 
-                // Convertir id_proyecto a número
                 const proyectoId = parseInt(newProspectoProyecto, 10);
                 if (isNaN(proyectoId)) {
                   toast({
@@ -1377,24 +1349,41 @@ export default function Prospectos() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Proyecto de Interés</label>
+                <label className="text-sm font-medium">Proyectos de Interés</label>
+                <div className="flex flex-wrap gap-1.5 min-h-[36px] items-center p-2 border border-border rounded-md bg-background">
+                  {editingProspecto?.proyectos.map((p) => (
+                    <Badge key={p.entidad_relacionada_id} variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                      {p.nombre}
+                      {editingProspecto.proyectos.length > 1 && (
+                        <button
+                          onClick={() => removeProjectMutation.mutate(p.entidad_relacionada_id)}
+                          className="ml-0.5 rounded-full hover:bg-destructive/20 hover:text-destructive p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                  {(!editingProspecto?.proyectos || editingProspecto.proyectos.length === 0) && (
+                    <span className="text-sm text-muted-foreground">Sin proyectos</span>
+                  )}
+                </div>
                 <Combobox
-                  value={editingProspecto?.id_proyecto?.toString() || ""}
+                  value=""
                   onValueChange={(value) => {
-                    if (editingProspecto) {
-                      const proyectoId = value ? parseInt(value) : null;
-                      updateProjectMutation.mutate({
-                        entidadRelacionadaId: (editingProspecto as any).entidad_relacionada_id,
-                        proyectoId
+                    if (value && editingProspecto) {
+                      addProjectMutation.mutate({
+                        personaId: editingProspecto.id,
+                        proyectoId: parseInt(value),
+                        agenteId: editingProspecto.id_persona_duena_lead || null,
                       });
                     }
                   }}
-                  options={proyectos.map((proyecto) => ({
-                    value: proyecto.id.toString(),
-                    label: proyecto.nombre
-                  }))}
-                  placeholder="Seleccionar proyecto..."
-                  emptyText="No se encontró el proyecto"
+                  options={proyectos
+                    .filter((p) => !editingProspecto?.proyectos.some((pp) => pp.id === p.id))
+                    .map((p) => ({ value: p.id.toString(), label: p.nombre }))}
+                  placeholder="Agregar otro proyecto..."
+                  emptyText="No hay proyectos disponibles"
                   searchPlaceholder="Buscar proyecto..."
                   className="w-full"
                 />
@@ -1427,7 +1416,6 @@ export default function Prospectos() {
               initialData={{
                 ...editingProspecto,
                 representativeId: editingProspecto?.id_entidad_relacionada_rep_leg,
-                id_proyecto: editingProspecto?.id_proyecto,
                 id_persona_duena_lead: editingProspecto?.id_persona_duena_lead
               }}
               onSubmit={(data) => updateMutation.mutate(data)}
