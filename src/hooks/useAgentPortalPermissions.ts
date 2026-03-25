@@ -36,6 +36,7 @@ const ALL_TRUE: ViewPermissions = {
 const AGENT_PATHS = [
   '/admin/agent/inicio',
   '/admin/agent/inventario',
+  '/admin/agent/prospectos',
   '/admin/agent/pipeline',
   '/admin/agent/comisiones',
   '/admin/agent/perfil',

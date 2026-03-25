@@ -110,6 +110,7 @@
    // Agent Portal
    '/admin/agent/inicio': LayoutDashboard,
    '/admin/agent/inventario': Building,
+   '/admin/agent/prospectos': Users,
    '/admin/agent/pipeline': Activity,
    '/admin/agent/comisiones': Banknote,
    '/admin/agent/perfil': User,
