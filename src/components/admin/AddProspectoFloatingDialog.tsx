@@ -46,24 +46,11 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
   const [editProyectos, setEditProyectos] = useState<ProspectoRelacion[]>([]);
   const hasAppliedPreselect = useRef(false);
 
-  // Fetch agent's existing prospects (grouped by persona) and all active projects for those personas
+  // Fetch agent's existing prospects (grouped by persona)
   const { data: misProspectos = [] } = useQuery({
     queryKey: ["mis-prospectos-floating", profile?.id_persona],
     queryFn: async () => {
       if (!profile?.id_persona) return [];
-
-      const { data: ownedRelations, error: ownedError } = await supabase
-        .from("entidades_relacionadas")
-        .select("id_persona")
-        .eq("id_tipo_entidad", 7)
-        .eq("activo", true)
-        .eq("id_persona_duena_lead", profile.id_persona);
-
-      if (ownedError) throw ownedError;
-
-      const personaIds = [...new Set((ownedRelations || []).map((er: any) => er.id_persona).filter(Boolean))] as number[];
-      if (personaIds.length === 0) return [];
-
       const { data, error } = await supabase
         .from("entidades_relacionadas")
         .select(`
@@ -79,7 +66,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
         `)
         .eq("id_tipo_entidad", 7)
         .eq("activo", true)
-        .in("id_persona", personaIds);
+        .eq("id_persona_duena_lead", profile.id_persona);
 
       if (error) throw error;
       return (data || [])
@@ -127,6 +114,38 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
       .filter((p) => { if (seen.has(p.id_persona)) return false; seen.add(p.id_persona); return true; })
       .map((p) => ({ value: p.id_persona.toString(), label: p.nombre_legal || p.email }));
   }, [misProspectos]);
+
+  const prospectPersonaIds = useMemo(() => {
+    return [...new Set(misProspectos.map((p) => p.id_persona))] as number[];
+  }, [misProspectos]);
+
+  const { data: activeProjectIdsByPersona = new Map<number, Set<number>>() } = useQuery({
+    queryKey: ["prospecto-active-projects-floating", prospectPersonaIds],
+    queryFn: async () => {
+      if (prospectPersonaIds.length === 0) return new Map<number, Set<number>>();
+
+      const { data, error } = await supabase
+        .from("entidades_relacionadas")
+        .select("id_persona, id_proyecto")
+        .eq("id_tipo_entidad", 7)
+        .eq("activo", true)
+        .in("id_persona", prospectPersonaIds);
+
+      if (error) throw error;
+
+      const map = new Map<number, Set<number>>();
+      (data || []).forEach((relation: any) => {
+        if (!relation.id_persona || !relation.id_proyecto) return;
+        if (!map.has(relation.id_persona)) {
+          map.set(relation.id_persona, new Set<number>());
+        }
+        map.get(relation.id_persona)?.add(relation.id_proyecto);
+      });
+
+      return map;
+    },
+    enabled: open && prospectPersonaIds.length > 0,
+  });
 
   const handleSelectProspecto = (value: string) => {
     if (!value) {
