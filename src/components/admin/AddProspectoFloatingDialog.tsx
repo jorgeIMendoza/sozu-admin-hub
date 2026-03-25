@@ -261,57 +261,13 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
   // Add project to existing prospect
   const addProjectToProspectMutation = useMutation({
     mutationFn: async ({ personaId, proyectoId: projId }: { personaId: number; proyectoId: number }) => {
-      // Check if any relation already exists (active or inactive)
-      const { data: existing, error: selectError } = await supabase
-        .from("entidades_relacionadas")
-        .select("id, activo")
-        .eq("id_persona", personaId)
-        .eq("id_tipo_entidad", 7)
-        .eq("id_proyecto", projId)
-        .maybeSingle();
-
-      if (existing) {
-        if (existing.activo) {
-          // Already active — update owner if needed
-          const { error } = await supabase
-            .from("entidades_relacionadas")
-            .update({ id_persona_duena_lead: profile?.id_persona || null })
-            .eq("id", existing.id);
-          if (error) throw error;
-        } else {
-          // Reactivate existing inactive relation
-          const { error } = await supabase
-            .from("entidades_relacionadas")
-            .update({ activo: true, id_persona_duena_lead: profile?.id_persona || null })
-            .eq("id", existing.id);
-          if (error) throw error;
-        }
-      } else {
-        // Try insert; if unique constraint fails, fallback to update (RLS may have hidden the row)
-        const { error } = await supabase
-          .from("entidades_relacionadas")
-          .insert([{
-            id_persona: personaId,
-            id_tipo_entidad: 7,
-            id_proyecto: projId,
-            id_persona_duena_lead: profile?.id_persona || null,
-            activo: true,
-          }]);
-        if (error) {
-          if (error.code === "23505") {
-            // Unique constraint — row exists but was hidden by RLS; try to reactivate/reassign
-            const { error: updateError } = await supabase
-              .from("entidades_relacionadas")
-              .update({ activo: true, id_persona_duena_lead: profile?.id_persona || null })
-              .eq("id_persona", personaId)
-              .eq("id_tipo_entidad", 7)
-              .eq("id_proyecto", projId);
-            if (updateError) throw updateError;
-          } else {
-            throw error;
-          }
-        }
-      }
+      // Use SECURITY DEFINER RPC to bypass RLS restrictions when the row
+      // is owned by another agent or hidden by RLS policies
+      const { data, error } = await supabase.rpc("agent_claim_or_reactivate_prospect_project", {
+        _persona_id: personaId,
+        _proyecto_id: projId,
+      });
+      if (error) throw error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["mis-prospectos-floating"] });

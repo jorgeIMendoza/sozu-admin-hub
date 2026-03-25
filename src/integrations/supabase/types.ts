@@ -7344,6 +7344,10 @@ export type Database = {
     }
     Functions: {
       actualizar_estatus_reservas: { Args: never; Returns: undefined }
+      agent_claim_or_reactivate_prospect_project: {
+        Args: { _persona_id: number; _proyecto_id: number }
+        Returns: number
+      }
       borrar_sp_cargar_amenidades_proyectos_desde_stagin: {
         Args: never
         Returns: undefined
