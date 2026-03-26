@@ -1139,9 +1139,6 @@ Deno.serve(async (req) => {
     let calendarEvent: any;
     console.log(`[schedule] Creating standalone event for ${fecha} ${hora_inicio}`);
     let summary = scheduleCitaNombre || tipoCitaSummary || "Capacitación";
-    if (direccion_showroom && latitud_showroom && longitud_showroom) {
-      summary += ` — ${direccion_showroom}`;
-    }
     
     const bookingAttendees: { email: string }[] = [];
     if (agentEmailFinal) bookingAttendees.push({ email: agentEmailFinal });
