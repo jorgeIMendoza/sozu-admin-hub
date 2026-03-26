@@ -373,6 +373,42 @@ function StackedSlotCard({ items, onSelectSlot }: {
   );
 }
 
+// ─── RSVP helpers ───
+const RSVP_MAP: Record<string, { label: string; borderClass: string; textClass: string; bgClass: string; avatarClass: string }> = {
+  accepted: {
+    label: "Asistirá",
+    borderClass: "border-green-300 dark:border-green-700",
+    textClass: "text-green-700 dark:text-green-400",
+    bgClass: "bg-green-50 dark:bg-green-950/20",
+    avatarClass: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400",
+  },
+  declined: {
+    label: "NO asistirá",
+    borderClass: "border-red-300 dark:border-red-700",
+    textClass: "text-red-700 dark:text-red-400",
+    bgClass: "bg-red-50 dark:bg-red-950/20",
+    avatarClass: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+  },
+  tentative: {
+    label: "Quizá",
+    borderClass: "border-yellow-300 dark:border-yellow-700",
+    textClass: "text-yellow-700 dark:text-yellow-400",
+    bgClass: "bg-yellow-50 dark:bg-yellow-950/20",
+    avatarClass: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
+  },
+  needsAction: {
+    label: "Agendada",
+    borderClass: "border-blue-300 dark:border-blue-700",
+    textClass: "text-blue-700 dark:text-blue-400",
+    bgClass: "bg-blue-50 dark:bg-blue-950/20",
+    avatarClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+  },
+};
+
+function getRsvpStyle(status: string) {
+  return RSVP_MAP[status] || RSVP_MAP.needsAction;
+}
+
 // ─── Detail Dialog ───
 function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   slot: CalendarSlot | null;
@@ -380,11 +416,92 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   open: boolean;
   onClose: () => void;
 }) {
+  const [rsvpMap, setRsvpMap] = useState<Record<string, string>>({});
+  const [rsvpLoading, setRsvpLoading] = useState(false);
+
+  // Collect all google_calendar_event_ids and emails for this slot
+  const eventIds = useMemo(() => {
+    if (!slot) return [];
+    const ids: Array<{ eventId: string; email: string; citaId: number }> = [];
+    if (slot.type === "cita" && slot.cita?.google_calendar_event_id && slot.cita?.email_invitado) {
+      ids.push({ eventId: slot.cita.google_calendar_event_id, email: slot.cita.email_invitado, citaId: slot.cita.id });
+    }
+    if (slot.type === "group" && slot.citas) {
+      slot.citas.forEach(c => {
+        if (c.google_calendar_event_id && c.email_invitado) {
+          ids.push({ eventId: c.google_calendar_event_id, email: c.email_invitado, citaId: c.id });
+        }
+      });
+    }
+    return ids;
+  }, [slot]);
+
+  useEffect(() => {
+    if (!open || eventIds.length === 0 || !slot?.config?.calendario_email) {
+      setRsvpMap({});
+      return;
+    }
+
+    const uniqueEventIds = [...new Set(eventIds.map(e => e.eventId))];
+    setRsvpLoading(true);
+
+    supabase.functions.invoke("consultar-estatus-calendar", {
+      body: { event_ids: uniqueEventIds, calendario_email: slot.config.calendario_email },
+    }).then(({ data, error }) => {
+      if (error || !data?.events) {
+        console.warn("Error fetching RSVP statuses:", error);
+        setRsvpLoading(false);
+        return;
+      }
+
+      const newMap: Record<string, string> = {};
+      for (const entry of eventIds) {
+        const eventData = data.events[entry.eventId];
+        if (eventData?.attendees) {
+          const attendee = eventData.attendees.find(
+            (a: any) => a.email.toLowerCase() === entry.email.toLowerCase()
+          );
+          if (attendee) {
+            newMap[`${entry.citaId}`] = attendee.responseStatus;
+          }
+        }
+      }
+      setRsvpMap(newMap);
+      setRsvpLoading(false);
+    }).catch(() => setRsvpLoading(false));
+  }, [open, eventIds, slot?.config?.calendario_email]);
+
   if (!slot) return null;
   const config = slot.config;
   const cita = slot.cita;
   const st = cita ? (STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" }) : null;
   const isCancelledCalendar = cita && (cita.estatus === "cancelada_calendar" || calendarStatus === "missing");
+
+  // Helper to get RSVP status for a cita
+  const getCitaRsvp = (c: Cita) => {
+    const rsvp = rsvpMap[`${c.id}`];
+    return rsvp || null;
+  };
+
+  const getRsvpBadge = (c: Cita) => {
+    const rsvp = getCitaRsvp(c);
+    if (rsvpLoading) {
+      return (
+        <Badge variant="outline" className="text-[10px] flex-shrink-0 border-muted text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+        </Badge>
+      );
+    }
+    const style = getRsvpStyle(rsvp || "needsAction");
+    return (
+      <Badge
+        variant="outline"
+        className={cn("text-[10px] flex-shrink-0", style.borderClass, style.textClass, style.bgClass)}
+      >
+        {style.label}
+      </Badge>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
@@ -480,48 +597,33 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
               <Separator className="my-2" />
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pt-1">Asistentes agendados</p>
               <div className="space-y-1.5 mt-1">
-                {slot.citas.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 rounded-md bg-blue-50 border border-blue-200 dark:bg-blue-950/20 dark:border-blue-800 px-3 py-2">
-                    <div className={cn(
-                      "flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold flex-shrink-0",
-                      c.id_estatus_cita === 3
-                        ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                        : c.id_estatus_cita === 2
-                          ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
-                          : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
-                    )}>
-                      {getInitials(c.nombre_invitado || c.email_invitado)}
+                {slot.citas.map((c) => {
+                  const rsvp = getCitaRsvp(c);
+                  const style = getRsvpStyle(rsvp || "needsAction");
+                  return (
+                    <div key={c.id} className={cn("flex items-center gap-2 rounded-md border px-3 py-2", style.bgClass, style.borderClass)}>
+                      <div className={cn(
+                        "flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold flex-shrink-0",
+                        style.avatarClass
+                      )}>
+                        {getInitials(c.nombre_invitado || c.email_invitado)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {(c.nombre_invitado || c.email_invitado) ? (
+                          <>
+                            <p className="text-sm font-medium text-foreground truncate">{c.nombre_invitado || c.email_invitado}</p>
+                            {c.email_invitado && c.nombre_invitado && (
+                              <p className="text-[11px] text-muted-foreground truncate">{c.email_invitado}</p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Invitado #{c.id}</p>
+                        )}
+                      </div>
+                      {getRsvpBadge(c)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      {(c.nombre_invitado || c.email_invitado) ? (
-                        <>
-                          <p className="text-sm font-medium text-foreground truncate">{c.nombre_invitado || c.email_invitado}</p>
-                          {c.email_invitado && c.nombre_invitado && (
-                            <p className="text-[11px] text-muted-foreground truncate">{c.email_invitado}</p>
-                          )}
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted-foreground italic">Invitado #{c.id}</p>
-                      )}
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[10px] flex-shrink-0",
-                        (c.estatus === "cancelada_calendar" || c.id_estatus_cita === 4)
-                          ? "border-red-300 text-red-700 bg-red-50 dark:bg-red-950/20 dark:border-red-700 dark:text-red-400"
-                          : c.id_estatus_cita === 3
-                            ? "border-green-300 text-green-700 bg-green-50 dark:bg-green-950/20 dark:border-green-700 dark:text-green-400"
-                            : c.id_estatus_cita === 2
-                              ? "border-yellow-300 text-yellow-700 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-700 dark:text-yellow-400"
-                              : "border-blue-300 text-blue-700 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700 dark:text-blue-400"
-                      )}
-                    >
-                      {(c.estatus === "cancelada_calendar" || c.id_estatus_cita === 4)
-                        ? "NO asistirá"
-                        : STATUS_MAP[c.id_estatus_cita ?? 0]?.label || "—"}
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -549,6 +651,7 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
                         <p className="text-xs text-muted-foreground">{cita.email_invitado}</p>
                       )}
                     </div>
+                    {cita.google_calendar_event_id && getRsvpBadge(cita)}
                   </div>
                 </DetailRow>
               )}
