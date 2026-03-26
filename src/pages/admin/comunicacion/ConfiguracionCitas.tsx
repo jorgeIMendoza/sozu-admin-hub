@@ -1093,7 +1093,7 @@ export default function ConfiguracionCitas() {
                               <Video className="h-4 w-4" />
                               Sincronización con Google Calendar
                             </CardTitle>
-                            <CardDescription>Al guardar, los eventos recurrentes con Meet se sincronizarán</CardDescription>
+                            <CardDescription>Los eventos de Google Calendar se crearán automáticamente al agendar una cita</CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-4">
                             <div className="space-y-2">

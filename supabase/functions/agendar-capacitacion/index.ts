@@ -252,31 +252,47 @@ async function checkAvailability(
     }
   }
 
-  // For group sessions (maxInvitados > 1), availability is managed by DB slot config + booking count.
-  // Skip Google Calendar free/busy check to avoid blocking on recurring events created by service account.
-  if (maxInvitados && maxInvitados > 1) {
-    console.log(`[checkAvailability] Group session (maxInvitados=${maxInvitados}), skipping GCal check`);
+  // Availability is now managed entirely by the database (reservas_citas).
+  // Google Calendar events are only created AFTER booking, so we check the DB for existing bookings.
+  if (!supabaseClient) {
+    console.log(`[checkAvailability] No supabase client, allowing by default`);
     return true;
   }
 
-  const timeMin = `${fecha}T${horaInicio}:00-06:00`;
-  const timeMax = `${fecha}T${horaFin}:00-06:00`;
-  const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) throw new Error(`Calendar API error: ${await res.text()}`);
-  const data = await res.json();
-  
-  // Only count non-service-account events as blocking
-  const blockingEvents = (data.items || []).filter((e: any) => {
-    if (!e.start?.dateTime || !e.end?.dateTime) return false;
-    if (e.id === excludeEventId) return false;
-    const isServiceAccount = e.creator?.email === SERVICE_ACCOUNT_EMAIL || e.organizer?.email === SERVICE_ACCOUNT_EMAIL;
-    return !isServiceAccount;
-  });
-  
-  return blockingEvents.length === 0;
+  // Query existing active bookings for this slot
+  let bookingQuery = supabaseClient
+    .from("reservas_citas")
+    .select("id")
+    .eq("fecha", fecha)
+    .eq("hora_inicio", horaInicio + ":00")
+    .eq("activo", true)
+    .in("estatus", ["programada"]);
+
+  // Filter by config or by calendar owner
+  if (configId) {
+    bookingQuery = bookingQuery.eq("id_configuracion_cita", configId);
+  } else if (calendarOwnerEmail) {
+    bookingQuery = bookingQuery.eq("email_agente", calendarOwnerEmail);
+  }
+
+  // Exclude the current person's booking (for re-scheduling)
+  if (excludeEventId) {
+    bookingQuery = bookingQuery.neq("google_calendar_event_id", excludeEventId);
+  }
+
+  const { data: existingBookings, error: bookErr } = await bookingQuery;
+
+  if (bookErr) {
+    console.error(`[checkAvailability] DB error:`, bookErr);
+    return true; // Allow on error to not block user
+  }
+
+  const maxSlots = maxInvitados && maxInvitados > 1 ? maxInvitados : 1;
+  const currentCount = existingBookings?.length || 0;
+
+  console.log(`[checkAvailability] Slot ${fecha} ${horaInicio}: ${currentCount}/${maxSlots} booked`);
+
+  return currentCount < maxSlots;
 }
 
 // ---------- Find specific instance of recurring event for a date/time ----------
