@@ -393,6 +393,8 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
               >
                 {isCancelledCalendar ? "No existe en Calendar" : st.label}
               </Badge>
+            ) : (slot.agendados ?? 0) > 0 ? (
+              <Badge variant="secondary" className="text-xs">{slot.agendados} agendado{(slot.agendados ?? 0) > 1 ? "s" : ""}</Badge>
             ) : (
               <Badge variant="outline" className="text-xs">Sin agendar</Badge>
             )}
