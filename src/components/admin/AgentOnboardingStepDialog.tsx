@@ -1868,7 +1868,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
       {citaCancelledExternally && (
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3">
           <p className="text-xs text-destructive font-medium">
-            Tu cita fue cancelada desde el calendario. Selecciona una nueva fecha y horario para reprogramar.
+            Tu cita fue cancelada por el organizador. Selecciona una nueva fecha y horario para reprogramar.
           </p>
         </div>
       )}
@@ -2030,7 +2030,12 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                                 const isExisting = existingCita?.hora_inicio?.slice(0, 5) === slot.hora && existingCita?.fecha === fechaStr;
                                 const isCancelledSlot = (citaCancelledExternally && isExisting) || slot.is_cancelled_externally;
                                 const isSelected = selectedSlot === slot.hora && selectedConfigId === slot.config_id;
-                                const isDisabled = slot.is_full || isCancelledSlot;
+                                // Disable past time slots for today
+                                const now = new Date();
+                                const isToday = fechaStr === format(now, "yyyy-MM-dd");
+                                const [slotH] = slot.hora.split(":").map(Number);
+                                const isPastSlot = isToday && slotH <= now.getHours();
+                                const isDisabled = slot.is_full || isCancelledSlot || isPastSlot;
                                 return (
                                   <button
                                     key={`${slot.config_id}-${slot.hora}`}
