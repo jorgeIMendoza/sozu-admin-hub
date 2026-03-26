@@ -1,42 +1,48 @@
 
 
-## Plan: Prospectos con Múltiples Proyectos de Interés
+## Plan: Rediseño de "Todas las Citas" — Estilo Google Calendar mejorado
 
-### Situación actual
-- La base de datos **ya soporta** múltiples proyectos por prospecto (la constraint `uq_entrel_persona_tipo_proy_cuenta` permite varias filas con diferente `id_proyecto` para la misma persona)
-- No se necesita crear tablas ni migraciones
-- El problema es que la UI solo lee `entidades_relacionadas[0]` y muestra un solo proyecto
+### Problema actual
+Cuando un slot tiene múltiples citas (ej. slots grupales o varias configuraciones en la misma hora), las tarjetas se comprimen horizontalmente y se vuelven ilegibles. No hay forma clara de ver cuántas citas hay ni expandirlas.
 
-### Cambios
+### Cambios en `TodasLasCitas.tsx`
 
-**1. Admin Prospectos (`src/pages/admin/Prospectos.tsx`)**
-- **Query**: En lugar de tomar solo `entidades_relacionadas[0]`, agrupar todas las relaciones tipo 7 activas por persona, recolectando todos los proyectos
-- **Tipo `Prospecto`**: Cambiar `proyecto_nombre`/`id_proyecto` por arrays `proyectos: { id: number; nombre: string; entidad_relacionada_id: number }[]`
-- **Columna "Proyecto de Interés"**: Mostrar badges/chips con los nombres de todos los proyectos asignados, con un botón "+" para agregar otro proyecto
-- **Selector de proyecto inline**: Al hacer clic en "+", mostrar un Combobox para seleccionar un nuevo proyecto (que crea una nueva fila en `entidades_relacionadas`). Los chips existentes tendrán un botón "x" para desasociar (desactivar la fila correspondiente)
-- **Crear prospecto**: Mantener la selección de un proyecto inicial (obligatorio), funciona igual
-- **Editar prospecto**: El selector de proyecto en el dialog de edición cambia a multi-proyecto (misma lógica de chips + agregar)
-- **Exportar Excel**: Listar los proyectos separados por coma en la columna "Proyecto"
+#### 1. Slots con múltiples citas: indicador apilado + expandible
+- Cuando hay >1 cita en un slot, en lugar de dividir el ancho en columnas diminutas, mostrar una **tarjeta apilada** con:
+  - Indicador visual de cantidad (ej. "3 citas")
+  - Las primeras 1-2 citas visibles como mini-chips
+  - Al hacer click se expande un **popover/dropdown** mostrando la lista completa de citas en ese slot
+- Para slots individuales (1 cita), mantener la tarjeta actual
 
-**2. Portal Inmobiliaria - Prospectos (`src/pages/admin/portal-inmobiliaria/InmobProspectos.tsx`)**
-- **Query**: Agrupar las relaciones por `id_persona` para consolidar múltiples proyectos en un solo registro
-- **Columna "Proyecto"**: Mostrar múltiples badges con los nombres de proyecto
+#### 2. Aumentar altura de slots y mejorar densidad
+- Aumentar `slotHeight` de 72px a 80px para dar más espacio visual
+- Mejorar tipografía y padding de `SlotCard` para mejor legibilidad
+- Agregar micro-avatar/iniciales del invitado en las tarjetas agendadas
 
-**3. AddProspectoFloatingDialog (`src/components/admin/AddProspectoFloatingDialog.tsx`)**
-- **Modo crear nuevo**: Funciona igual (un proyecto inicial)
-- **Modo editar existente**: Al seleccionar un prospecto, mostrar sus proyectos actuales como chips. Agregar un botón "Agregar proyecto" que inserta una nueva fila en `entidades_relacionadas` para ese prospecto
-- Permitir quitar un proyecto (desactivar la fila correspondiente), siempre que quede al menos uno
+#### 3. Colores más claros por estatus
+- **Disponible (sin agendar)**: fondo gris claro, borde punteado (ya existe)
+- **Agendada**: fondo azul suave con borde sólido azul
+- **Confirmada**: fondo verde suave con borde sólido verde
+- **Pendiente**: fondo amarillo suave con borde sólido amarillo
+- **Grupal con invitados**: borde azul con barra de progreso visual (ocupación)
 
-**4. Mutations nuevas/ajustadas**
-- `addProjectToProspect`: Inserta nueva fila en `entidades_relacionadas` con `id_persona`, `id_tipo_entidad=7`, `id_proyecto`, `id_persona_duena_lead` del agente
-- `removeProjectFromProspect`: Desactiva (`activo=false`) la fila de `entidades_relacionadas` por su ID específico
-- El mutation existente `updateProjectMutation` se reemplaza por estas dos operaciones
+#### 4. Popover de detalle para slots apilados
+- Nuevo componente `SlotPopover` que se muestra al hacer click en un slot con múltiples citas
+- Lista vertical de las citas con nombre, estatus (badge), y hora
+- Cada cita clickeable para abrir el `SlotDetailDialog` existente con el detalle completo
+
+#### 5. Barra de progreso en slots grupales
+- Para configuraciones con `max_invitados > 1`, mostrar una mini barra de progreso dentro de la tarjeta indicando `agendados/máximo`
+- Color de la barra: azul parcial, verde cuando está lleno
 
 ### Archivos a modificar
-- `src/pages/admin/Prospectos.tsx` — query multi-proyecto, UI chips, mutations add/remove
-- `src/pages/admin/portal-inmobiliaria/InmobProspectos.tsx` — query agrupada, UI multi-badges
-- `src/components/admin/AddProspectoFloatingDialog.tsx` — modo editar con multi-proyecto
 
-### Sin migraciones de base de datos
-La estructura actual de `entidades_relacionadas` ya permite múltiples filas por prospecto con diferentes proyectos.
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/admin/comunicacion/TodasLasCitas.tsx` | Refactorizar `SlotCard`, agregar `SlotPopover`, ajustar lógica de renderizado de items apilados, mejorar colores y alturas |
+
+### Sin cambios en
+- Lógica de datos/queries (se mantiene igual)
+- `SlotDetailDialog` (se reutiliza tal cual)
+- Backend / BD
 
