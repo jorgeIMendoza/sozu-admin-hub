@@ -277,6 +277,22 @@ export default function ConfiguracionCitas() {
     enabled: !!selectedConfigId,
   });
 
+  // Fetch overrides for selected config
+  const { data: configOverrides = [] } = useQuery({
+    queryKey: ["config-citas-overrides", selectedConfigId],
+    queryFn: async () => {
+      if (!selectedConfigId) return [];
+      const { data, error } = await supabase
+        .from("citas_horarios_overrides")
+        .select("*")
+        .eq("id_configuracion_cita", parseInt(selectedConfigId))
+        .eq("activo", true);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedConfigId,
+  });
+
   // Initialize from existing config
   useEffect(() => {
     const days = new Set<number>();
