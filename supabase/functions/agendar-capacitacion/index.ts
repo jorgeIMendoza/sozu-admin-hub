@@ -1155,7 +1155,8 @@ Deno.serve(async (req) => {
       ? `${scheduleDescInv}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`
       : `Cita agendada para: ${agentEmailFinal}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`;
     
-    calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agentEmailFinal, bookingAttendees, desc);
+    const eventLocation = direccion_showroom || undefined;
+    calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agentEmailFinal, bookingAttendees, desc, eventLocation);
 
     let resultCita;
     const meetLink = calendarEvent.hangoutLink || null;
