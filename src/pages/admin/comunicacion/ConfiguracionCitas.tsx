@@ -1118,9 +1118,14 @@ export default function ConfiguracionCitas() {
                                     Slots movidos manualmente
                                   </p>
                                   <div className="space-y-1">
-                                    {dayOverrides.map((o: any) => (
-                                      <p key={o.id} className="text-xs text-orange-600 dark:text-orange-400">
-                                        {String(o.hora_original).padStart(2, "0")}:00 del {o.fecha_original} → {String(o.hora_nueva).padStart(2, "0")}:00 del {o.fecha_nueva}
+                                    {dayOverrides.map((o: any, idx: number) => (
+                                      <p key={o.id} className="text-xs text-orange-600 dark:text-orange-400 flex items-start gap-1.5">
+                                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-orange-200 text-orange-800 dark:bg-orange-800 dark:text-orange-200 text-[10px] font-bold flex-shrink-0 mt-0.5">
+                                          {idx + 1}
+                                        </span>
+                                        <span>
+                                          {String(o.hora_original).padStart(2, "0")}:00 del {o.fecha_original} → {String(o.hora_nueva).padStart(2, "0")}:00 del {o.fecha_nueva}
+                                        </span>
                                       </p>
                                     ))}
                                   </div>
