@@ -409,7 +409,50 @@ function getRsvpStyle(status: string) {
   return RSVP_MAP[status] || RSVP_MAP.needsAction;
 }
 
-// ─── Detail Dialog ───
+// ─── RSVP Progress Bar ───
+function RsvpProgressBar({ citas, maxInvitados, rsvpMap, rsvpLoading }: {
+  citas: Cita[];
+  maxInvitados: number;
+  rsvpMap: Record<string, string>;
+  rsvpLoading: boolean;
+}) {
+  if (rsvpLoading || citas.length === 0) {
+    return <Progress value={(citas.length / maxInvitados) * 100} className="h-2" />;
+  }
+
+  const counts: Record<string, number> = { accepted: 0, declined: 0, tentative: 0, needsAction: 0 };
+  citas.forEach(c => {
+    const status = rsvpMap[`${c.id}`] || "needsAction";
+    counts[status] = (counts[status] || 0) + 1;
+  });
+
+  const colorMap: Record<string, string> = {
+    accepted: "bg-green-500",
+    declined: "bg-red-500",
+    tentative: "bg-yellow-500",
+    needsAction: "bg-blue-500",
+  };
+
+  const total = maxInvitados;
+  return (
+    <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
+      <div className="flex h-full" style={{ width: `${(citas.length / total) * 100}%` }}>
+        {["accepted", "needsAction", "tentative", "declined"].map(status => {
+          if (!counts[status]) return null;
+          const pct = (counts[status] / citas.length) * 100;
+          return (
+            <div
+              key={status}
+              className={cn("h-full transition-all", colorMap[status])}
+              style={{ width: `${pct}%` }}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   slot: CalendarSlot | null;
   calendarStatus: CalendarStatus;
@@ -455,6 +498,8 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
       }
 
       const newMap: Record<string, string> = {};
+      console.log("[RSVP] Raw response events:", JSON.stringify(data.events));
+      console.log("[RSVP] Looking for entries:", eventIds.map(e => ({ citaId: e.citaId, eventId: e.eventId, email: e.email })));
       for (const entry of eventIds) {
         const eventData = data.events[entry.eventId];
         if (eventData?.attendees) {
@@ -463,6 +508,9 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
           );
           if (attendee) {
             newMap[`${entry.citaId}`] = attendee.responseStatus;
+            console.log(`[RSVP] Cita ${entry.citaId}: ${entry.email} -> ${attendee.responseStatus}`);
+          } else {
+            console.warn(`[RSVP] Cita ${entry.citaId}: email ${entry.email} NOT found in attendees:`, eventData.attendees.map((a: any) => a.email));
           }
         }
       }
@@ -587,7 +635,12 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
             <DetailRow icon={Users} label="Capacidad">
               <div className="space-y-1.5">
                 <span>{slot.agendados ?? 0}/{config.max_invitados} agendados</span>
-                <Progress value={((slot.agendados ?? 0) / config.max_invitados) * 100} className="h-2" />
+                <RsvpProgressBar
+                  citas={slot.type === "group" ? (slot.citas || []) : (cita ? [cita] : [])}
+                  maxInvitados={config.max_invitados}
+                  rsvpMap={rsvpMap}
+                  rsvpLoading={rsvpLoading}
+                />
               </div>
             </DetailRow>
           )}
