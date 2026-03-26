@@ -818,43 +818,6 @@ export default function TodasLasCitas() {
     return map;
   }, [days, filteredHorarios, ocupacionSlots, configMap]);
 
-  // ─── Batch verify ───
-
-  const verifyMutation = useMutation({
-    mutationFn: async (reservaIds: number[]) => {
-      if (reservaIds.length === 0) return { results: [] };
-      const pendingMap = new Map<number, CalendarStatus>();
-      reservaIds.forEach(id => pendingMap.set(id, "pending"));
-      setCalendarStatuses(prev => {
-        const next = new Map(prev);
-        pendingMap.forEach((v, k) => next.set(k, v));
-        return next;
-      });
-      const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
-        body: { action: "verify-events-batch", reserva_ids: reservaIds, calendar_owner_email: "jorge.mendoza@sozu.com", tipo_cita_id: 1 },
-      });
-      if (error) throw error;
-      return data as { results: { reserva_id: number; exists: boolean; cancelled: boolean }[] };
-    },
-    onSuccess: (data) => {
-      setCalendarStatuses(prev => {
-        const next = new Map(prev);
-        data.results.forEach(r => next.set(r.reserva_id, r.exists ? "verified" : "missing"));
-        return next;
-      });
-      const missing = data.results.filter(r => !r.exists).length;
-      if (missing > 0) toast.warning(`${missing} cita(s) ya no existen en Google Calendar`);
-      else toast.success("Todas las citas verificadas en Calendar");
-    },
-    onError: (err: any) => toast.error("Error verificando: " + (err.message || "desconocido")),
-  });
-
-  const handleVerifyAll = useCallback(() => {
-    const ids = filteredCitas.filter(c => c.google_calendar_event_id && c.estatus !== "cancelada_calendar").map(c => c.id);
-    if (ids.length === 0) { toast.info("No hay citas con evento de Calendar para verificar"); return; }
-    verifyMutation.mutate(ids);
-  }, [filteredCitas, verifyMutation]);
-
   const now = new Date();
   const slotHeight = 80;
   const numDays = days.length;
@@ -875,10 +838,6 @@ export default function TodasLasCitas() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={handleVerifyAll} disabled={verifyMutation.isPending} className="gap-1.5">
-            {verifyMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Verificar Calendar
-          </Button>
           <Select value={ownerFilter} onValueChange={setOwnerFilter}>
             <SelectTrigger className="w-[220px]"><SelectValue placeholder="Dueño" /></SelectTrigger>
             <SelectContent>
