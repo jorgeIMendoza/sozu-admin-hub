@@ -150,19 +150,38 @@ Deno.serve(async (req) => {
     const hasBookings = reservas && reservas.length > 0;
     console.log(`[reagendar-slot] Found ${reservas?.length || 0} bookings for this slot`);
 
-    // 3. Create or update the override record
+    // 3. Check if an override already exists for this horario (re-move scenario)
+    // If so, preserve the ORIGINAL fecha/hora from the first move
+    const { data: existingOverride } = await supabase
+      .from('citas_horarios_overrides')
+      .select('id, fecha_original, hora_original')
+      .eq('id_horario', id_horario)
+      .eq('activo', true)
+      .maybeSingle();
+
+    const finalFechaOriginal = existingOverride ? existingOverride.fecha_original : fecha_original;
+    const finalHoraOriginal = existingOverride ? existingOverride.hora_original : hora_original;
+
+    console.log(`[reagendar-slot] Using original: fecha=${finalFechaOriginal} hora=${finalHoraOriginal} (had existing override: ${!!existingOverride})`);
+
+    // Delete old override if exists, then insert new one with original values
+    if (existingOverride) {
+      await supabase
+        .from('citas_horarios_overrides')
+        .delete()
+        .eq('id', existingOverride.id);
+    }
+
     const { error: overrideError } = await supabase
       .from('citas_horarios_overrides')
-      .upsert({
+      .insert({
         id_configuracion_cita,
         id_horario,
-        fecha_original,
-        hora_original,
+        fecha_original: finalFechaOriginal,
+        hora_original: finalHoraOriginal,
         fecha_nueva,
         hora_nueva,
         movido_por: movido_por || null,
-      }, {
-        onConflict: 'id_horario,fecha_original',
       });
 
     if (overrideError) {

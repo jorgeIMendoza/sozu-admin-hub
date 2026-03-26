@@ -22,8 +22,9 @@ import { toast } from "sonner";
 
 const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; color: string }> = {
   1: { label: "Agendada", variant: "outline", color: "text-primary" },
-  2: { label: "Pendiente", variant: "secondary", color: "text-warning" },
-  3: { label: "Confirmada", variant: "default", color: "text-success" },
+  2: { label: "Quizá", variant: "secondary", color: "text-yellow-600" },
+  3: { label: "Asistirá", variant: "default", color: "text-green-600" },
+  4: { label: "NO asistirá", variant: "destructive", color: "text-red-600" },
 };
 
 interface ConfigCita {
@@ -506,12 +507,18 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
                     <Badge
                       variant="outline"
                       className={cn("text-[10px] flex-shrink-0",
-                        c.id_estatus_cita === 3 ? "border-green-300 text-green-700" :
-                        c.id_estatus_cita === 2 ? "border-yellow-300 text-yellow-700" :
-                        "border-blue-300 text-blue-700"
+                        (c.estatus === "cancelada_calendar" || c.id_estatus_cita === 4)
+                          ? "border-red-300 text-red-700 bg-red-50 dark:bg-red-950/20 dark:border-red-700 dark:text-red-400"
+                          : c.id_estatus_cita === 3
+                            ? "border-green-300 text-green-700 bg-green-50 dark:bg-green-950/20 dark:border-green-700 dark:text-green-400"
+                            : c.id_estatus_cita === 2
+                              ? "border-yellow-300 text-yellow-700 bg-yellow-50 dark:bg-yellow-950/20 dark:border-yellow-700 dark:text-yellow-400"
+                              : "border-blue-300 text-blue-700 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-700 dark:text-blue-400"
                       )}
                     >
-                      {STATUS_MAP[c.id_estatus_cita ?? 0]?.label || "—"}
+                      {(c.estatus === "cancelada_calendar" || c.id_estatus_cita === 4)
+                        ? "NO asistirá"
+                        : STATUS_MAP[c.id_estatus_cita ?? 0]?.label || "—"}
                     </Badge>
                   </div>
                 ))}
@@ -1102,11 +1109,15 @@ export default function TodasLasCitas() {
       return;
     }
 
+    // If the slot was already moved (isOverride), use the ORIGINAL position, not the current one
+    const fechaOriginal = slot.isOverride && slot.overrideFrom ? slot.overrideFrom.fecha : dragData.sourceDayKey;
+    const horaOriginal = slot.isOverride && slot.overrideFrom ? slot.overrideFrom.hora : dragData.sourceHour;
+
     rescheduleMutation.mutate({
       id_horario: slot.horarioId,
       id_configuracion_cita: slot.configId,
-      fecha_original: dragData.sourceDayKey,
-      hora_original: dragData.sourceHour,
+      fecha_original: fechaOriginal,
+      hora_original: horaOriginal,
       fecha_nueva: pendingDrop.dayKey,
       hora_nueva: pendingDrop.hour,
     });
