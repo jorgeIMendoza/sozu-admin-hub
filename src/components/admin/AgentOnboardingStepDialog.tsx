@@ -2050,13 +2050,15 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                                     className={`py-2.5 px-3 rounded-xl text-sm font-medium transition-all duration-200 border relative ${
                                       isCancelledSlot
                                         ? 'bg-destructive/10 border-destructive/40 text-destructive/60 cursor-not-allowed line-through'
-                                        : slot.is_full
-                                          ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-not-allowed'
-                                          : isSelected
-                                            ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                                            : isExisting
-                                              ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
-                                              : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
+                                        : isPastSlot
+                                          ? 'bg-muted/40 border-border/20 text-muted-foreground/40 cursor-not-allowed'
+                                          : slot.is_full
+                                            ? 'bg-muted/50 border-border/30 text-muted-foreground/50 cursor-not-allowed'
+                                            : isSelected
+                                              ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
+                                              : isExisting
+                                                ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
+                                                : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
                                     }`}
                                   >
                                     <span>{slot.hora}</span>
