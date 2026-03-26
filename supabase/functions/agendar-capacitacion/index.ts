@@ -427,7 +427,7 @@ async function patchEventWithAttendee(
   return updated;
 }
 
-async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string }[], description?: string) {
+async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string }[], description?: string, location?: string) {
   const event: any = {
     summary,
     start: { dateTime: `${fecha}T${horaInicio}:00`, timeZone: "America/Mexico_City" },
@@ -440,6 +440,9 @@ async function createCalendarEvent(token: string, calendarId: string, fecha: str
       },
     },
   };
+  if (location) {
+    event.location = location;
+  }
   if (attendees && attendees.length > 0) {
     event.attendees = attendees;
   }
@@ -1139,9 +1142,6 @@ Deno.serve(async (req) => {
     let calendarEvent: any;
     console.log(`[schedule] Creating standalone event for ${fecha} ${hora_inicio}`);
     let summary = scheduleCitaNombre || tipoCitaSummary || "Capacitación";
-    if (direccion_showroom && latitud_showroom && longitud_showroom) {
-      summary += ` — ${direccion_showroom}`;
-    }
     
     const bookingAttendees: { email: string }[] = [];
     if (agentEmailFinal) bookingAttendees.push({ email: agentEmailFinal });
@@ -1154,7 +1154,8 @@ Deno.serve(async (req) => {
       ? `${scheduleDescInv}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`
       : `Cita agendada para: ${agentEmailFinal}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`;
     
-    calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agentEmailFinal, bookingAttendees, desc);
+    const eventLocation = direccion_showroom || undefined;
+    calendarEvent = await createCalendarEvent(token, scheduleCalendarId, fecha, hora_inicio, horaFin, summary, agentEmailFinal, bookingAttendees, desc, eventLocation);
 
     let resultCita;
     const meetLink = calendarEvent.hangoutLink || null;
