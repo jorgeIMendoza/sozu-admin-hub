@@ -1,48 +1,29 @@
 
 
-## Plan: Rediseño de "Todas las Citas" — Estilo Google Calendar mejorado
+## Plan: Crear eventos en Google Calendar solo al agendar (no al configurar)
 
 ### Problema actual
-Cuando un slot tiene múltiples citas (ej. slots grupales o varias configuraciones en la misma hora), las tarjetas se comprimen horizontalmente y se vuelven ilegibles. No hay forma clara de ver cuántas citas hay ni expandirlas.
+Al guardar configuración de horarios, se llama `createRecurringMeetsMutation` que invoca `create-recurring-meets` en el edge function, creando eventos de Google Calendar para **todos** los slots configurados (ej. Lun-Sáb 9am-9pm). Esto satura el calendario del dueño con cientos de eventos vacíos.
 
-### Cambios en `TodasLasCitas.tsx`
+### Cambios
 
-#### 1. Slots con múltiples citas: indicador apilado + expandible
-- Cuando hay >1 cita en un slot, en lugar de dividir el ancho en columnas diminutas, mostrar una **tarjeta apilada** con:
-  - Indicador visual de cantidad (ej. "3 citas")
-  - Las primeras 1-2 citas visibles como mini-chips
-  - Al hacer click se expande un **popover/dropdown** mostrando la lista completa de citas en ese slot
-- Para slots individuales (1 cita), mantener la tarjeta actual
+#### 1. `ConfiguracionCitas.tsx` — Eliminar creación masiva de eventos al guardar
+- **Línea 591**: Eliminar `if (calendarioEmail) createRecurringMeetsMutation.mutate();` del `onSuccess` de `saveHorariosMutation`
+- Eliminar toda la definición de `createRecurringMeetsMutation` (líneas 596-643)
+- Los slots configurados seguirán guardándose en `configuracion_citas_horarios` (BD) como ya ocurre
 
-#### 2. Aumentar altura de slots y mejorar densidad
-- Aumentar `slotHeight` de 72px a 80px para dar más espacio visual
-- Mejorar tipografía y padding de `SlotCard` para mejor legibilidad
-- Agregar micro-avatar/iniciales del invitado en las tarjetas agendadas
+#### 2. `agendar-capacitacion/index.ts` — Deprecar acción `create-recurring-meets`
+- Eliminar o comentar el bloque de la acción `create-recurring-meets` (línea ~952 en adelante)
+- La acción `schedule` (que se ejecuta cuando un agente agenda una cita real) ya crea el evento en Google Calendar — eso se mantiene intacto
+- Si la acción `schedule` busca instancias recurrentes previas (`findRecurringEventInstance`), simplificar para que siempre cree un evento standalone nuevo
 
-#### 3. Colores más claros por estatus
-- **Disponible (sin agendar)**: fondo gris claro, borde punteado (ya existe)
-- **Agendada**: fondo azul suave con borde sólido azul
-- **Confirmada**: fondo verde suave con borde sólido verde
-- **Pendiente**: fondo amarillo suave con borde sólido amarillo
-- **Grupal con invitados**: borde azul con barra de progreso visual (ocupación)
+#### 3. Sin cambios en BD ni en "Todas las Citas"
+- `configuracion_citas_horarios` ya almacena los slots disponibles
+- `TodasLasCitas.tsx` ya combina horarios configurados + reservas para pintar la grilla (gris = disponible, color = agendada)
+- No se necesita columna JSON adicional
 
-#### 4. Popover de detalle para slots apilados
-- Nuevo componente `SlotPopover` que se muestra al hacer click en un slot con múltiples citas
-- Lista vertical de las citas con nombre, estatus (badge), y hora
-- Cada cita clickeable para abrir el `SlotDetailDialog` existente con el detalle completo
-
-#### 5. Barra de progreso en slots grupales
-- Para configuraciones con `max_invitados > 1`, mostrar una mini barra de progreso dentro de la tarjeta indicando `agendados/máximo`
-- Color de la barra: azul parcial, verde cuando está lleno
-
-### Archivos a modificar
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/pages/admin/comunicacion/TodasLasCitas.tsx` | Refactorizar `SlotCard`, agregar `SlotPopover`, ajustar lógica de renderizado de items apilados, mejorar colores y alturas |
-
-### Sin cambios en
-- Lógica de datos/queries (se mantiene igual)
-- `SlotDetailDialog` (se reutiliza tal cual)
-- Backend / BD
+### Resultado
+- Al guardar configuración: solo se guardan los horarios en BD, **sin tocar Google Calendar**
+- Al agendar una cita (agente inmobiliario): se crea el evento en Google Calendar con Meet link, asistentes y enterados
+- El calendario del dueño deja de saturarse con eventos vacíos
 
