@@ -189,10 +189,22 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
               {isFull && <span className="text-green-600 dark:text-green-400 font-semibold">Completa</span>}
             </div>
             <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
-              <div
-                className={cn("h-full rounded-full transition-all", isFull ? "bg-green-500" : "bg-blue-500")}
-                style={{ width: `${occupancyPercent}%` }}
-              />
+              {slot.citas && slot.citas.length > 0 ? (
+                <div className="flex h-full" style={{ width: `${occupancyPercent}%` }}>
+                  {slot.citas.map((c, i) => {
+                    const statusColor = c.id_estatus_cita === 3 ? "bg-green-500"
+                      : c.id_estatus_cita === 4 ? "bg-red-500"
+                      : c.id_estatus_cita === 2 ? "bg-yellow-500"
+                      : "bg-blue-500";
+                    return <div key={i} className={cn("h-full", statusColor)} style={{ width: `${100 / slot.citas!.length}%` }} />;
+                  })}
+                </div>
+              ) : (
+                <div
+                  className={cn("h-full rounded-full transition-all", isFull ? "bg-green-500" : "bg-blue-500")}
+                  style={{ width: `${occupancyPercent}%` }}
+                />
+              )}
             </div>
           </div>
         ) : (

@@ -62,10 +62,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
+    const saJson = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") || Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
     if (!saJson) {
       return new Response(
-        JSON.stringify({ error: 'GOOGLE_SERVICE_ACCOUNT_KEY no configurada' }),
+        JSON.stringify({ error: 'GOOGLE_SERVICE_ACCOUNT_JSON no configurada' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
