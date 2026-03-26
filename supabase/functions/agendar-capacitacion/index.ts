@@ -433,10 +433,6 @@ async function createCalendarEvent(token: string, calendarId: string, fecha: str
     start: { dateTime: `${fecha}T${horaInicio}:00`, timeZone: "America/Mexico_City" },
     end: { dateTime: `${fecha}T${horaFin}:00`, timeZone: "America/Mexico_City" },
     description: description || `Capacitación agendada para: ${agentEmail}`,
-  };
-  if (location) {
-    event.location = location;
-  }
     conferenceData: {
       createRequest: {
         requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
@@ -444,6 +440,9 @@ async function createCalendarEvent(token: string, calendarId: string, fecha: str
       },
     },
   };
+  if (location) {
+    event.location = location;
+  }
   if (attendees && attendees.length > 0) {
     event.attendees = attendees;
   }
