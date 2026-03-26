@@ -427,12 +427,16 @@ async function patchEventWithAttendee(
   return updated;
 }
 
-async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string }[], description?: string) {
+async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string }[], description?: string, location?: string) {
   const event: any = {
     summary,
     start: { dateTime: `${fecha}T${horaInicio}:00`, timeZone: "America/Mexico_City" },
     end: { dateTime: `${fecha}T${horaFin}:00`, timeZone: "America/Mexico_City" },
     description: description || `Capacitación agendada para: ${agentEmail}`,
+  };
+  if (location) {
+    event.location = location;
+  }
     conferenceData: {
       createRequest: {
         requestId: `meet-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
