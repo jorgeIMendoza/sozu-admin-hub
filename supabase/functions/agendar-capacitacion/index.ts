@@ -561,7 +561,7 @@ Deno.serve(async (req) => {
 
     // Generate token with Domain-Wide Delegation (sub = actual calendar owner, not config owner)
     const dwdSubject = calendarId;
-    const token = await getAccessToken(sa, dwdSubject);
+    let token = await getAccessToken(sa, dwdSubject);
     console.log(`[auth] Token generated with DWD subject: ${dwdSubject} (config owner: ${calendarOwnerEmail})`);
 
     // ---- Action: verify-calendar-access (check if SA has WRITE access to the calendar) ----
@@ -1039,6 +1039,12 @@ Deno.serve(async (req) => {
     } else if (userCitaConfig) {
       scheduleCorrEnt = userCitaConfig.correos_enterado || [];
       scheduleDescInv = userCitaConfig.descripcion_invitacion || "";
+    }
+
+    // Re-generate token if schedule calendar differs from default
+    if (scheduleCalendarId !== calendarId) {
+      token = await getAccessToken(sa, scheduleCalendarId);
+      console.log(`[auth] Token re-generated with DWD subject: ${scheduleCalendarId} (schedule calendar differs from default)`);
     }
 
     const [h, m] = hora_inicio.split(":").map(Number);
