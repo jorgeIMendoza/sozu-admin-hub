@@ -111,6 +111,11 @@ export function SignaturePadDialog({ open, onOpenChange, onSave, initialImage }:
         <DialogHeader>
           <DialogTitle>Firma Autógrafa</DialogTitle>
           <DialogDescription>Dibuja tu firma en el recuadro. Esta será incluida en el documento.</DialogDescription>
+          <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-2.5 mt-2">
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              ⚠️ Esta firma es únicamente ilustrativa y de vista. La firma legalmente válida es la <strong>firma digital</strong> que se realiza al finalizar el proceso de firmado.
+            </p>
+          </div>
         </DialogHeader>
         <div className="space-y-3">
           <div className="border-2 border-dashed rounded-lg bg-white overflow-hidden touch-none">
