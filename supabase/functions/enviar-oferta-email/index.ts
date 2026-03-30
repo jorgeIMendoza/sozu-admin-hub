@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
           const urlParts = oferta.url.split('/');
           const fileName = decodeURIComponent(urlParts[urlParts.length - 1] || `Oferta_${offerId}.pdf`);
-          const tipo = oferta.id_producto_servicio ? 'producto' : 'propiedad';
+          const tipo = oferta.id_producto ? 'producto' : 'propiedad';
 
           pdfResults.push({ offerId, fileName, tipo });
           attachments.push({ Name: fileName, Content: base64, ContentType: 'application/pdf' });

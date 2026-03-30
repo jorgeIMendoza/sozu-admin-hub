@@ -2173,9 +2173,9 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
       estatus_aprobacion_nombre,
     });
 
-    // Upload product offer to storage (same as property offers)
+    // Upload product offer to storage
     const { ofertaPdfStorageService } = await import('./ofertaPdfStorageService');
-    await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, false);
+    await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, true);
 
     const base64 = await blobToBase64(blob);
     results.push({ base64, filename });
