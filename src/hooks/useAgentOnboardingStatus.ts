@@ -19,6 +19,7 @@ interface OnboardingStatus {
   hasBasicIdentityComplete: boolean;
   canAccessComisiones: boolean;
   missingForComisiones: string[];
+  missingByStep: Record<string, string[]>;
 }
 
 export function useAgentOnboardingStatus(personaId: number | null | undefined): OnboardingStatus {
