@@ -1,22 +1,35 @@
 
 
-## Corrección de CLABE oferta 1791 + Validación preventiva
+## Cambio: Preguntar antes de generar si desea enviar por correo
 
-### 1. Corregir CLABE de oferta 1791 (UPDATE con insert tool)
-Ejecutar UPDATE para corregir el valor truncado:
-```sql
-UPDATE ofertas 
-SET clabe_stp_tmp_producto = '646180287400133056' 
-WHERE id = 1791 AND clabe_stp_tmp_producto = '64618028740013305';
-```
+### Resumen
+Actualmente el flujo es: generar oferta → descargar PDFs → intentar envío automático → si no aplica envío automático, mostrar toast preguntando si quiere enviar. 
 
-### 2. Validación preventiva en `src/utils/clabeReuseUtils.ts`
-En la función `getOrCreateProductClabe`, al filtrar ofertas reutilizables, agregar validación de que la CLABE tenga exactamente 18 dígitos. Las CLABEs con longitud incorrecta se descartan del pool de reutilización, y si no quedan CLABEs válidas se genera una nueva.
+El cambio: en el **diálogo de confirmación** (`AlertDialog` que ya existe, líneas ~2394-2569), agregar un checkbox o toggle que diga **"Enviar oferta(s) por correo al prospecto"** para que el usuario decida ANTES de generar. Este checkbox solo se muestra cuando la oferta **NO** se enviaría automáticamente (es decir, cuando no tiene datos bancarios).
 
-Cambio específico: en el loop que construye `offersWithoutAccount`, agregar condición:
+### Cambios en `src/components/admin/NewOfferDialog.tsx`
+
+**1. Nuevo estado**
 ```typescript
-if (count === 0 && offer.clabe_stp_tmp_producto?.length === 18) {
-  offersWithoutAccount.push(...);
-}
+const [sendEmailOnGenerate, setSendEmailOnGenerate] = useState(false);
 ```
+
+**2. En el diálogo de confirmación (líneas ~2530-2554)**
+Agregar un checkbox debajo de los avisos de datos bancarios, visible **solo cuando `confirmBankingReasons.length > 0`** (que es la condición que indica que no habrá envío automático):
+
+```
+☐ También enviar oferta(s) por correo al prospecto
+```
+
+**3. En el `onSuccess` del mutation (líneas ~1047-1084)**
+Modificar la lógica post-generación:
+- Si `emailSent` es `true` (envío automático por datos bancarios): no cambiar nada.
+- Si `emailSent` es `false` Y `sendEmailOnGenerate` es `true`: llamar `sendMultipleOffersEmailDirect` directamente en vez de mostrar el toast con botón.
+- Si `emailSent` es `false` Y `sendEmailOnGenerate` es `false`: no mostrar el toast con botón (el usuario ya decidió que no quiere enviar).
+
+**4. Reset del estado**
+Resetear `sendEmailOnGenerate` a `false` cuando se cierra el diálogo o se cancela.
+
+### Resultado
+El usuario ve la opción de envío **antes** de generar, eliminando el toast posterior. Las ofertas con envío automático (datos bancarios completos) siguen enviándose sin preguntar.
 
