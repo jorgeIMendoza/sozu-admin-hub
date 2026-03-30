@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
@@ -20,9 +21,10 @@ import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroo
 
 const AgentInicio = () => {
   const { profile, user } = useAuth();
+  const { impersonatedAgentEmail, impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const navigate = useNavigate();
-  const personaId = profile?.id_persona;
-  const agentEmail = user?.email || profile?.email;
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const agentEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { percentage, isLoading: onboardingLoading, hasTrainingComplete, hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
@@ -32,7 +34,7 @@ const AgentInicio = () => {
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
 
-  const nombre = profile?.nombre?.split(" ")[0] || "Agente";
+  const nombre = isImpersonating ? (impersonatedAgentName?.split(" ")[0] || "Agente") : (profile?.nombre?.split(" ")[0] || "Agente");
 
   // Log page view
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -23,6 +24,8 @@ interface ProspectoAgrupado {
 
 const AgentProspectos = () => {
   const { profile } = useAuth();
+  const { impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const queryClient = useQueryClient();
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
@@ -38,9 +41,9 @@ const AgentProspectos = () => {
   }, []);
 
   const { data: prospectos = [], isLoading } = useQuery({
-    queryKey: ["agent-prospectos", profile?.id_persona],
+    queryKey: ["agent-prospectos", effectivePersonaId],
     queryFn: async (): Promise<ProspectoAgrupado[]> => {
-      if (!profile?.id_persona) return [];
+      if (!effectivePersonaId) return [];
 
       const { data, error } = await supabase
         .from("entidades_relacionadas")
@@ -57,7 +60,7 @@ const AgentProspectos = () => {
         `)
         .eq("id_tipo_entidad", 7)
         .eq("activo", true)
-        .eq("id_persona_duena_lead", profile.id_persona);
+        .eq("id_persona_duena_lead", effectivePersonaId);
 
       if (error) throw error;
 
@@ -91,7 +94,7 @@ const AgentProspectos = () => {
 
       return Array.from(map.values()).sort((a, b) => a.nombre_legal.localeCompare(b.nombre_legal));
     },
-    enabled: !!profile?.id_persona,
+    enabled: !!effectivePersonaId,
   });
 
   const filtered = useMemo(() => {

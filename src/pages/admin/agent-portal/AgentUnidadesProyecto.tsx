@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -34,10 +35,11 @@ const AgentUnidadesProyecto = () => {
   const { permissions: agentPerms } = useAgentPortalPermissions();
   const canGenerateOffer = agentPerms['/admin/agent/inventario']?.canGenerateOffer;
   const { profile } = useAuth();
-  const personaId = profile?.id_persona;
+  const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { percentage, isLoading: isLoadingOnboarding, hasTrainingComplete, hasBasicIdentityComplete } = useAgentOnboardingStatus(personaId);
-  const nombreCompleto = profile?.nombre || "Agente";
+  const nombreCompleto = isImpersonating ? (impersonatedAgentName || "Agente") : (profile?.nombre || "Agente");
   const initials = nombreCompleto.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join("");
 
   // Permissions, logging, tracking

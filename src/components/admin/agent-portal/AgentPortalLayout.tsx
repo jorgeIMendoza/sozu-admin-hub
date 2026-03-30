@@ -7,6 +7,7 @@ import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDynamicMenus } from "@/hooks/useDynamicMenus";
 import { useAgentHasInmobiliaria } from "@/hooks/useAgentHasInmobiliaria";
+import { AgentPortalImpersonationSelector } from "./AgentPortalImpersonationSelector";
 
 const AGENT_MENU_ID = 16;
 
@@ -35,6 +36,7 @@ export const AgentPortalLayout = () => {
 
   const { profile } = useAuth();
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
+  const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
 
   // Check if user has other menus beyond Portal de Agente
   const { data: hasOtherMenus = false } = useQuery({
@@ -105,6 +107,11 @@ export const AgentPortalLayout = () => {
             <ArrowLeft className="h-4 w-4" />
             Menú principal
           </button>
+        </div>
+      )}
+      {isSuperAdmin && (
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-2">
+          <AgentPortalImpersonationSelector />
         </div>
       )}
       <main className="flex-1 pb-24 overflow-y-auto">

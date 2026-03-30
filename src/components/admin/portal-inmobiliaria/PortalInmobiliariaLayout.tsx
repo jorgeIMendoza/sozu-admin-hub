@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
+import { InmobiliariaImpersonationSelector } from "./InmobiliariaImpersonationSelector";
 import { APP_VERSION } from "@/lib/config";
 import sozuLogoBlack from "@/assets/sozu-logo-black.png";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +59,7 @@ export const PortalInmobiliariaLayout = () => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const isInmobiliariaRole = profile?.rol_nombre === "Inmobiliaria";
+  const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
   const { personaId } = useInmobiliariaPersonaId();
 
   // Fetch agency name + comision
@@ -269,6 +271,7 @@ export const PortalInmobiliariaLayout = () => {
             )}
           </div>
           <div className="flex items-center gap-3">
+            {isSuperAdmin && <InmobiliariaImpersonationSelector />}
             <Avatar className="h-9 w-9">
               <AvatarFallback className="bg-[hsl(var(--inmob-green))] text-white text-[13px] font-bold">
                 {userInitials}
@@ -278,19 +281,26 @@ export const PortalInmobiliariaLayout = () => {
         </header>
 
         {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--inmob-green))] text-white text-xs font-bold">S</div>
-            <span className="text-sm font-bold text-foreground">SOZU</span>
-            <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
+        <header className="lg:hidden sticky top-0 z-20 bg-[hsl(var(--card))] border-b border-border px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[hsl(var(--inmob-green))] text-white text-xs font-bold">S</div>
+              <span className="text-sm font-bold text-foreground">SOZU</span>
+              <span className="text-[10px] text-muted-foreground/50 font-mono">{APP_VERSION}</span>
+            </div>
+            {showBackButton && (
+              <button
+                onClick={() => navigate("/admin")}
+                className="flex items-center gap-1 text-sm text-muted-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
           </div>
-          {showBackButton && (
-            <button
-              onClick={() => navigate("/admin")}
-              className="flex items-center gap-1 text-sm text-muted-foreground"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+          {isSuperAdmin && (
+            <div className="pt-1">
+              <InmobiliariaImpersonationSelector />
+            </div>
           )}
         </header>
 

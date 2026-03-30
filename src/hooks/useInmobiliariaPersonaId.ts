@@ -1,25 +1,26 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useInmobiliariaImpersonation } from "@/contexts/InmobiliariaImpersonationContext";
 
 /**
  * Resolves inmobiliaria persona ID for the current user.
- * For role Inmobiliaria, prioritize active project-owner association
- * (proyectos_acceso.id_entidad_relacionada_dueno -> entidades_relacionadas.id_persona)
- * to avoid stale/mislinked profile.id_persona values.
+ * If a Super Admin is impersonating an inmobiliaria, returns that personaId directly.
  */
 // Sozu (Real Estate Ventures) persona ID — used as default for Super Admin
 const SOZU_PERSONA_ID = 186;
 
 export function useInmobiliariaPersonaId() {
   const { profile } = useAuth();
+  const { impersonatedInmobiliariaPersonaId, isImpersonating } = useInmobiliariaImpersonation();
+
   const directId = profile?.id_persona;
   const email = profile?.email;
   const isInmobRole = profile?.rol_nombre === "Inmobiliaria";
   const isSuperAdmin = profile?.rol_id === 1;
 
   const { data: resolvedId, isLoading } = useQuery({
-    queryKey: ["inmob-persona-id-resolve", email],
+    queryKey: ["inmob-persona-id-resolve", email, isImpersonating],
     queryFn: async (): Promise<number | null> => {
       if (!email) return null;
 
@@ -107,9 +108,17 @@ export function useInmobiliariaPersonaId() {
 
       return null;
     },
-    enabled: (isInmobRole || isSuperAdmin) && !!email,
+    enabled: !isImpersonating && (isInmobRole || isSuperAdmin) && !!email,
     staleTime: 10 * 60_000,
   });
+
+  // If impersonating, return the impersonated personaId directly
+  if (isImpersonating && impersonatedInmobiliariaPersonaId) {
+    return {
+      personaId: impersonatedInmobiliariaPersonaId,
+      isLoading: false,
+    };
+  }
 
   return {
     personaId: resolvedId ?? directId ?? null,

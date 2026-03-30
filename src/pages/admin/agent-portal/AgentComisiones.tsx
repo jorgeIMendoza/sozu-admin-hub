@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
@@ -26,9 +27,10 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const AgentComisiones = () => {
   const { profile, user } = useAuth();
+  const { impersonatedAgentEmail, impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
   const navigate = useNavigate();
-  const personaId = profile?.id_persona;
-  const agentEmail = user?.email || profile?.email;
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const agentEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { steps, percentage, isLoading: onboardingLoading, canAccessComisiones, missingForComisiones } = useAgentOnboardingStatus(personaId);
   const [activeTab, setActiveTab] = useState<TabKey>('todas');

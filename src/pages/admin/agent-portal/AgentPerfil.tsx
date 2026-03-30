@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
@@ -49,8 +50,10 @@ const ACTIVATION_BLOCKS = [
 
 const AgentPerfil = () => {
   const { profile, signOut } = useAuth();
+  const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
-  const personaId = profile?.id_persona;
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const displayName = isImpersonating ? impersonatedAgentName : profile?.nombre;
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const perfilPerms = permissions['/admin/agent/perfil'];
@@ -280,11 +283,11 @@ const AgentPerfil = () => {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 rounded-full bg-[hsl(var(--agent-primary))] flex items-center justify-center text-white font-bold text-lg shrink-0">
-          {profile?.nombre?.[0]?.toUpperCase() || "A"}
+          {(displayName || "A")[0]?.toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-[hsl(var(--agent-text))] truncate">
-            {profile?.nombre || "Agente"}
+            {displayName || "Agente"}
           </h1>
           <p className="text-sm text-[hsl(var(--agent-text-secondary))]">
             {profile?.rol_nombre || "Agente Inmobiliario"}

@@ -9,6 +9,7 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AgentImpersonationProvider } from "@/contexts/AgentImpersonationContext";
 import { ClienteImpersonationProvider } from "@/contexts/ClienteImpersonationContext";
+import { InmobiliariaImpersonationProvider } from "@/contexts/InmobiliariaImpersonationContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { PermissionRoute } from "@/components/auth/PermissionRoute";
 import { AdminLayout } from "./components/admin/AdminLayout";
@@ -176,6 +177,7 @@ const App = () => (
           <AuthProvider>
             <AgentImpersonationProvider>
             <ClienteImpersonationProvider>
+            <InmobiliariaImpersonationProvider>
             <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>}>
               {isAgentesSubdomain ? (
                 <Routes>
@@ -322,6 +324,7 @@ const App = () => (
               </Routes>
               )}
             </Suspense>
+            </InmobiliariaImpersonationProvider>
             </ClienteImpersonationProvider>
             </AgentImpersonationProvider>
           </AuthProvider>

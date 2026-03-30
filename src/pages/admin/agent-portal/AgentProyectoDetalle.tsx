@@ -5,6 +5,7 @@ import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHe
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Building2, MapPin, ArrowLeft, Calendar, Loader2, Download, Share2, ChevronRight, HardHat, Image as ImageIcon, Maximize2, BedDouble, Bath, Mail, Copy, Dumbbell, Car, TreePine, Shield, Coffee, Waves, Warehouse, ShoppingBag, PersonStanding, Clapperboard, Sofa, Dog, Bike, Baby, Utensils, Gamepad2, BookOpen, Wind, Sparkles, Star, Lock } from "lucide-react";
@@ -52,7 +53,8 @@ const AgentProyectoDetalle = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { profile } = useAuth();
-  const personaId = profile?.id_persona;
+  const { impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { hasTrainingComplete, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
