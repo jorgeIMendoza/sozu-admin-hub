@@ -1356,11 +1356,6 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                 >
                   {isUploading ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : doc ? (
-                    <>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Actualizar
-                    </>
                   ) : (
                     <>
                       <Upload className="h-3.5 w-3.5" />
