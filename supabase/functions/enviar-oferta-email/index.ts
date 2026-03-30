@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         try {
           const { data: oferta, error: ofertaError } = await supabase
             .from('ofertas')
-            .select('url, id_producto_servicio')
+            .select('url, id_producto')
             .eq('id', offerId)
             .maybeSingle();
 
