@@ -1632,7 +1632,7 @@ export default function MisPropiedades() {
                                 variant="outline"
                                 size="icon"
                                 disabled={!offer.url}
-                                title={!offer.url ? 'Primero descarga la oferta para generar el PDF' : 'Enviar oferta por correo'}
+                                title={!offer.url ? 'Descarga la oferta primero' : 'Reenviar oferta por correo'}
                                 onClick={async () => {
                                   const { sendOfferEmailDirect } = await import('@/services/ofertaEmailService');
                                   sendOfferEmailDirect({
