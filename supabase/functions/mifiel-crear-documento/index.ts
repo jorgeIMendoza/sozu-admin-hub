@@ -200,7 +200,7 @@ function cleanText(text: string): string {
     .trim();
 }
 
-async function renderBlocksToPdf(blocks: Block[], options?: { firmantesConfig?: { name: string; email: string; cargo?: string; firma_imagen?: string }[]; agentSignature?: string; agentName?: string; agentRfc?: string; fechaActual?: string }): Promise<Uint8Array> {
+async function renderBlocksToPdf(blocks: Block[], options?: { firmantesConfig?: { name: string; email: string; cargo?: string; firma_imagen?: string }[]; agentSignature?: string; agentName?: string; agentRfc?: string; fechaActual?: string; requiereFirmaAutografa?: boolean }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
