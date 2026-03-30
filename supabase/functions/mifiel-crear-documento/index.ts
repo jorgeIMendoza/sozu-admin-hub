@@ -458,7 +458,7 @@ serve(async (req) => {
     if (carta_acuerdo_id) {
       const { data, error } = await supabase
         .from("cartas_acuerdo")
-        .select("contenido_html, firmantes_config, requiere_validacion_biometrica")
+        .select("contenido_html, firmantes_config, requiere_validacion_biometrica, requiere_firma_autografa")
         .eq("id", carta_acuerdo_id)
         .single();
       if (error) throw new Error("No se encontró la carta de acuerdo: " + error.message);
@@ -467,7 +467,7 @@ serve(async (req) => {
       // Fallback: use first active carta from new table
       const { data, error } = await supabase
         .from("cartas_acuerdo")
-        .select("id, contenido_html, firmantes_config, requiere_validacion_biometrica")
+        .select("id, contenido_html, firmantes_config, requiere_validacion_biometrica, requiere_firma_autografa")
         .eq("activo", true)
         .order("created_at")
         .limit(1)
@@ -496,6 +496,7 @@ serve(async (req) => {
     const usedCartaId = carta_acuerdo_id || templateData.id || null;
     const firmantesConfig: { name: string; email: string; cargo?: string }[] = templateData.firmantes_config || [];
     const requiereBiometrica: boolean = templateData.requiere_validacion_biometrica || false;
+    const requiereFirmaAutografa: boolean = templateData.requiere_firma_autografa !== false; // default true
 
     // 2. Replace placeholders
     const now = new Date();
@@ -529,7 +530,7 @@ serve(async (req) => {
     const blocks = parseHtmlToBlocks(html);
     const pdfBytes = await renderBlocksToPdf(blocks, {
       firmantesConfig: firmantesConfig as any,
-      agentSignature: firma_autografa_agente || undefined,
+      agentSignature: requiereFirmaAutografa ? (firma_autografa_agente || undefined) : undefined,
       agentName: agente_nombre,
       agentRfc: agente_rfc || "[rfc_agente]",
       fechaActual,

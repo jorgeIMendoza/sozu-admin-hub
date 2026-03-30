@@ -142,6 +142,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
 
   const currentHtml = editorHtml ?? carta?.contenido_html ?? "";
   const biometrica = carta?.requiere_validacion_biometrica ?? false;
+  const firmaAutografa = carta?.requiere_firma_autografa ?? true;
 
   const addFirmante = () => {
     if (!newName.trim() || !newEmail.trim() || !newCargo.trim()) {
@@ -167,14 +168,16 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
       });
       return;
     }
-    const sinFirma = firmantes.filter(f => !f.firma_imagen);
-    if (sinFirma.length > 0) {
-      toast({
-        title: "Firma autógrafa requerida",
-        description: `Los siguientes firmantes no tienen firma: ${sinFirma.map(f => f.name).join(", ")}`,
-        variant: "destructive",
-      });
-      return;
+    if (firmaAutografa) {
+      const sinFirma = firmantes.filter(f => !f.firma_imagen);
+      if (sinFirma.length > 0) {
+        toast({
+          title: "Firma autógrafa requerida",
+          description: `Los siguientes firmantes no tienen firma: ${sinFirma.map(f => f.name).join(", ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     saveMutation.mutate({ html: currentHtml, firmantesConfig: firmantes, biometrica });
   };
@@ -183,6 +186,18 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
     const { error } = await (supabase as any)
       .from("cartas_acuerdo")
       .update({ requiere_validacion_biometrica: checked, updated_at: new Date().toISOString() })
+      .eq("id", cartaId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["carta-acuerdo", cartaId] });
+    }
+  };
+
+  const handleToggleFirmaAutografa = async (checked: boolean) => {
+    const { error } = await (supabase as any)
+      .from("cartas_acuerdo")
+      .update({ requiere_firma_autografa: checked, updated_at: new Date().toISOString() })
       .eq("id", cartaId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -327,6 +342,26 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
             )}
           </div>
           <div className="flex items-center gap-3">
+            {/* Firma autógrafa toggle */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2">
+                    <PenTool className="h-4 w-4 text-muted-foreground" />
+                    <Label htmlFor="autografa-toggle" className="text-xs cursor-pointer">Autógrafa</Label>
+                    <Switch
+                      id="autografa-toggle"
+                      checked={firmaAutografa}
+                      onCheckedChange={handleToggleFirmaAutografa}
+                      disabled={cartaLoading}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  Si se activa, se solicitará firma autógrafa a los firmantes configurados y al agente antes de enviar a firma digital.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {/* Biometric toggle */}
             <TooltipProvider>
               <Tooltip>
@@ -460,7 +495,8 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                     <p className="font-medium text-sm truncate">{f.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{f.cargo}</p>
                     <p className="text-xs text-muted-foreground truncate">{f.email}</p>
-                    {/* Signature preview */}
+                    {/* Signature preview - only show when firma autógrafa is enabled */}
+                    {firmaAutografa && (
                     <div className="mt-2">
                       {f.firma_imagen ? (
                         <div className="flex items-center gap-2">
@@ -487,6 +523,7 @@ export function CartaAcuerdoDetalle({ cartaId, cartaNombre }: CartaAcuerdoDetall
                         </Button>
                       )}
                     </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0 mt-1">
                     <Button variant="ghost" size="icon" onClick={() => removeFirmante(i)}>

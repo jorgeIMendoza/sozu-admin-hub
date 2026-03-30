@@ -1,0 +1,1 @@
+ALTER TABLE public.cartas_acuerdo ADD COLUMN IF NOT EXISTS requiere_firma_autografa boolean DEFAULT true;

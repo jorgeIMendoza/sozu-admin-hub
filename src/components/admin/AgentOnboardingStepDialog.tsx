@@ -310,6 +310,22 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     enabled: activeDocTypes.includes(48),
   });
 
+  // Fetch carta acuerdo config to check if autograph is required
+  const CARTA_ACUERDO_ID = "ce94b2d7-dcc8-4f91-a8d8-882264556c3e";
+  const { data: cartaConfig } = useQuery({
+    queryKey: ['carta-acuerdo-config', CARTA_ACUERDO_ID],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('cartas_acuerdo')
+        .select('requiere_firma_autografa')
+        .eq('id', CARTA_ACUERDO_ID)
+        .single();
+      return data;
+    },
+    enabled: activeDocTypes.includes(48),
+  });
+  const requiereFirmaAutografa = cartaConfig?.requiere_firma_autografa !== false;
+
   // Fetch existing firma digital for this agent and sync against Mifiel state
   const { data: firmaExistente, refetch: refetchFirma } = useQuery({
     queryKey: ['agent-firma-digital', personaId],
@@ -380,10 +396,19 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     refetchInterval: 30000,
   });
 
-  // Step 1: Ask for autograph before creating/continuing Mifiel doc
+  // Step 1: Ask for autograph before creating/continuing Mifiel doc (or skip if not required)
   const handleRequestAgentSignature = (action: "firmar" | "continuar") => {
     if (!personaForMifiel?.email || !personaForMifiel?.nombre_legal) {
       toast.error("Faltan datos del agente (nombre o email) para enviar a firma.");
+      return;
+    }
+    if (!requiereFirmaAutografa) {
+      // Skip autograph, proceed directly
+      if (action === "firmar") {
+        doFirmarCarta(null);
+      } else {
+        handleContinuarFirmaInternal();
+      }
       return;
     }
     setPendingSignAction(action);
@@ -401,7 +426,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     setPendingSignAction(null);
   };
 
-  const doFirmarCarta = async (firmaAutografa: string) => {
+  const doFirmarCarta = async (firmaAutografa: string | null) => {
     setSendingToMifiel(true);
     try {
       const { data, error } = await supabase.functions.invoke("mifiel-crear-documento", {
@@ -409,7 +434,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
           agente_email: personaForMifiel!.email,
           agente_nombre: personaForMifiel!.nombre_legal,
           agente_persona_id: personaId,
-          carta_acuerdo_id: "ce94b2d7-dcc8-4f91-a8d8-882264556c3e",
+          carta_acuerdo_id: CARTA_ACUERDO_ID,
           firma_autografa_agente: firmaAutografa,
           environment: ENVIRONMENT,
         },
