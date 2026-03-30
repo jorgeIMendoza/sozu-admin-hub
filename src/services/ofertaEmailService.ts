@@ -201,7 +201,7 @@ export async function sendOfferEmailAfterDownload(params: SendOfferEmailParams):
           description: "La oferta se descargó pero no se pudo enviar por correo porque el prospecto no tiene email registrado.",
           duration: 5000,
         });
-        return;
+        return false;
       }
 
       recipientEmail = persona.email;
