@@ -94,7 +94,7 @@ const AgentProspectos = () => {
 
       return Array.from(map.values()).sort((a, b) => a.nombre_legal.localeCompare(b.nombre_legal));
     },
-    enabled: !!profile?.id_persona,
+    enabled: !!effectivePersonaId,
   });
 
   const filtered = useMemo(() => {

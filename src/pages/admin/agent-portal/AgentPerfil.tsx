@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { APP_VERSION } from "@/lib/config";
 import { useAgentOnboardingStatus, type OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
@@ -49,8 +50,10 @@ const ACTIVATION_BLOCKS = [
 
 const AgentPerfil = () => {
   const { profile, signOut } = useAuth();
+  const { impersonatedAgentPersonaId, impersonatedAgentName, isImpersonating } = useAgentImpersonation();
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
-  const personaId = profile?.id_persona;
+  const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
+  const displayName = isImpersonating ? impersonatedAgentName : profile?.nombre;
   const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const perfilPerms = permissions['/admin/agent/perfil'];
