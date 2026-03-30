@@ -7,6 +7,7 @@ import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDynamicMenus } from "@/hooks/useDynamicMenus";
 import { useAgentHasInmobiliaria } from "@/hooks/useAgentHasInmobiliaria";
+import { AgentPortalImpersonationSelector } from "./AgentPortalImpersonationSelector";
 
 const AGENT_MENU_ID = 16;
 
