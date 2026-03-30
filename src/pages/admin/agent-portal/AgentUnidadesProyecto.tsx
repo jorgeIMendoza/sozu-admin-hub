@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { NewOfferDialog } from "@/components/admin/NewOfferDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
