@@ -2123,7 +2123,7 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
         .from('cuentas_cobranza')
         .select('clabe_stp')
         .eq('id_oferta', offerData.offerId)
-        .single();
+        .maybeSingle();
       if (cuentaCobranza?.clabe_stp) clabeStp = cuentaCobranza.clabe_stp;
     }
 
