@@ -198,6 +198,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<any>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [sendEmailOnGenerate, setSendEmailOnGenerate] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
   const [productSchemeSelections, setProductSchemeSelections] = useState<Record<number, number | null>>({});
   const [propertySchemeSelection, setPropertySchemeSelection] = useState<number | null>(null);
