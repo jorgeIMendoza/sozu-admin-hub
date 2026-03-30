@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         try {
           const { data: oferta, error: ofertaError } = await supabase
             .from('ofertas')
-            .select('url')
+            .select('url, id_producto_servicio')
             .eq('id', offerId)
             .maybeSingle();
 
@@ -83,12 +83,12 @@ Deno.serve(async (req) => {
 
           const urlParts = oferta.url.split('/');
           const fileName = decodeURIComponent(urlParts[urlParts.length - 1] || `Oferta_${offerId}.pdf`);
-          const tipo = 'propiedad';
+          const tipo = oferta.id_producto_servicio ? 'producto' : 'propiedad';
 
           pdfResults.push({ offerId, fileName, tipo });
           attachments.push({ Name: fileName, Content: base64, ContentType: 'application/pdf' });
 
-          console.log(`PDF downloaded for offer ${offerId}: ${fileName} (base64 length: ${base64.length})`);
+          console.log(`PDF downloaded for offer ${offerId}: ${fileName} (tipo: ${tipo}, base64 length: ${base64.length})`);
         } catch (err) {
           console.error(`Error downloading PDF for offer ${offerId}:`, err);
         }

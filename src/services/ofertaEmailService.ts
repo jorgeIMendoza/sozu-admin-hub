@@ -306,17 +306,14 @@ export async function sendMultipleOffersEmail(params: {
       recipientName = recipientName || persona.nombre_legal || '';
     }
 
-    // Llamar al edge function con todos los adjuntos o IDs
+    // Llamar al edge function solo con offerIds (los PDFs se descargan desde Storage)
+    // No enviamos preGeneratedAttachments para evitar problemas de tamaño de payload
     const body: Record<string, unknown> = {
       offerIds,
       recipientEmail,
       recipientName: recipientName || '',
       propertyNumber: propertyNumber || '',
     };
-
-    if (preGeneratedAttachments && preGeneratedAttachments.length > 0) {
-      body.preGeneratedAttachments = preGeneratedAttachments;
-    }
 
     const { error } = await supabase.functions.invoke('enviar-oferta-email', { body });
 
