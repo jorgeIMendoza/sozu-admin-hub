@@ -1140,23 +1140,25 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
             </button>
           </div>
 
-          {/* Camera capture button for identity docs */}
-          {identityMode === 'ine' ? (
-            <button
-              onClick={() => startCamera('front')}
-              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              Capturar INE con cámara
-            </button>
-          ) : (
-            <button
-              onClick={() => startCamera('passport')}
-              className="w-full py-3 rounded-2xl bg-emerald-600 text-white font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-emerald-700 flex items-center justify-center gap-2"
-            >
-              <Camera className="h-4 w-4" />
-              Capturar Pasaporte con cámara
-            </button>
+          {/* Camera capture button for first-time identity docs only */}
+          {((identityMode === 'ine' && !hasINEDocs) || (identityMode === 'pasaporte' && !hasPasaporteDocs)) && (
+            identityMode === 'ine' ? (
+              <button
+                onClick={() => startCamera('front')}
+                className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2"
+              >
+                <Camera className="h-4 w-4" />
+                Capturar INE con cámara
+              </button>
+            ) : (
+              <button
+                onClick={() => startCamera('passport')}
+                className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2"
+              >
+                <Camera className="h-4 w-4" />
+                Capturar Pasaporte con cámara
+              </button>
+            )
           )}
         </div>
       )}
