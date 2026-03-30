@@ -1348,6 +1348,25 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                   </Button>
                 )}
 
+                {isValidated && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={isUploading}
+                    onClick={() => handleFileSelect(typeId)}
+                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Actualizar
+                      </>
+                    )}
+                  </Button>
+                )}
+
                 {isCameraDoc && !isValidated && (
                   <Button
                     variant="outline"
