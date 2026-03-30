@@ -1148,7 +1148,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                 className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2"
               >
                 <Camera className="h-4 w-4" />
-                Capturar INE con cámara
+                Validar identidad con INE
               </button>
             ) : (
               <button
@@ -1156,7 +1156,7 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                 className="w-full py-3 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2"
               >
                 <Camera className="h-4 w-4" />
-                Capturar Pasaporte con cámara
+                Validar identidad con Pasaporte
               </button>
             )
           )}
