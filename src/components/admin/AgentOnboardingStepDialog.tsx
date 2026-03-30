@@ -1347,62 +1347,38 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
                   </Button>
                 )}
 
-                {!isValidated && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isUploading}
-                    onClick={() => handleFileSelect(typeId)}
-                    className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : doc ? (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Actualizar
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="h-3.5 w-3.5" />
-                        Subir
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploading}
+                  onClick={() => handleFileSelect(typeId)}
+                  className="flex-1 h-10 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : doc ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Actualizar
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-3.5 w-3.5" />
+                      Subir
+                    </>
+                  )}
+                </Button>
 
-                {isValidated && (
+                {isCameraDoc && (
                   <Button
                     variant="outline"
                     size="sm"
                     disabled={isUploading}
-                    onClick={() => handleFileSelect(typeId)}
-                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <>
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Actualizar
-                      </>
-                    )}
-                  </Button>
-                )}
-
-                {isCameraDoc && !isValidated && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isUploading}
-                    onClick={() => {
-                      if (typeId === 2) startCamera('front');
-                      else if (typeId === 3) startCamera('back');
-                      else if (typeId === 4) startCamera('passport');
-                    }}
-                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                    onClick={() => startDocumentCamera(typeId)}
+                    className="h-10 px-3 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 font-semibold text-xs gap-1.5 border-primary/20"
                   >
                     <Camera className="h-3.5 w-3.5" />
+                    {doc ? 'Cámara' : ''}
                   </Button>
                 )}
 
