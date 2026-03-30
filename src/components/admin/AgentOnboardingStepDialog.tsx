@@ -310,6 +310,22 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     enabled: activeDocTypes.includes(48),
   });
 
+  // Fetch carta acuerdo config to check if autograph is required
+  const CARTA_ACUERDO_ID = "ce94b2d7-dcc8-4f91-a8d8-882264556c3e";
+  const { data: cartaConfig } = useQuery({
+    queryKey: ['carta-acuerdo-config', CARTA_ACUERDO_ID],
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from('cartas_acuerdo')
+        .select('requiere_firma_autografa')
+        .eq('id', CARTA_ACUERDO_ID)
+        .single();
+      return data;
+    },
+    enabled: activeDocTypes.includes(48),
+  });
+  const requiereFirmaAutografa = cartaConfig?.requiere_firma_autografa !== false;
+
   // Fetch existing firma digital for this agent and sync against Mifiel state
   const { data: firmaExistente, refetch: refetchFirma } = useQuery({
     queryKey: ['agent-firma-digital', personaId],
