@@ -2143,7 +2143,7 @@ interface StepFormProps {
   step: 'basic' | 'address' | 'fiscal';
   persona: any;
   personaId: number;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   onTrackSave?: () => void;
   onTrackFieldChange?: () => void;
   basicDocTypes?: number[];
