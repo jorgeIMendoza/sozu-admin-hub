@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, FileSpreadsheet, Building2, Home, Filter, FileText, Car, Warehouse, Loader2, Download } from "lucide-react";
+import { Search, FileSpreadsheet, Building2, Home, Filter, FileText, Car, Warehouse, Loader2, Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
