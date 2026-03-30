@@ -54,7 +54,7 @@ const AgentPerfil = () => {
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const displayName = isImpersonating ? impersonatedAgentName : profile?.nombre;
-  const { steps, completedCount, totalSteps, percentage, isLoading } = useAgentOnboardingStatus(personaId);
+  const { steps, completedCount, totalSteps, percentage, isLoading, missingByStep } = useAgentOnboardingStatus(personaId);
   const { permissions } = useAgentPortalPermissions();
   const perfilPerms = permissions['/admin/agent/perfil'];
   const { registrarVista } = useActivityLogger();
