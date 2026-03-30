@@ -271,6 +271,7 @@ export const PortalInmobiliariaLayout = () => {
             )}
           </div>
           <div className="flex items-center gap-3">
+            {isSuperAdmin && <InmobiliariaImpersonationSelector />}
             <Avatar className="h-9 w-9">
               <AvatarFallback className="bg-[hsl(var(--inmob-green))] text-white text-[13px] font-bold">
                 {userInitials}
