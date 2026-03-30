@@ -14,21 +14,13 @@ export function useInmobiliariaPersonaId() {
   const { profile } = useAuth();
   const { impersonatedInmobiliariaPersonaId, isImpersonating } = useInmobiliariaImpersonation();
 
-  // If impersonating, return immediately
-  if (isImpersonating && impersonatedInmobiliariaPersonaId) {
-    return {
-      personaId: impersonatedInmobiliariaPersonaId,
-      isLoading: false,
-    };
-  }
-
   const directId = profile?.id_persona;
   const email = profile?.email;
   const isInmobRole = profile?.rol_nombre === "Inmobiliaria";
   const isSuperAdmin = profile?.rol_id === 1;
 
   const { data: resolvedId, isLoading } = useQuery({
-    queryKey: ["inmob-persona-id-resolve", email],
+    queryKey: ["inmob-persona-id-resolve", email, isImpersonating],
     queryFn: async (): Promise<number | null> => {
       if (!email) return null;
 
@@ -116,9 +108,17 @@ export function useInmobiliariaPersonaId() {
 
       return null;
     },
-    enabled: (isInmobRole || isSuperAdmin) && !!email,
+    enabled: !isImpersonating && (isInmobRole || isSuperAdmin) && !!email,
     staleTime: 10 * 60_000,
   });
+
+  // If impersonating, return the impersonated personaId directly
+  if (isImpersonating && impersonatedInmobiliariaPersonaId) {
+    return {
+      personaId: impersonatedInmobiliariaPersonaId,
+      isLoading: false,
+    };
+  }
 
   return {
     personaId: resolvedId ?? directId ?? null,
