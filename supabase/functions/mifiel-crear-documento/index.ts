@@ -534,6 +534,7 @@ serve(async (req) => {
       agentName: agente_nombre,
       agentRfc: agente_rfc || "[rfc_agente]",
       fechaActual,
+      requiereFirmaAutografa,
     });
 
     // 4. Build signatories: only firmantes with enviar_mifiel !== false + agent
