@@ -59,6 +59,7 @@ export const PortalInmobiliariaLayout = () => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const isInmobiliariaRole = profile?.rol_nombre === "Inmobiliaria";
+  const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
   const { personaId } = useInmobiliariaPersonaId();
 
   // Fetch agency name + comision
