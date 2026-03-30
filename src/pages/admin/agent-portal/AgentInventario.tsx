@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
