@@ -1058,31 +1058,17 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           recipientName: result.leadName,
           preGeneratedAttachments,
         });
-        // Si no se envió automáticamente, ofrecer botón manual
-        if (!emailSent) {
-          toast({
-            title: "Oferta descargada",
-            description: "La oferta no incluye datos bancarios. ¿Deseas enviar todas las ofertas generadas por correo al prospecto?",
-            duration: 15000,
-            action: (
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => sendMultipleOffersEmailDirect({
-                  offerIds: allOfferIdsForEmail,
-                  propertyNumber,
-                  recipientEmail: result.leadEmail,
-                  recipientName: result.leadName,
-                  preGeneratedAttachments,
-                })}
-              >
-                <Mail className="h-4 w-4 mr-1" />
-                Enviar
-              </Button>
-            ),
+        // Si no se envió automáticamente y el usuario eligió enviar antes de generar
+        if (!emailSent && sendEmailOnGenerate) {
+          await sendMultipleOffersEmailDirect({
+            offerIds: allOfferIdsForEmail,
+            propertyNumber,
+            recipientEmail: result.leadEmail,
+            recipientName: result.leadName,
+            preGeneratedAttachments,
           });
         }
+        setSendEmailOnGenerate(false);
       } catch (emailErr) {
         console.error('Error generating/sending offer:', emailErr);
         toast({
