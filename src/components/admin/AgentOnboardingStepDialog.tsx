@@ -2260,19 +2260,34 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
     enabled: step === 'fiscal',
   });
 
-  // Copy address for fiscal — clear when unchecked (skip initial mount)
+  // Copy address for fiscal only when the checkbox changes after initialization
   useEffect(() => {
-    if (!initializedRef.current) return;
+    if (!initializedRef.current || !persona) return;
+
     if (copiarDireccion) {
-      setFCalle(calle || persona?.direccion_calle || '');
-      setFNumExt(numExt || persona?.direccion_num_ext || '');
-      setFNumInt(numInt || persona?.direccion_num_int || '');
-      setFColonia(colonia || persona?.direccion_colonia || '');
-      setFCp(cp || persona?.direccion_codigo_postal || '');
-      setFIdPais(idPais || persona?.direccion_id_pais || '');
-      setFIdEstado(idEstado || persona?.direccion_id_estado?.toString() || '');
-      setFIdMunicipio(idMunicipio || persona?.direccion_id_municipio?.toString() || '');
-    } else {
+      setFCalle(calle || persona.direccion_calle || '');
+      setFNumExt(numExt || persona.direccion_num_ext || '');
+      setFNumInt(numInt || persona.direccion_num_int || '');
+      setFColonia(colonia || persona.direccion_colonia || '');
+      setFCp(cp || persona.direccion_codigo_postal || '');
+      setFIdPais(idPais || persona.direccion_id_pais || '');
+      setFIdEstado(idEstado || persona.direccion_id_estado?.toString() || '');
+      setFIdMunicipio(idMunicipio || persona.direccion_id_municipio?.toString() || '');
+      return;
+    }
+
+    const hasFiscalData = Boolean(
+      persona.direccion_fiscal_calle ||
+      persona.direccion_fiscal_num_ext ||
+      persona.direccion_fiscal_num_int ||
+      persona.direccion_fiscal_colonia ||
+      persona.direccion_fiscal_codigo_postal ||
+      persona.direccion_fiscal_id_pais ||
+      persona.direccion_fiscal_id_estado ||
+      persona.direccion_fiscal_id_municipio
+    );
+
+    if (!hasFiscalData) {
       setFCalle('');
       setFNumExt('');
       setFNumInt('');
@@ -2282,7 +2297,7 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
       setFIdEstado('');
       setFIdMunicipio('');
     }
-  }, [copiarDireccion]);
+  }, [copiarDireccion, persona, calle, numExt, numInt, colonia, cp, idPais, idEstado, idMunicipio]);
 
   // Filtered lookups
   const filteredEstados = (paisId: string) => estados.filter((e: any) => e.id_pais === paisId);
