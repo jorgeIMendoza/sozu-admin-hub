@@ -242,6 +242,107 @@ export async function sendOfferEmailAfterDownload(params: SendOfferEmailParams):
 }
 
 /**
+ * Envía múltiples ofertas (propiedad + productos) en un solo correo.
+ * Recibe los PDFs ya generados como base64 para adjuntarlos directamente.
+ */
+export async function sendMultipleOffersEmail(params: {
+  offerIds: number[];
+  propertyNumber?: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  preGeneratedAttachments?: { base64: string; filename: string; offerId: number; tipo: string }[];
+}): Promise<boolean> {
+  try {
+    let { offerIds, propertyNumber, recipientEmail, recipientName, preGeneratedAttachments } = params;
+
+    if (!offerIds.length) return false;
+
+    // Verificar si al menos una oferta muestra datos bancarios
+    let anyShowsBanking = false;
+    for (const oid of offerIds) {
+      // Intentar determinar si es producto revisando preGeneratedAttachments
+      const att = preGeneratedAttachments?.find(a => a.offerId === oid);
+      const isProduct = att?.tipo === 'producto';
+      const shows = isProduct
+        ? await shouldShowBankingForProduct(oid)
+        : await shouldShowBankingForProperty(oid);
+      if (shows) { anyShowsBanking = true; break; }
+    }
+
+    if (!anyShowsBanking) {
+      console.log(`[ofertaEmail] Ninguna oferta muestra datos bancarios, NO se envía por correo automáticamente`);
+      return false;
+    }
+
+    // Si no tenemos email, consultar de la BD usando la primera oferta
+    if (!recipientEmail) {
+      const { data: oferta } = await supabase
+        .from('ofertas')
+        .select('id_persona_lead')
+        .eq('id', offerIds[0])
+        .single();
+
+      if (!oferta?.id_persona_lead) {
+        console.log(`[ofertaEmail] Oferta ${offerIds[0]} sin id_persona_lead`);
+        return false;
+      }
+
+      const { data: persona } = await supabase
+        .from('personas')
+        .select('email, nombre_legal')
+        .eq('id', oferta.id_persona_lead)
+        .single();
+
+      if (!persona?.email) {
+        toast({
+          title: "Sin correo del prospecto",
+          description: "Las ofertas se descargaron pero no se pudo enviar por correo porque el prospecto no tiene email registrado.",
+          duration: 5000,
+        });
+        return false;
+      }
+
+      recipientEmail = persona.email;
+      recipientName = recipientName || persona.nombre_legal || '';
+    }
+
+    // Llamar al edge function con todos los adjuntos o IDs
+    const body: Record<string, unknown> = {
+      offerIds,
+      recipientEmail,
+      recipientName: recipientName || '',
+      propertyNumber: propertyNumber || '',
+    };
+
+    if (preGeneratedAttachments && preGeneratedAttachments.length > 0) {
+      body.preGeneratedAttachments = preGeneratedAttachments;
+    }
+
+    const { error } = await supabase.functions.invoke('enviar-oferta-email', { body });
+
+    if (error) {
+      console.error('[ofertaEmail] Error al enviar email múltiple:', error);
+      toast({
+        title: "Email no enviado",
+        description: "Las ofertas se descargaron pero no se pudieron enviar por correo.",
+        duration: 4000,
+      });
+      return false;
+    }
+
+    toast({
+      title: "Ofertas enviadas por correo",
+      description: `Se enviaron ${preGeneratedAttachments?.length || offerIds.length} oferta(s) a ${recipientEmail}`,
+      duration: 4000,
+    });
+    return true;
+  } catch (err) {
+    console.error('[ofertaEmail] Error inesperado en envío múltiple:', err);
+    return false;
+  }
+}
+
+/**
  * Envía la oferta por correo electrónico sin validar datos bancarios.
  * Se usa para envío manual desde los botones de la interfaz.
  */

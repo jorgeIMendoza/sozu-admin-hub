@@ -1044,26 +1044,19 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           description: `Se descargaron ${preGeneratedAttachments.length} PDF(s).`,
         });
 
-        // Enviar por correo al prospecto (fire-and-forget)
-        const { sendOfferEmailAfterDownload, sendOfferEmailDirect } = await import('@/services/ofertaEmailService');
-        // Enviar email para la oferta principal
-        const emailSent = await sendOfferEmailAfterDownload({
-          offerId: result.offerId,
+        // Enviar todas las ofertas por correo en un solo email
+        const { sendMultipleOffersEmail, sendOfferEmailDirect } = await import('@/services/ofertaEmailService');
+        const allOfferIdsForEmail = [
+          result.offerId,
+          ...result.productOffersResults.createdOffers.map(po => po.offerId),
+        ];
+        const emailSent = await sendMultipleOffersEmail({
+          offerIds: allOfferIdsForEmail,
           propertyNumber,
           recipientEmail: result.leadEmail,
           recipientName: result.leadName,
-          tipo: 'propiedad',
+          preGeneratedAttachments,
         });
-        // Enviar email para cada oferta de producto
-        for (const productOffer of result.productOffersResults.createdOffers) {
-          await sendOfferEmailAfterDownload({
-            offerId: productOffer.offerId,
-            propertyNumber,
-            recipientEmail: result.leadEmail,
-            recipientName: result.leadName,
-            tipo: 'producto',
-          });
-        }
         // Si no se envió automáticamente, ofrecer botón manual
         if (!emailSent) {
           const offerParams = {
