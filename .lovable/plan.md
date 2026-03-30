@@ -1,77 +1,80 @@
 
 
-# Plan: Botón "Enviar por correo" en ofertas
+# Plan: Impersonation de Agente e Inmobiliaria en sus Portales
 
 ## Resumen
 
-Dos cambios principales:
+Agregar selectores de impersonación (como el que ya existe en Portal Cliente) para que un Super Admin pueda seleccionar un agente específico en el Portal de Agentes, o una inmobiliaria específica en el Portal de Inmobiliaria, y ver exactamente lo que ese usuario vería.
 
-1. **Al generar oferta (NewOfferDialog)**: Cuando el email no se envía automáticamente (porque no hay datos bancarios), mostrar un toast con un botón "Enviar por correo" que permita enviar manualmente.
+---
 
-2. **En los diálogos de ofertas de Propiedades**: Agregar un botón de envío por correo (icono Mail) junto al botón de descarga, tanto en ofertas de propiedad como de producto.
+## Cambios
 
-## Cambios técnicos
+### 1. Crear `InmobiliariaImpersonationContext`
+- Nuevo archivo `src/contexts/InmobiliariaImpersonationContext.tsx` siguiendo el mismo patrón de `ClienteImpersonationContext`
+- Campos: `impersonatedInmobiliariaEmail`, `impersonatedInmobiliariaPersonaId`, `impersonatedInmobiliariaName`
+- Envolver en `App.tsx` igual que los otros providers
 
-### 1. `src/services/ofertaEmailService.ts`
+### 2. Crear `InmobiliariaImpersonationSelector`
+- Nuevo componente `src/components/admin/portal-inmobiliaria/InmobiliariaImpersonationSelector.tsx`
+- Query a `usuarios` con `rol_id = 4` (Inmobiliaria) para listar opciones
+- Mismo patrón visual que `ClienteImpersonationSelector` (Popover + Command + búsqueda)
 
-Crear una nueva función `sendOfferEmailDirect` que **no valide datos bancarios** — simplemente obtiene el email del lead y llama al Edge Function. La función existente `sendOfferEmailAfterDownload` se mantiene sin cambios (sigue validando banking para el envío automático).
+### 3. Crear `AgentImpersonationSelector` para el Portal de Agentes
+- Nuevo componente `src/components/admin/agent-portal/AgentPortalImpersonationSelector.tsx`
+- Reutiliza la query existente del `AgentImpersonationSelector` (roles 3, 4, 9) pero filtrado a solo agentes (3, 9)
+- Estilo adaptado al diseño del portal de agentes (más compacto, mobile-friendly)
 
+### 4. Integrar selector en `PortalInmobiliariaLayout`
+- Agregar `InmobiliariaImpersonationSelector` en el topbar (desktop) y header (mobile), igual que en Portal Cliente
+- Cuando hay impersonación activa, `useInmobiliariaPersonaId` debe devolver el `personaId` de la inmobiliaria seleccionada
+
+### 5. Integrar selector en `AgentPortalLayout`
+- Agregar `AgentPortalImpersonationSelector` como barra sticky superior (visible solo para Super Admin)
+- Al estar activo, todas las páginas del portal deben usar el email/personaId del agente impersonado
+
+### 6. Actualizar `useInmobiliariaPersonaId` para soportar impersonación
+- Leer `InmobiliariaImpersonationContext`
+- Si hay impersonación activa, devolver directamente el `personaId` seleccionado sin resolver
+
+### 7. Actualizar páginas del Portal de Agentes para usar impersonación
+Las siguientes páginas usan `profile?.id_persona` y `user?.email` directamente y necesitan actualizarse para leer de `AgentImpersonationContext`:
+
+- **AgentInicio.tsx** — `personaId`, `agentEmail`, `nombre`
+- **AgentInventario.tsx** — email para filtrar inventario
+- **AgentComisiones.tsx** — personaId para comisiones
+- **AgentPerfil.tsx** — personaId para onboarding/perfil
+- **AgentProspectos.tsx** — email para prospectos
+- **AgentPipeline.tsx** — ya lo usa (solo verificar)
+- **AgentProyectoDetalle.tsx / AgentUnidadesProyecto.tsx** — email para acceso
+
+Patrón en cada página:
 ```typescript
-export async function sendOfferEmailDirect(params: SendOfferEmailParams): Promise<void> {
-  // Misma lógica que sendOfferEmailAfterDownload pero SIN la validación de showBanking
-  // Obtener email del lead si no se proporciona → llamar Edge Function → toast
-}
+const { impersonatedAgentEmail, impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
+const effectiveEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
+const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
 ```
 
-### 2. `src/components/admin/NewOfferDialog.tsx`
+### 8. Actualizar páginas del Portal de Inmobiliaria
+Las páginas ya usan `useInmobiliariaPersonaId()` que será actualizado en el paso 6, por lo que la mayoría funcionará automáticamente. Verificar que todas las queries dependan de ese hook.
 
-Después de llamar `sendOfferEmailAfterDownload`, detectar si el email no se envió (cuando `showBanking` es false). La función `sendOfferEmailAfterDownload` actualmente retorna `void` silenciosamente. Cambiar para que retorne un booleano indicando si se envió o no.
+---
 
-- Modificar `sendOfferEmailAfterDownload` para retornar `Promise<boolean>` (`true` = enviado, `false` = no enviado por banking)
-- En `NewOfferDialog`, si retorna `false`, mostrar un toast con action button:
+## Archivos a crear
+- `src/contexts/InmobiliariaImpersonationContext.tsx`
+- `src/components/admin/portal-inmobiliaria/InmobiliariaImpersonationSelector.tsx`
+- `src/components/admin/agent-portal/AgentPortalImpersonationSelector.tsx`
 
-```typescript
-const emailSent = await sendOfferEmailAfterDownload({...});
-if (!emailSent) {
-  toast({
-    title: "Oferta descargada",
-    description: "La oferta no incluye datos bancarios. ¿Deseas enviarla por correo?",
-    action: <Button onClick={() => sendOfferEmailDirect({...})}>Enviar por correo</Button>,
-    duration: 10000,
-  });
-}
-```
-
-### 3. `src/pages/admin/Propiedades.tsx` — Dialog de ofertas de propiedad
-
-En la columna "Descarga" (línea ~6107-6137), agregar un botón con icono `Mail` junto al botón de `Download`:
-
-```tsx
-<div className="flex gap-1">
-  <Button variant="outline" size="icon" onClick={() => handleDownloadOffer(offer)}>
-    <Download />
-  </Button>
-  <Button variant="outline" size="icon" onClick={() => handleSendOfferEmail(offer, 'propiedad')}>
-    <Mail />
-  </Button>
-</div>
-```
-
-Crear función `handleSendOfferEmail` que importe `sendOfferEmailDirect` y la llame con los datos de la oferta.
-
-### 4. `src/pages/admin/Propiedades.tsx` — Dialog de ofertas de producto
-
-En la columna "Acciones" (línea ~6514-6591), agregar el mismo botón `Mail` junto al botón de descarga de producto.
-
-### 5. `src/pages/admin/inmobiliarias/MisPropiedades.tsx`
-
-Aplicar los mismos botones de envío en los diálogos de ofertas de propiedad y producto (misma lógica que Propiedades.tsx).
-
-## Archivos afectados
-
-- `src/services/ofertaEmailService.ts` — nueva función `sendOfferEmailDirect`, cambiar retorno de `sendOfferEmailAfterDownload`
-- `src/components/admin/NewOfferDialog.tsx` — toast con botón cuando no se envía automáticamente
-- `src/components/admin/NewProductOfferDialog.tsx` — mismo cambio que NewOfferDialog
-- `src/pages/admin/Propiedades.tsx` — botón Mail en ambos diálogos de ofertas
-- `src/pages/admin/inmobiliarias/MisPropiedades.tsx` — botón Mail en diálogos de ofertas
+## Archivos a modificar
+- `src/App.tsx` — agregar `InmobiliariaImpersonationProvider`
+- `src/hooks/useInmobiliariaPersonaId.ts` — leer contexto de impersonación
+- `src/components/admin/portal-inmobiliaria/PortalInmobiliariaLayout.tsx` — agregar selector en topbar
+- `src/components/admin/agent-portal/AgentPortalLayout.tsx` — agregar selector en barra superior
+- `src/pages/admin/agent-portal/AgentInicio.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentInventario.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentComisiones.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentPerfil.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentProspectos.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentProyectoDetalle.tsx` — usar impersonación
+- `src/pages/admin/agent-portal/AgentUnidadesProyecto.tsx` — usar impersonación
 
