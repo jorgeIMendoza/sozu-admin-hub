@@ -467,7 +467,7 @@ serve(async (req) => {
       // Fallback: use first active carta from new table
       const { data, error } = await supabase
         .from("cartas_acuerdo")
-        .select("id, contenido_html, firmantes_config, requiere_validacion_biometrica")
+        .select("id, contenido_html, firmantes_config, requiere_validacion_biometrica, requiere_firma_autografa")
         .eq("activo", true)
         .order("created_at")
         .limit(1)
