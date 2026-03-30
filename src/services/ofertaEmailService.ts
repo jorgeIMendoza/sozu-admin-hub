@@ -316,6 +316,13 @@ export async function sendMultipleOffersEmail(params: {
       propertyNumber: propertyNumber || '',
     };
 
+    console.log('[ofertaEmail] Envío múltiple preparado:', {
+      offerIds,
+      totalOfferIds: offerIds.length,
+      totalAttachments: preGeneratedAttachments?.length || 0,
+      recipientEmail,
+    });
+
     // Incluir preGeneratedAttachments para ofertas que aún no tienen URL en Storage
     if (preGeneratedAttachments && preGeneratedAttachments.length > 0) {
       body.preGeneratedAttachments = preGeneratedAttachments.map(att => ({

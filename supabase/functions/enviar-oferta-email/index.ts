@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
 
   try {
     const { offerIds, recipientEmail, recipientName, propertyNumber, hideBanking, preGeneratedAttachments } = await req.json();
+    console.log('enviar-oferta-email payload:', JSON.stringify({ offerIds, recipientEmail, totalAttachments: preGeneratedAttachments?.length || 0 }));
 
     if (!recipientEmail) {
       return new Response(JSON.stringify({ error: 'recipientEmail requerido' }), {
