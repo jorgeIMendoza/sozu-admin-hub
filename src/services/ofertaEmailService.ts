@@ -161,7 +161,7 @@ async function shouldShowBankingForProduct(offerId: number): Promise<boolean> {
  * No bloquea la descarga del PDF ni lanza errores.
  * RESTRICCIÓN: Solo envía si la oferta muestra la sección de datos bancarios.
  */
-export async function sendOfferEmailAfterDownload(params: SendOfferEmailParams): Promise<void> {
+export async function sendOfferEmailAfterDownload(params: SendOfferEmailParams): Promise<boolean> {
   try {
     let { offerId, propertyNumber, recipientEmail, recipientName, tipo } = params;
 
@@ -172,8 +172,8 @@ export async function sendOfferEmailAfterDownload(params: SendOfferEmailParams):
       : await shouldShowBankingForProperty(offerId);
 
     if (!showBanking) {
-      console.log(`[ofertaEmail] Oferta ${offerId} (${tipo || 'propiedad'}) no muestra datos bancarios, NO se envía por correo`);
-      return;
+      console.log(`[ofertaEmail] Oferta ${offerId} (${tipo || 'propiedad'}) no muestra datos bancarios, NO se envía por correo automáticamente`);
+      return false;
     }
 
     // Si no tenemos email, consultar de la BD
