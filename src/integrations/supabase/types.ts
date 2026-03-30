@@ -2460,6 +2460,7 @@ export type Database = {
           firmantes_config: Json | null
           id: string
           nombre: string
+          requiere_firma_autografa: boolean | null
           requiere_validacion_biometrica: boolean | null
           updated_at: string | null
           updated_by: string | null
@@ -2472,6 +2473,7 @@ export type Database = {
           firmantes_config?: Json | null
           id?: string
           nombre: string
+          requiere_firma_autografa?: boolean | null
           requiere_validacion_biometrica?: boolean | null
           updated_at?: string | null
           updated_by?: string | null
@@ -2484,6 +2486,7 @@ export type Database = {
           firmantes_config?: Json | null
           id?: string
           nombre?: string
+          requiere_firma_autografa?: boolean | null
           requiere_validacion_biometrica?: boolean | null
           updated_at?: string | null
           updated_by?: string | null
