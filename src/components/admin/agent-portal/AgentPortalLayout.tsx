@@ -109,6 +109,11 @@ export const AgentPortalLayout = () => {
           </button>
         </div>
       )}
+      {isSuperAdmin && (
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-2">
+          <AgentPortalImpersonationSelector />
+        </div>
+      )}
       <main className="flex-1 pb-24 overflow-y-auto">
         <Outlet context={{ permissions, isAgentRole }} />
       </main>
