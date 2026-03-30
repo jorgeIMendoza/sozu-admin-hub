@@ -253,6 +253,10 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
   // Determine identity mode based on existing docs
   const hasINEDocs = existingDocs.some((d: any) => INE_DOC_TYPES.includes(d.id_tipo_documento));
   const hasPasaporteDocs = existingDocs.some((d: any) => d.id_tipo_documento === PASAPORTE_DOC_TYPE);
+
+  // Check if basic info + address + identity docs (INE/Passport) are ready — excludes carta (48) to avoid circular dependency
+  const hasIdentityDocUploaded = hasINEDocs || hasPasaporteDocs;
+  const basicInfoAndDocsReady = hasBasicIdentityComplete || hasIdentityDocUploaded;
   const [identityMode, setIdentityMode] = useState<'ine' | 'pasaporte'>('ine');
   
   // Sync identity mode from existing docs on first load
