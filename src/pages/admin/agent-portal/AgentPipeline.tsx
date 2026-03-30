@@ -93,7 +93,7 @@ const AgentPipeline = () => {
 
       const { data: ofertasData } = await (supabase as any)
         .from('ofertas')
-        .select('id, email_creador, fecha_generacion, fecha_creacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, activo, id_propiedad, id_persona_lead, id_producto')
+        .select('id, email_creador, fecha_generacion, fecha_creacion, id_esquema_pago_seleccionado, id_estatus_aprobacion, activo, id_propiedad, id_persona_lead, id_producto, url')
         .eq('email_creador', agentEmail)
         .eq('activo', true)
         .gte('fecha_generacion', MIN_DATE)
