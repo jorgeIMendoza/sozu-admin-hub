@@ -597,6 +597,25 @@ function AgentDocumentsStep({ personaId, filterDocTypes, onTrackFieldChange, onT
     input.click();
   };
 
+  const startDocumentCamera = async (typeId: number) => {
+    setCapturedDocUrls({});
+    capturedDocUrlsRef.current = {};
+
+    if (typeId === 2) {
+      await startCamera('front');
+      return;
+    }
+
+    if (typeId === 3) {
+      await startCamera('back');
+      return;
+    }
+
+    if (typeId === 4) {
+      await startCamera('passport');
+    }
+  };
+
   // Camera functions
   const startCamera = async (step: 'front' | 'back' | 'passport' | 'selfie') => {
     setCameraStep(step);
