@@ -58,8 +58,24 @@ Deno.serve(async (req) => {
             .eq('id', offerId)
             .maybeSingle();
 
-          if (ofertaError || !oferta?.url) {
-            console.error(`Oferta ${offerId} sin URL de PDF:`, ofertaError);
+          if (ofertaError) {
+            console.error(`Error fetching oferta ${offerId}:`, ofertaError);
+          }
+
+          if (!oferta?.url) {
+            // Fallback: check preGeneratedAttachments for this offer
+            const fallbackAtt = preGeneratedAttachments?.find((a: any) => a.offerId === offerId);
+            if (fallbackAtt?.base64 && fallbackAtt?.filename) {
+              console.log(`Oferta ${offerId} sin URL, usando pre-generated attachment: ${fallbackAtt.filename}`);
+              attachments.push({
+                Name: fallbackAtt.filename,
+                Content: fallbackAtt.base64,
+                ContentType: 'application/pdf',
+              });
+              pdfResults.push({ offerId, fileName: fallbackAtt.filename, tipo: fallbackAtt.tipo || 'producto' });
+              continue;
+            }
+            console.error(`Oferta ${offerId} sin URL de PDF y sin fallback`);
             continue;
           }
 
