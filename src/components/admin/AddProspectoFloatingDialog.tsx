@@ -412,7 +412,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
           id_persona: personaId,
           id_tipo_entidad: 7,
           id_proyecto: projId,
-          id_persona_duena_lead: profile?.id_persona || null,
+          id_persona_duena_lead: effectivePersonaId || null,
           activo: true,
         }));
 
