@@ -1197,22 +1197,30 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
     if (!includedProducts) return { valid: [], invalid: [], total: 0 };
     
     const allProducts = [
-      ...includedProducts.bodegas.map((b: any) => ({
-        ...b,
-        tipo: 'Bodega',
-        precioFinal: ((b.productos_servicios as any)?.precio_lista || 0) * (b.m2 || 0),
-        hasSchemes: (b.paymentSchemes?.length || 0) > 0,
-        hasCuentaMadreStp: !!(b.entidadInfo?.cuenta_madre_stp),
-        nombreDueno: b.entidadInfo?.nombre_dueno || 'Dueño no configurado'
-      })),
-      ...includedProducts.estacionamientos.map((e: any) => ({
-        ...e,
-        tipo: 'Estacionamiento', 
-        precioFinal: ((e.productos_servicios as any)?.precio_lista || 0) * (e.m2 || 0),
-        hasSchemes: (e.paymentSchemes?.length || 0) > 0,
-        hasCuentaMadreStp: !!(e.entidadInfo?.cuenta_madre_stp),
-        nombreDueno: e.entidadInfo?.nombre_dueno || 'Dueño no configurado'
-      }))
+      ...includedProducts.bodegas.map((b: any) => {
+        const precioLista = (b.productos_servicios as any)?.precio_lista || 0;
+        const m2 = b.m2 || 0;
+        return {
+          ...b,
+          tipo: 'Bodega',
+          precioFinal: m2 > 0 ? precioLista * m2 : precioLista,
+          hasSchemes: (b.paymentSchemes?.length || 0) > 0,
+          hasCuentaMadreStp: !!(b.entidadInfo?.cuenta_madre_stp),
+          nombreDueno: b.entidadInfo?.nombre_dueno || 'Dueño no configurado'
+        };
+      }),
+      ...includedProducts.estacionamientos.map((e: any) => {
+        const precioLista = (e.productos_servicios as any)?.precio_lista || 0;
+        const m2 = e.m2 || 0;
+        return {
+          ...e,
+          tipo: 'Estacionamiento', 
+          precioFinal: m2 > 0 ? precioLista * m2 : precioLista,
+          hasSchemes: (e.paymentSchemes?.length || 0) > 0,
+          hasCuentaMadreStp: !!(e.entidadInfo?.cuenta_madre_stp),
+          nombreDueno: e.entidadInfo?.nombre_dueno || 'Dueño no configurado'
+        };
+      })
     ].filter(p => p.precioFinal > 0 && !p.es_incluido);
 
     const valid = allProducts.filter(p => p.hasSchemes);
