@@ -263,9 +263,9 @@ function ProjectCard({
 
   return (
     <>
-      <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+      <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden lg:flex lg:flex-row">
         {/* Image with overlay */}
-        <div className="relative h-44 lg:h-auto lg:aspect-video w-full overflow-hidden">
+        <div className="relative h-44 lg:h-auto lg:w-[40%] lg:min-h-[200px] w-full overflow-hidden flex-shrink-0">
           {proyecto.imagen_url ? (
             <img
               src={proyecto.imagen_url}
@@ -299,6 +299,9 @@ function ProjectCard({
             )}
           </div>
         </div>
+
+        {/* Content side */}
+        <div className="lg:flex-1 lg:flex lg:flex-col lg:justify-between">
 
         {/* Stats row */}
         <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-gray-50">
