@@ -6,7 +6,7 @@ import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Building2, MapPin, Loader2, ChevronLeft, ChevronRight, BedDouble, Bath, ShowerHead, Star, ArrowLeft, Maximize2, CheckCircle, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal } from "lucide-react";
+import { Building2, MapPin, Loader2, ChevronLeft, ChevronRight, BedDouble, Bath, ShowerHead, Star, ArrowLeft, Maximize2, CheckCircle, Search, UserPlus, CalendarDays, User, Bell, LogOut, Check, SlidersHorizontal, Eye } from "lucide-react";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import useEmblaCarousel from "embla-carousel-react";
@@ -19,6 +19,7 @@ import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloat
 import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import React from "react";
+import { VistasCarousel } from "@/components/admin/VistasCarousel";
 
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
 
@@ -181,6 +182,21 @@ const MiProyectoDetalle = () => {
         .eq("activo", true);
       if (error) return [];
       return data || [];
+    },
+    enabled: projectId > 0,
+  });
+
+  // Fetch vistas del proyecto
+  const { data: vistas = [] } = useQuery({
+    queryKey: ["proyecto-detalle-vistas", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vistas")
+        .select("id, nombre, url")
+        .eq("id_proyecto", projectId)
+        .eq("activo", true);
+      if (error) return [];
+      return (data || []).filter((v: any) => v.url);
     },
     enabled: projectId > 0,
   });
@@ -475,6 +491,17 @@ const MiProyectoDetalle = () => {
               {availableProps === 0 ? "Agotado" : `Ver Inventario Disponible (${availableProps} unidades)`}
             </span>
           </button>
+        </div>
+      )}
+
+      {/* Vistas Section */}
+      {vistas.length > 0 && (
+        <div className="space-y-2 px-1">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Eye className="h-5 w-5" /> Vistas
+          </h2>
+          <hr className="border-border" />
+          <VistasCarousel vistas={vistas} />
         </div>
       )}
 
