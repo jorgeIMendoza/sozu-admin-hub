@@ -1493,10 +1493,23 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     staleTime: 0,
   });
 
-  // Fetch existing appointment (including cancelled to show warning)
+  // Fetch existing appointment — prioritize completed (asistio) over others
   const { data: existingCita } = useQuery({
     queryKey: ['agent-training-cita', personaId],
     queryFn: async () => {
+      // First check if there's a completed cita
+      const { data: completedCita } = await supabase
+        .from('reservas_citas')
+        .select('*')
+        .eq('id_persona', personaId)
+        .eq('activo', true)
+        .or('estatus.eq.asistio,id_estatus_cita.eq.3')
+        .order('fecha_creacion', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (completedCita) return completedCita;
+
+      // Otherwise get the latest cita
       const { data, error } = await supabase
         .from('reservas_citas')
         .select('*')
