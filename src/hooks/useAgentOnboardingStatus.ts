@@ -23,7 +23,6 @@ interface OnboardingStatus {
 }
 
 export function useAgentOnboardingStatus(personaId: number | null | undefined): OnboardingStatus {
-  // Check if agent belongs to an inmobiliaria (auto-verified)
   const { data: hasInmobiliaria, isLoading: loadingInmo } = useQuery({
     queryKey: ['agent-onboarding-inmo', personaId],
     queryFn: async () => {
@@ -41,7 +40,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  // Fetch persona data
   const { data: persona, isLoading: loadingPersona } = useQuery({
     queryKey: ['agent-onboarding-persona', personaId],
     queryFn: async () => {
@@ -57,7 +55,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  // Fetch documents (types 2=INE frente, 3=INE reverso, 4=Pasaporte, 6=Constancia, 48=Contrato comercialización)
   const { data: documentos = [], isLoading: loadingDocs } = useQuery({
     queryKey: ['agent-onboarding-docs', personaId],
     queryFn: async () => {
@@ -74,7 +71,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  // Fetch bank accounts
   const { data: cuentas = [], isLoading: loadingCuentas } = useQuery({
     queryKey: ['agent-onboarding-bank', personaId],
     queryFn: async () => {
@@ -91,7 +87,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  // Fetch training appointments
   const { data: citasCapacitacion = [], isLoading: loadingCitas } = useQuery({
     queryKey: ['agent-onboarding-training', personaId],
     queryFn: async () => {
@@ -100,7 +95,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
         .from('reservas_citas')
         .select('id, estatus, activo, id_estatus_cita')
         .eq('id_persona', personaId)
-        .in('estatus', ['asistio', 'programada', 'cancelada'])
+        .in('estatus', ['asistio', 'programada', 'cancelada', 'no_asistio'])
         .order('fecha_creacion', { ascending: false })
         .limit(5);
       if (error) throw error;
@@ -112,7 +107,18 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
 
-  // If agent has an inmobiliaria, only require Identity step (basic + address + docs)
+  const latestTrainingCita = citasCapacitacion[0] as any | undefined;
+  const trainingComplete = !!latestTrainingCita && latestTrainingCita.activo && (latestTrainingCita.id_estatus_cita === 3 || latestTrainingCita.estatus === 'asistio');
+  const trainingPartial = !!latestTrainingCita && !trainingComplete && latestTrainingCita.activo && (latestTrainingCita.id_estatus_cita === 1 || latestTrainingCita.id_estatus_cita === 2 || latestTrainingCita.estatus === 'programada');
+  const trainingCancelled = !!latestTrainingCita && !trainingComplete && !trainingPartial && (latestTrainingCita.estatus === 'cancelada' || latestTrainingCita.estatus === 'no_asistio' || !latestTrainingCita.activo);
+
+  const trainingMissing: string[] = [];
+  if (!trainingComplete) {
+    if (latestTrainingCita?.estatus === 'no_asistio') trainingMissing.push('Reagendar capacitación');
+    else if (trainingPartial) trainingMissing.push('Cita programada (pendiente de asistencia)');
+    else trainingMissing.push('Agendar capacitación');
+  }
+
   if (hasInmobiliaria && !isLoading) {
     const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
     const basicPartial = !basicComplete && !!(persona?.nombre_legal || persona?.email || persona?.telefono);
@@ -138,7 +144,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     const identityComplete = basicComplete && addressComplete && identityDocsComplete;
     const identityPartial = !identityComplete && (basicPartial || basicComplete || addressPartial || addressComplete || identityDocsPartial);
 
-    // Missing items for identity step
     const basicMissing: string[] = [];
     if (!persona?.nombre_legal) basicMissing.push('Nombre completo');
     if (!persona?.email) basicMissing.push('Correo electrónico');
@@ -152,29 +157,28 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     if (!persona?.direccion_id_municipio) basicMissing.push('Municipio');
     if (!hasIdentityDoc) basicMissing.push('INE o Pasaporte');
 
-    const trainingComplete = citasCapacitacion.some((c: any) => (c.id_estatus_cita === 3 || c.estatus === 'asistio') && c.activo);
-    const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => (c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada') && c.activo);
-
-    const trainingMissing: string[] = [];
-    if (!trainingComplete) {
-      if (trainingPartial) trainingMissing.push('Cita programada (pendiente de asistencia)');
-      else trainingMissing.push('Agendar capacitación');
-    }
-
     const inmoSteps: OnboardingStep[] = [
       { id: 'basic', label: 'Identidad', isComplete: identityComplete, hasPartialData: identityPartial },
       { id: 'fiscal', label: 'Información fiscal', isComplete: true, hasPartialData: false },
       { id: 'bank-accounts', label: 'Cuenta bancaria', isComplete: true, hasPartialData: false },
-      { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial },
+      { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial, hasCancelledData: trainingCancelled },
     ];
+
     const inmoCompleted = inmoSteps.filter(s => s.isComplete).length;
     return {
-      steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false, hasTrainingComplete: trainingComplete, hasBasicIdentityComplete: identityComplete, canAccessComisiones: true, missingForComisiones: [],
+      steps: inmoSteps,
+      completedCount: inmoCompleted,
+      totalSteps: 4,
+      percentage: Math.round((inmoCompleted / 4) * 100),
+      isLoading: false,
+      hasTrainingComplete: trainingComplete,
+      hasBasicIdentityComplete: identityComplete,
+      canAccessComisiones: true,
+      missingForComisiones: [],
       missingByStep: { basic: basicMissing, fiscal: [], 'bank-accounts': [], training: trainingMissing },
     };
   }
 
-  // Evaluate steps
   const basicComplete = !!(persona?.nombre_legal && persona?.email && persona?.telefono);
   const basicPartial = !basicComplete && !!(persona?.nombre_legal || persona?.email || persona?.telefono);
 
@@ -211,22 +215,14 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const bankComplete = cuentas.length > 0;
 
-  const trainingComplete = citasCapacitacion.some((c: any) => (c.id_estatus_cita === 3 || c.estatus === 'asistio') && c.activo);
-  const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => (c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada') && c.activo);
-  const trainingCancelled = !trainingComplete && !trainingPartial && citasCapacitacion.some((c: any) => c.estatus === 'cancelada' || !c.activo);
-
-  // Consolidated into 4 stages for the profile view
-  // Stage 1: basic = basic info + address + documents (INE front/back + Carta comercialización)
   const basicStageComplete = basicComplete && addressComplete && documentsComplete;
   const basicStagePartial = !basicStageComplete && (basicPartial || basicComplete || addressPartial || addressComplete || documentsPartial);
 
-  // Stage 2: fiscal = fiscal info + constancia (doc type 6) — constancia must be approved (id_estatus_verificacion === 2)
   const constanciaApproved = documentos.some((d: any) => d.id_tipo_documento === 6 && d.id_estatus_verificacion === 2);
   const constanciaExists = docTypes.has(6);
   const fiscalStageComplete = fiscalComplete && constanciaApproved;
   const fiscalStagePartial = !fiscalStageComplete && (fiscalPartial || fiscalComplete || constanciaExists);
 
-  // Missing items per step
   const basicMissing: string[] = [];
   if (!persona?.nombre_legal) basicMissing.push('Nombre completo');
   if (!persona?.email) basicMissing.push('Correo electrónico');
@@ -256,12 +252,6 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const bankMissing: string[] = [];
   if (!bankComplete) bankMissing.push('Cuenta bancaria');
-
-  const trainingMissing: string[] = [];
-  if (!trainingComplete) {
-    if (trainingPartial) trainingMissing.push('Cita programada (pendiente de asistencia)');
-    else trainingMissing.push('Agendar capacitación');
-  }
 
   const missingByStep: Record<string, string[]> = {
     basic: basicMissing,
