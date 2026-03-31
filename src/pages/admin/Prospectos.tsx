@@ -847,6 +847,29 @@ export default function Prospectos() {
     },
   });
 
+  // Mutation to change agent for a specific project relation
+  const changeAgentMutation = useMutation({
+    mutationFn: async ({ entidadRelacionadaId, agenteId }: { entidadRelacionadaId: number; agenteId: number | null }) => {
+      const { error } = await supabase
+        .from('entidades_relacionadas')
+        .update({ id_persona_duena_lead: agenteId })
+        .eq('id', entidadRelacionadaId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['prospectos'] });
+      toast({ title: "Éxito", description: "Agente actualizado correctamente." });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: `Error al cambiar el agente: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
   const getStatusBadge = (statusId?: number, statusName?: string) => {
     if (!statusName) return null;
     
