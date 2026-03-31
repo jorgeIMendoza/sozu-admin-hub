@@ -237,7 +237,7 @@ export default function Prospectos() {
       }
 
       const { data, error, count } = await query
-        .order('nombre_legal', { ascending: true })
+        .order('fecha_creacion', { ascending: false })
         .range(from, to);
       
       if (error) {
@@ -312,7 +312,7 @@ export default function Prospectos() {
       }
 
       const { data, error, count } = await query
-        .order('nombre_legal', { ascending: true })
+        .order('fecha_creacion', { ascending: false })
         .range(from, to);
       
       if (error) {
