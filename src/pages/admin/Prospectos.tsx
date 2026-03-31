@@ -964,7 +964,7 @@ export default function Prospectos() {
               <TableHead className="font-semibold text-foreground">RFC</TableHead>
               <TableHead className="font-semibold text-foreground">Teléfono</TableHead>
               <TableHead className="font-semibold text-foreground w-40">Estatus</TableHead>
-              <TableHead className="font-semibold text-foreground">Proyectos / Agente</TableHead>
+              <TableHead className="font-semibold text-foreground">Desarrollo / Agente</TableHead>
               <TableHead className="font-semibold text-foreground">Fecha de Creación</TableHead>
               <TableHead className="font-semibold text-foreground text-center">Acciones</TableHead>
             </TableRow>

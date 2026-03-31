@@ -205,7 +205,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
       const { data } = await supabase
         .from("reservas_citas")
         .select("fecha, hora_inicio, id_configuracion_cita")
-        .eq("id_tipo_cita", 2)
+        .in("id_tipo_cita", [2, 5])
         .eq("activo", true)
         .in("id_configuracion_cita", configIds);
       return data || [];
