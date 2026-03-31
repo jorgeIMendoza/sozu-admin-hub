@@ -152,16 +152,25 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     if (!persona?.direccion_id_municipio) basicMissing.push('Municipio');
     if (!hasIdentityDoc) basicMissing.push('INE o Pasaporte');
 
+    const trainingComplete = citasCapacitacion.some((c: any) => (c.id_estatus_cita === 3 || c.estatus === 'asistio') && c.activo);
+    const trainingPartial = !trainingComplete && citasCapacitacion.some((c: any) => (c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada') && c.activo);
+
+    const trainingMissing: string[] = [];
+    if (!trainingComplete) {
+      if (trainingPartial) trainingMissing.push('Cita programada (pendiente de asistencia)');
+      else trainingMissing.push('Agendar capacitación');
+    }
+
     const inmoSteps: OnboardingStep[] = [
       { id: 'basic', label: 'Identidad', isComplete: identityComplete, hasPartialData: identityPartial },
       { id: 'fiscal', label: 'Información fiscal', isComplete: true, hasPartialData: false },
       { id: 'bank-accounts', label: 'Cuenta bancaria', isComplete: true, hasPartialData: false },
-      { id: 'training', label: 'Capacitación', isComplete: true, hasPartialData: false },
+      { id: 'training', label: 'Capacitación', isComplete: trainingComplete, hasPartialData: trainingPartial },
     ];
     const inmoCompleted = inmoSteps.filter(s => s.isComplete).length;
     return {
-      steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false, hasTrainingComplete: true, hasBasicIdentityComplete: identityComplete, canAccessComisiones: true, missingForComisiones: [],
-      missingByStep: { basic: basicMissing, fiscal: [], 'bank-accounts': [], training: [] },
+      steps: inmoSteps, completedCount: inmoCompleted, totalSteps: 4, percentage: Math.round((inmoCompleted / 4) * 100), isLoading: false, hasTrainingComplete: trainingComplete, hasBasicIdentityComplete: identityComplete, canAccessComisiones: true, missingForComisiones: [],
+      missingByStep: { basic: basicMissing, fiscal: [], 'bank-accounts': [], training: trainingMissing },
     };
   }
 
