@@ -226,11 +226,22 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
 
   const showSearch = proyectos.length > 10;
 
-  // Projects already assigned to this existing persona (from any agent/context)
-  const existingPersonaProjectIds = useMemo(() => {
-    if (!existingPersonaId) return new Set<number>();
-    return activeProjectIdsByPersona.get(existingPersonaId) || new Set<number>();
-  }, [existingPersonaId, activeProjectIdsByPersona]);
+  // Fetch project assignments for a persona found via email lookup (may not be in agent's prospects)
+  const { data: existingPersonaProjectIds = new Set<number>() } = useQuery({
+    queryKey: ["existing-persona-projects", existingPersonaId],
+    queryFn: async () => {
+      if (!existingPersonaId) return new Set<number>();
+      const { data, error } = await supabase
+        .from("entidades_relacionadas")
+        .select("id_proyecto")
+        .eq("id_persona", existingPersonaId)
+        .eq("id_tipo_entidad", 7)
+        .eq("activo", true);
+      if (error) throw error;
+      return new Set((data || []).map((r: any) => r.id_proyecto).filter(Boolean) as number[]);
+    },
+    enabled: open && !!existingPersonaId,
+  });
 
   // Available projects for new prospect creation (not already selected in this session)
   const availableProjectsForNew = useMemo(() => {
