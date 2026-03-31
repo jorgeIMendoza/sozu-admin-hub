@@ -2014,37 +2014,35 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                     <span className="text-sm">Cargando fechas...</span>
                   </div>
                 ) : availableDates.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {availableDates.map((date) => {
-                      const dateStr = format(date, 'yyyy-MM-dd');
-                      const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === dateStr;
-                      const isExistingDate = existingCita?.fecha === dateStr;
-                      const isCancelledDate = citaCancelledExternally && existingCita?.fecha === dateStr;
-                      return (
-                        <button
-                          key={dateStr}
-                          onClick={() => { setSelectedDate(date); onTrackFieldChange?.(); }}
-                          className={`py-2 px-3 rounded-xl text-xs font-medium transition-all duration-200 border relative ${
-                            isSelected
-                              ? 'bg-primary text-primary-foreground border-primary shadow-md scale-[1.02]'
-                              : isCancelledDate
-                                ? 'bg-destructive/10 border-destructive/40 text-destructive hover:border-destructive/60'
-                                : isExistingDate
-                                  ? 'bg-amber-500/15 border-amber-500/50 text-amber-700 dark:text-amber-400 ring-1 ring-amber-500/30'
-                                  : 'bg-card border-border/60 text-foreground hover:border-primary/40 hover:bg-primary/5'
-                          }`}
-                        >
-                          <span className="capitalize">{format(date, "EEE d MMM", { locale: es })}</span>
-                          {isCancelledDate && !isSelected && (
-                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-card" />
-                          )}
-                          {isExistingDate && !isSelected && !isCancelledDate && (
-                            <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border-2 border-card" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  (() => {
+                    const availableDateSet = new Set(availableDates.map(d => format(d, 'yyyy-MM-dd')));
+                    const minDate = availableDates.reduce((a, b) => a < b ? a : b);
+                    const maxDate = availableDates.reduce((a, b) => a > b ? a : b);
+                    return (
+                      <div className="flex justify-center">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => { if (date) { setSelectedDate(date); onTrackFieldChange?.(); } }}
+                          disabled={(date) => {
+                            const dateStr = format(date, 'yyyy-MM-dd');
+                            return !availableDateSet.has(dateStr);
+                          }}
+                          fromDate={minDate}
+                          toDate={maxDate}
+                          modifiers={{
+                            existing: existingCita?.fecha ? [new Date(existingCita.fecha + 'T12:00:00')] : [],
+                            cancelled: citaCancelledExternally && existingCita?.fecha ? [new Date(existingCita.fecha + 'T12:00:00')] : [],
+                          }}
+                          modifiersClassNames={{
+                            existing: 'ring-2 ring-amber-500/50',
+                            cancelled: 'ring-2 ring-destructive/50',
+                          }}
+                          className="rounded-md border"
+                        />
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div className="text-center py-6 rounded-xl border border-border/60 bg-muted/30">
                     <p className="text-sm text-muted-foreground">No hay fechas disponibles.</p>
