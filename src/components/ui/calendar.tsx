@@ -179,13 +179,43 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
         Caption: ({ displayMonth }) => {
           return (
-            <Button
-              variant="ghost"
-              className="text-sm font-medium hover:bg-accent mx-auto"
-              onClick={() => setView("months")}
-            >
-              {months[displayMonth.getMonth()]} {displayMonth.getFullYear()}
-            </Button>
+            <div className="flex justify-center pt-1 relative items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const newDate = new Date(month);
+                  newDate.setMonth(newDate.getMonth() - 1);
+                  handleMonthChange(newDate);
+                }}
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1",
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <Button
+                variant="ghost"
+                className="text-sm font-medium hover:bg-accent"
+                onClick={() => setView("months")}
+              >
+                {months[displayMonth.getMonth()]} {displayMonth.getFullYear()}
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  const newDate = new Date(month);
+                  newDate.setMonth(newDate.getMonth() + 1);
+                  handleMonthChange(newDate);
+                }}
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1",
+                )}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           );
         },
       }}
