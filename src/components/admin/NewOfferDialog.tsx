@@ -909,6 +909,12 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           }
         }
 
+        // Limpiar CLABEs de ofertas fuente ANTES del INSERT para evitar violación de unique constraint
+        if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
+          const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
+          await clearSourceOfferClabes(clabeResult.sourceOfferIds);
+        }
+
         const productOfferData = {
           id_propiedad: propertyId,
           id_producto: productId,
@@ -938,12 +944,6 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             productName: product.nombre
           });
           console.log(`Created product offer for ${product.nombre} with ID ${createdProductOffer.id}`);
-          
-          // Limpiar CLABEs de ofertas fuente SOLO después de crear exitosamente
-          if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
-            const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
-            await clearSourceOfferClabes(clabeResult.sourceOfferIds);
-          }
         }
       }
 
