@@ -301,7 +301,7 @@ function ProjectCard({
         </div>
 
         {/* Content side */}
-        <div className="lg:flex-1 lg:flex lg:flex-col lg:justify-between">
+        <div>
 
         {/* Stats row */}
         <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-gray-50">
