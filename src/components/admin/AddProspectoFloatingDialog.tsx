@@ -11,6 +11,7 @@ import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useProjectAccess } from "@/hooks/useProjectAccess";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 
