@@ -8,6 +8,7 @@ import { Loader2, CalendarDays, Plus, Clock, AlertCircle, CalendarCheck } from "
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { format, addDays, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { Combobox } from "@/components/ui/combobox";
