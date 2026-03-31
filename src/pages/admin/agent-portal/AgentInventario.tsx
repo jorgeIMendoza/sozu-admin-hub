@@ -186,7 +186,7 @@ const AgentInventario = () => {
         </div>
       </AgentPortalHeader>
 
-      <div className="px-4 space-y-3">
+      <div className="px-4 space-y-3 lg:flex lg:flex-col lg:items-center">
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--agent-muted))]" />
@@ -263,9 +263,9 @@ function ProjectCard({
 
   return (
     <>
-      <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden lg:flex lg:flex-row">
+      <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden lg:w-[40%] lg:mx-auto">
         {/* Image with overlay */}
-        <div className="relative h-44 lg:h-auto lg:w-[10%] lg:min-h-[120px] w-full overflow-hidden flex-shrink-0">
+        <div className="relative h-44 lg:h-56 w-full overflow-hidden">
           {proyecto.imagen_url ? (
             <img
               src={proyecto.imagen_url}
@@ -301,7 +301,7 @@ function ProjectCard({
         </div>
 
         {/* Content side */}
-        <div className="lg:flex-1 lg:flex lg:flex-col lg:justify-between">
+        <div>
 
         {/* Stats row */}
         <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-gray-50">
