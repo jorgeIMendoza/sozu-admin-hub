@@ -423,6 +423,40 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
     }
   };
 
+  // Lookup persona by email when not in edit mode
+  const handleEmailChange = (newEmail: string) => {
+    setEmail(newEmail);
+    trackFieldFill();
+    setExistingPersonaId(null);
+
+    if (emailLookupTimeout.current) clearTimeout(emailLookupTimeout.current);
+    if (!newEmail || isEditMode) return;
+
+    emailLookupTimeout.current = setTimeout(async () => {
+      const trimmed = newEmail.trim().toLowerCase();
+      if (!trimmed || !/\S+@\S+\.\S+/.test(trimmed)) return;
+
+      const { data } = await supabase
+        .from("personas")
+        .select("id, nombre_legal, email, telefono, clave_pais_telefono, tipo_persona, rfc, curp")
+        .eq("email", trimmed)
+        .eq("activo", true)
+        .limit(1)
+        .single();
+
+      if (data) {
+        setExistingPersonaId(data.id);
+        setNombre(data.nombre_legal || "");
+        setTelefono(data.telefono || "");
+        setClavePais(data.clave_pais_telefono || "MX");
+        setTipoPersona(data.tipo_persona || "pf");
+        setRfc(data.rfc || "");
+        setCurp(data.curp || "");
+        toast.info("Esta persona ya existe en el sistema. Se vincularán sus datos al nuevo prospecto.");
+      }
+    }, 600);
+  };
+
   const handleClose = () => {
     setSelectedProspectoId(null);
     setProyectoId("");
@@ -434,6 +468,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
     setRfc("");
     setCurp("");
     setEditProyectos([]);
+    setExistingPersonaId(null);
     hasTrackedFieldFill.current = false;
     onOpenChange(false);
   };
