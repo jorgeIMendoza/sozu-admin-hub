@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
 // Color palette for projects
