@@ -35,6 +35,8 @@ type ProspectoProyecto = {
   id: number;
   nombre: string;
   entidad_relacionada_id: number;
+  agente_nombre?: string;
+  id_persona_duena_lead?: number;
 };
 
 type Prospecto = {
