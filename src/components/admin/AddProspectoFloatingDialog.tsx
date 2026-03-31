@@ -29,6 +29,8 @@ interface ProspectoRelacion {
 
 export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPersonaId }: AddProspectoFloatingDialogProps) {
   const { profile } = useAuth();
+  const { impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
+  const effectivePersonaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const queryClient = useQueryClient();
   const { accessibleProjectIds, hasUnrestrictedAccess, isLoading: isLoadingAccess } = useProjectAccess();
   const { track } = useCtaTracker();
