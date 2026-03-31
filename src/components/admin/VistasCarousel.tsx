@@ -34,8 +34,8 @@ export const VistasCarousel = ({ vistas }: { vistas: Vista[] }) => {
                   className="w-full h-52 lg:h-72 object-cover rounded-lg"
                   loading="lazy"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3 rounded-b-lg">
-                  <p className="text-white text-sm font-medium">{vista.nombre}</p>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm px-3 py-2 rounded-b-lg">
+                  <p className="text-white text-sm font-semibold">{vista.nombre}</p>
                 </div>
               </div>
             </div>
