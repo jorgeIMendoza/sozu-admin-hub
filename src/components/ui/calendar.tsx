@@ -23,6 +23,18 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
     props.onMonthChange?.(newMonth);
   };
 
+  // Extract onSelect to wrap it for auto-navigating to selected date's month
+  const originalOnSelect = (props as any).onSelect;
+  const wrappedOnSelect = React.useCallback((...args: any[]) => {
+    const date = args[0] as Date | undefined;
+    if (date && (date.getMonth() !== month.getMonth() || date.getFullYear() !== month.getFullYear())) {
+      handleMonthChange(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
+    if (originalOnSelect) {
+      originalOnSelect(...args);
+    }
+  }, [month, originalOnSelect]);
+
   const months = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -138,13 +150,15 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
   }
 
   // Vista de días (DayPicker normal)
-  return (
+    const { onSelect: _onSelect, ...restProps } = props as any;
+    return (
     <DayPicker
       locale={es}
       showOutsideDays={showOutsideDays}
       className={cn("p-3 pointer-events-auto", className)}
       month={month}
       onMonthChange={handleMonthChange}
+      onSelect={wrappedOnSelect}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -168,7 +182,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
         day_today: "bg-accent text-accent-foreground",
         day_outside:
-          "day-outside aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
+          "day-outside aria-selected:bg-primary/20 aria-selected:text-primary aria-selected:opacity-100",
         day_disabled: "text-muted-foreground opacity-30 cursor-not-allowed",
         day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
@@ -219,7 +233,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
           );
         },
       }}
-      {...props}
+      {...restProps}
     />
   );
 }
