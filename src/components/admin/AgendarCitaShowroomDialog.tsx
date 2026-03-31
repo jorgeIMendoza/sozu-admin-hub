@@ -134,7 +134,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
         .from("reservas_citas")
         .select("id, fecha, hora_inicio, hora_fin, estatus, notas, id_configuracion_cita, id_proyecto")
         .eq("id_persona_prospecto", parseInt(selectedProspecto))
-        .eq("id_tipo_cita", 2)
+        .in("id_tipo_cita", [2, 5])
         .eq("activo", true)
         .in("estatus", ["programada"])
         .order("fecha", { ascending: false })
