@@ -433,7 +433,9 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
     },
     onError: (error: any) => {
       const msg = error.message || "Ocurrió un error inesperado";
-      if (msg.includes("personas_rfc_key") || msg.includes("duplicate") && msg.includes("rfc")) {
+      if (msg.includes("uq_entrel_persona_tipo_proy") || (error.code === "23505" && msg.includes("entrel"))) {
+        toast.error("Este prospecto ya tiene interés registrado en uno o más de los desarrollos seleccionados. Revisa los desarrollos e intenta de nuevo.");
+      } else if (msg.includes("personas_rfc_key") || msg.includes("duplicate") && msg.includes("rfc")) {
         toast.error("El RFC ingresado ya está registrado en el sistema. Por favor, verifica e ingresa un RFC diferente.");
       } else if (msg.includes("personas_curp_key") || msg.includes("duplicate") && msg.includes("curp")) {
         toast.error("La CURP ingresada ya está registrada en el sistema. Por favor, verifica e ingresa una CURP diferente.");
