@@ -1,35 +1,25 @@
 
 
-## Cambio: Preguntar antes de generar si desea enviar por correo
+## Plan: Corregir error de CLABE duplicada al generar ofertas con esquema de pago
 
-### Resumen
-Actualmente el flujo es: generar oferta → descargar PDFs → intentar envío automático → si no aplica envío automático, mostrar toast preguntando si quiere enviar. 
+### Problema
+Al generar ofertas **con** esquemas de pago seleccionados para propiedades con bodega, la segunda oferta (bodega) falla con error `23505: duplicate key value violates unique constraint "ofertas_clabe_stp_tmp_producto_key"`.
 
-El cambio: en el **diálogo de confirmación** (`AlertDialog` que ya existe, líneas ~2394-2569), agregar un checkbox o toggle que diga **"Enviar oferta(s) por correo al prospecto"** para que el usuario decida ANTES de generar. Este checkbox solo se muestra cuando la oferta **NO** se enviaría automáticamente (es decir, cuando no tiene datos bancarios).
+La causa raíz es que `clearSourceOfferClabes` (que libera la CLABE de ofertas anteriores) se ejecuta **después** del INSERT, pero el INSERT ya falla porque la CLABE aún existe en la oferta anterior.
 
-### Cambios en `src/components/admin/NewOfferDialog.tsx`
+Sin esquemas de pago, `clabeData` es `null` y no se asigna CLABE, por lo que no hay conflicto.
 
-**1. Nuevo estado**
-```typescript
-const [sendEmailOnGenerate, setSendEmailOnGenerate] = useState(false);
-```
+### Solución
 
-**2. En el diálogo de confirmación (líneas ~2530-2554)**
-Agregar un checkbox debajo de los avisos de datos bancarios, visible **solo cuando `confirmBankingReasons.length > 0`** (que es la condición que indica que no habrá envío automático):
+**Archivo:** `src/components/admin/NewOfferDialog.tsx`
 
-```
-☐ También enviar oferta(s) por correo al prospecto
-```
+**Cambio único:** Mover el bloque de `clearSourceOfferClabes` de **después** del INSERT exitoso a **antes** del INSERT.
 
-**3. En el `onSuccess` del mutation (líneas ~1047-1084)**
-Modificar la lógica post-generación:
-- Si `emailSent` es `true` (envío automático por datos bancarios): no cambiar nada.
-- Si `emailSent` es `false` Y `sendEmailOnGenerate` es `true`: llamar `sendMultipleOffersEmailDirect` directamente en vez de mostrar el toast con botón.
-- Si `emailSent` es `false` Y `sendEmailOnGenerate` es `false`: no mostrar el toast con botón (el usuario ya decidió que no quiere enviar).
+Secuencia actual:
+1. Obtener/crear CLABE → 2. INSERT oferta → 3. Limpiar CLABEs de ofertas fuente ❌
 
-**4. Reset del estado**
-Resetear `sendEmailOnGenerate` a `false` cuando se cierra el diálogo o se cancela.
+Secuencia corregida:
+1. Obtener/crear CLABE → 2. **Limpiar CLABEs de ofertas fuente** → 3. INSERT oferta ✅
 
-### Resultado
-El usuario ve la opción de envío **antes** de generar, eliminando el toast posterior. Las ofertas con envío automático (datos bancarios completos) siguen enviándose sin preguntar.
+Esto es mover ~5 líneas dentro de la misma función. No se modifican otros archivos.
 
