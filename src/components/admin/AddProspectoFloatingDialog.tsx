@@ -45,6 +45,9 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
   // Projects assigned to the selected prospect in edit mode
   const [editProyectos, setEditProyectos] = useState<ProspectoRelacion[]>([]);
   const hasAppliedPreselect = useRef(false);
+  // When an existing persona is found by email (not in agent's prospects)
+  const [existingPersonaId, setExistingPersonaId] = useState<number | null>(null);
+  const emailLookupTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch agent's existing prospects (grouped by persona)
   const { data: misProspectos = [] } = useQuery({
@@ -358,28 +361,47 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
           throw new Error("Completa los campos obligatorios");
         }
 
-        // Create new persona
-        const { data: persona, error: personaError } = await supabase
-          .from("personas")
-          .insert([{
-            tipo_persona: tipoPersona,
-            nombre_legal: nombre,
-            email,
-            telefono,
-            clave_pais_telefono: clavePais,
-            rfc: rfc || null,
-            curp: curp || null,
-            activo: true,
-          }])
-          .select()
-          .single();
+        let personaId: number;
 
-        if (personaError) throw personaError;
+        if (existingPersonaId) {
+          // Reuse existing persona – update their info
+          personaId = existingPersonaId;
+          await supabase
+            .from("personas")
+            .update({
+              tipo_persona: tipoPersona,
+              nombre_legal: nombre,
+              telefono,
+              clave_pais_telefono: clavePais,
+              rfc: rfc || null,
+              curp: curp || null,
+            })
+            .eq("id", personaId);
+        } else {
+          // Create new persona
+          const { data: persona, error: personaError } = await supabase
+            .from("personas")
+            .insert([{
+              tipo_persona: tipoPersona,
+              nombre_legal: nombre,
+              email,
+              telefono,
+              clave_pais_telefono: clavePais,
+              rfc: rfc || null,
+              curp: curp || null,
+              activo: true,
+            }])
+            .select()
+            .single();
+
+          if (personaError) throw personaError;
+          personaId = persona.id;
+        }
 
         const { error: entidadError } = await supabase
           .from("entidades_relacionadas")
           .insert([{
-            id_persona: persona.id,
+            id_persona: personaId,
             id_tipo_entidad: 7,
             id_proyecto: parseInt(proyectoId),
             id_persona_duena_lead: profile?.id_persona || null,
@@ -420,6 +442,40 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
     }
   };
 
+  // Lookup persona by email when not in edit mode
+  const handleEmailChange = (newEmail: string) => {
+    setEmail(newEmail);
+    trackFieldFill();
+    setExistingPersonaId(null);
+
+    if (emailLookupTimeout.current) clearTimeout(emailLookupTimeout.current);
+    if (!newEmail || isEditMode) return;
+
+    emailLookupTimeout.current = setTimeout(async () => {
+      const trimmed = newEmail.trim().toLowerCase();
+      if (!trimmed || !/\S+@\S+\.\S+/.test(trimmed)) return;
+
+      const { data } = await supabase
+        .from("personas")
+        .select("id, nombre_legal, email, telefono, clave_pais_telefono, tipo_persona, rfc, curp")
+        .eq("email", trimmed)
+        .eq("activo", true)
+        .limit(1)
+        .single();
+
+      if (data) {
+        setExistingPersonaId(data.id);
+        setNombre(data.nombre_legal || "");
+        setTelefono(data.telefono || "");
+        setClavePais(data.clave_pais_telefono || "MX");
+        setTipoPersona(data.tipo_persona || "pf");
+        setRfc(data.rfc || "");
+        setCurp(data.curp || "");
+        toast.info("Esta persona ya existe en el sistema. Se vincularán sus datos al nuevo prospecto.");
+      }
+    }, 600);
+  };
+
   const handleClose = () => {
     setSelectedProspectoId(null);
     setProyectoId("");
@@ -431,6 +487,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
     setRfc("");
     setCurp("");
     setEditProyectos([]);
+    setExistingPersonaId(null);
     hasTrackedFieldFill.current = false;
     onOpenChange(false);
   };
@@ -594,7 +651,10 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Email <span className="text-destructive">*</span></Label>
-                <Input type="email" placeholder="Ingresa el email" value={email} onChange={(e) => { setEmail(e.target.value); trackFieldFill(); }} />
+                <Input type="email" placeholder="Ingresa el email" value={email} onChange={(e) => handleEmailChange(e.target.value)} disabled={isEditMode && !!selectedProspectoId} />
+                {existingPersonaId && !isEditMode && (
+                  <p className="text-[10px] text-blue-600 font-medium">✓ Persona existente encontrada — se vinculará al prospecto</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Teléfono <span className="text-destructive">*</span></Label>
