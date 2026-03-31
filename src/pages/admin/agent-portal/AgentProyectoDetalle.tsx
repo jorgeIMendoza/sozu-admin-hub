@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleMapComponent } from "@/components/admin/GoogleMapComponent";
+import { VistasCarousel } from "@/components/admin/VistasCarousel";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -206,8 +207,24 @@ const AgentProyectoDetalle = () => {
     enabled: projectId > 0,
   });
 
-  // Fetch galería multimedia (images)
-  const { data: multimedia = [] } = useQuery({
+   // Fetch vistas del proyecto
+   const { data: vistas = [] } = useQuery({
+     queryKey: ["agent-proyecto-vistas", projectId],
+     queryFn: async () => {
+       const { data, error } = await (supabase as any)
+         .from("vistas")
+         .select("id, nombre, url")
+         .eq("id_proyecto", projectId)
+         .eq("activo", true)
+         .order("orden");
+       if (error) throw error;
+       return data || [];
+     },
+     enabled: projectId > 0,
+   });
+
+   // Fetch galería multimedia (images)
+   const { data: multimedia = [] } = useQuery({
     queryKey: ["agent-proyecto-multimedia", projectId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
@@ -491,6 +508,14 @@ const AgentProyectoDetalle = () => {
                 </button>
               ))}
             </div>
+          </section>
+        )}
+
+        {/* Vistas */}
+        {vistas.length > 0 && (
+          <section>
+            <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Vistas</h2>
+            <VistasCarousel vistas={vistas} />
           </section>
         )}
 
