@@ -64,6 +64,7 @@ import { FileText, Check, ChevronsUpDown, UserPlus, Warehouse, Car, Info, AlertT
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { Switch } from "@/components/ui/switch";
 import { isValidRFC } from "@/utils/fiscalDataValidation";
