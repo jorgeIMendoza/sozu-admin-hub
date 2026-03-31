@@ -998,11 +998,13 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
       }
       
       // Generate PDFs client-side and download
+      let allOfferIdsForEmail: number[] = [];
       try {
         const allOfferIds = [result.offerId];
         for (const productOffer of result.productOffersResults.createdOffers) {
           allOfferIds.push(productOffer.offerId);
         }
+        allOfferIdsForEmail = allOfferIds;
 
         toast({
           title: "Generando PDFs...",
@@ -1065,7 +1067,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
           } catch (dlErr) {
             console.error('Error downloading PDF:', dlErr);
           }
@@ -1074,19 +1076,29 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           title: "Oferta generada",
           description: `Se descargaron ${generatedPdfFiles.length} PDF(s).`,
         });
+      } catch (pdfErr) {
+        console.error('Error generating/downloading PDFs:', pdfErr);
+        toast({
+          title: "Error al generar oferta",
+          description: "La oferta se creó correctamente, pero hubo un error al generar los PDFs.",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ["properties"] });
+        setOpen(false);
+        form.reset();
+        setSelectedPerson(null);
+        setSearchTerm("");
+        return;
+      }
 
-        // Enviar todas las ofertas por correo en un solo email
+      try {
+        // Enviar todas las ofertas por correo en un solo email usando los PDFs persistidos en Storage
         const { sendMultipleOffersEmail, sendMultipleOffersEmailDirect } = await import('@/services/ofertaEmailService');
-        const allOfferIdsForEmail = [
-          result.offerId,
-          ...result.productOffersResults.createdOffers.map(po => po.offerId),
-        ];
         const emailSent = await sendMultipleOffersEmail({
           offerIds: allOfferIdsForEmail,
           propertyNumber,
           recipientEmail: result.leadEmail,
           recipientName: result.leadName,
-          preGeneratedAttachments: preGeneratedAttachments.length > 0 ? preGeneratedAttachments : undefined,
         });
         // Si no se envió automáticamente y el usuario eligió enviar antes de generar
         if (!emailSent && sendEmailOnGenerate) {
@@ -1095,18 +1107,18 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             propertyNumber,
             recipientEmail: result.leadEmail,
             recipientName: result.leadName,
-            preGeneratedAttachments: preGeneratedAttachments.length > 0 ? preGeneratedAttachments : undefined,
           });
         }
-        setSendEmailOnGenerate(false);
       } catch (emailErr) {
-        console.error('Error generating/sending offer:', emailErr);
+        console.error('Error sending offer email after PDF generation:', emailErr);
         toast({
-          title: "Error al generar oferta",
-          description: "La oferta se creó correctamente, pero hubo un error al generar los PDFs.",
+          title: "PDFs generados",
+          description: "Los PDFs se generaron correctamente, pero no se pudo completar el envío por correo.",
           variant: "destructive",
         });
       }
+
+      setSendEmailOnGenerate(false);
       
       queryClient.invalidateQueries({ queryKey: ["properties"] });
       setOpen(false);
