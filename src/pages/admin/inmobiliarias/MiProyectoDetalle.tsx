@@ -19,6 +19,7 @@ import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloat
 import { AgentImpersonationSelector } from "@/components/admin/AgentImpersonationSelector";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
 import React from "react";
+import { VistasCarousel } from "@/components/admin/VistasCarousel";
 
 const SIMPLIFIED_ROLES = ["Agente Inmobiliario", "Inmobiliaria", "Super Administrador", "Administrador de Proyecto"];
 
