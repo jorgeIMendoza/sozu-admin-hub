@@ -747,7 +747,7 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
             <Button variant="outline" onClick={handleClose}>Cancelar</Button>
             <Button
               onClick={() => { track({ page: "modal_prospecto", elementId: "modal_prospecto_guardar" }); createMutation.mutate(); }}
-              disabled={createMutation.isPending || (!isEditMode && !proyectoId) || !nombre || !email || !telefono}
+              disabled={createMutation.isPending || (!isEditMode && selectedProyectoIds.length === 0) || !nombre || !email || !telefono}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               {createMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...</> : isEditMode ? "Actualizar" : "Guardar"}
