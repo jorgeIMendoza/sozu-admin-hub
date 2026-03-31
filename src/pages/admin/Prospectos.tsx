@@ -1047,9 +1047,34 @@ export default function Prospectos() {
                             </button>
                           )}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
-                          {p.agente_nombre || "Sin agente"}
-                        </span>
+                        {(canUpdate || isSuperAdmin) ? (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-[10px] text-muted-foreground truncate max-w-[120px] hover:text-foreground hover:underline cursor-pointer transition-colors">
+                                {p.agente_nombre || "Sin agente"}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-2" align="start">
+                              <Combobox
+                                value={p.id_persona_duena_lead?.toString() || ""}
+                                onValueChange={(value) => {
+                                  changeAgentMutation.mutate({
+                                    entidadRelacionadaId: p.entidad_relacionada_id,
+                                    agenteId: value ? parseInt(value) : null,
+                                  });
+                                }}
+                                options={agentes.map((a: any) => ({ value: a.id.toString(), label: a.nombre_legal }))}
+                                placeholder="Cambiar agente..."
+                                searchPlaceholder="Buscar agente..."
+                                emptyText="No hay agentes disponibles"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+                            {p.agente_nombre || "Sin agente"}
+                          </span>
+                        )}
                       </div>
                     ))}
                     {prospecto.proyectos.length === 0 && (
