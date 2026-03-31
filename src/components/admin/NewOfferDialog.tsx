@@ -1010,6 +1010,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         });
 
         const { generateOfferPDFAsBase64 } = await import('@/services/htmlToPdfService');
+        const generatedPdfFiles: { blob: Blob; filename: string; offerId: number; tipo: string; url: string }[] = [];
         const preGeneratedAttachments: { base64: string; filename: string; offerId: number; tipo: string }[] = [];
 
         // Generate main property offer PDF
@@ -1023,7 +1024,10 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           creatorEmail: profile?.email || '',
         });
         for (const pdf of mainPdfs) {
-          preGeneratedAttachments.push({ ...pdf, offerId: result.offerId, tipo: 'propiedad' });
+          generatedPdfFiles.push({ blob: pdf.blob, filename: pdf.filename, url: pdf.url, offerId: result.offerId, tipo: 'propiedad' });
+          if (pdf.base64) {
+            preGeneratedAttachments.push({ base64: pdf.base64, filename: pdf.filename, offerId: result.offerId, tipo: 'propiedad' });
+          }
         }
 
         // Generate product offer PDFs
@@ -1041,7 +1045,10 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
               productId: productOffer.productId,
             });
             for (const pdf of productPdfs) {
-              preGeneratedAttachments.push({ ...pdf, offerId: productOffer.offerId, tipo: 'producto' });
+              generatedPdfFiles.push({ blob: pdf.blob, filename: pdf.filename, url: pdf.url, offerId: productOffer.offerId, tipo: 'producto' });
+              if (pdf.base64) {
+                preGeneratedAttachments.push({ base64: pdf.base64, filename: pdf.filename, offerId: productOffer.offerId, tipo: 'producto' });
+              }
             }
           } catch (prodPdfErr) {
             console.error(`Error generating product PDF for ${productOffer.productName}:`, prodPdfErr);
@@ -1049,16 +1056,9 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         }
 
         // Download PDFs directly for all roles
-        for (const attachment of preGeneratedAttachments) {
+        for (const attachment of generatedPdfFiles) {
           try {
-            const byteCharacters = atob(attachment.base64);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
+            const url = URL.createObjectURL(attachment.blob);
             const link = document.createElement('a');
             link.href = url;
             link.download = attachment.filename;
@@ -1072,7 +1072,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
         }
         toast({
           title: "Oferta generada",
-          description: `Se descargaron ${preGeneratedAttachments.length} PDF(s).`,
+          description: `Se descargaron ${generatedPdfFiles.length} PDF(s).`,
         });
 
         // Enviar todas las ofertas por correo en un solo email
@@ -1086,7 +1086,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           propertyNumber,
           recipientEmail: result.leadEmail,
           recipientName: result.leadName,
-          preGeneratedAttachments,
+          preGeneratedAttachments: preGeneratedAttachments.length > 0 ? preGeneratedAttachments : undefined,
         });
         // Si no se envió automáticamente y el usuario eligió enviar antes de generar
         if (!emailSent && sendEmailOnGenerate) {
@@ -1095,7 +1095,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
             propertyNumber,
             recipientEmail: result.leadEmail,
             recipientName: result.leadName,
-            preGeneratedAttachments,
+            preGeneratedAttachments: preGeneratedAttachments.length > 0 ? preGeneratedAttachments : undefined,
           });
         }
         setSendEmailOnGenerate(false);

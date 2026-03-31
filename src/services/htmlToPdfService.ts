@@ -2090,10 +2090,10 @@ export const generateOfferPDF = async (offerData: OfferData) => {
 /**
  * Generate offer PDF(s) as base64 strings without downloading.
  * Used for sending via email from the client side.
- * Returns an array of { base64, filename } for the main offer and product offers.
+ * Returns generated PDF files with blob/url and optional base64 fallback.
  */
-export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ base64: string; filename: string }[]> => {
-  const results: { base64: string; filename: string }[] = [];
+export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ base64?: string; blob: Blob; filename: string; url: string }[]> => {
+  const results: { base64?: string; blob: Blob; filename: string; url: string }[] = [];
   
   const { data: offerDetails, error: offerError } = await supabase
     .from('ofertas')
@@ -2175,10 +2175,16 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
 
     // Upload product offer to storage
     const { ofertaPdfStorageService } = await import('./ofertaPdfStorageService');
-    await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, true);
+    const uploadResult = await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, true);
 
-    const base64 = await blobToBase64(blob);
-    results.push({ base64, filename });
+    let base64: string | undefined;
+    try {
+      base64 = await blobToBase64(blob);
+    } catch (error) {
+      console.warn('Could not convert product PDF blob to base64, continuing with storage URL only:', error);
+    }
+
+    results.push({ base64, blob, filename, url: uploadResult.url });
   } else {
     // Property offer
     const service = new HTMLToPDFService();
@@ -2236,10 +2242,16 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
 
     // Also upload to storage
     const { ofertaPdfStorageService } = await import('./ofertaPdfStorageService');
-    await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, false);
+    const uploadResult = await ofertaPdfStorageService.uploadAndSave(offerData.offerId, blob, filename, false);
 
-    const base64 = await blobToBase64(blob);
-    results.push({ base64, filename });
+    let base64: string | undefined;
+    try {
+      base64 = await blobToBase64(blob);
+    } catch (error) {
+      console.warn('Could not convert property PDF blob to base64, continuing with storage URL only:', error);
+    }
+
+    results.push({ base64, blob, filename, url: uploadResult.url });
   }
 
   return results;
