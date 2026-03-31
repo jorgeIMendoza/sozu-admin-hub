@@ -42,8 +42,9 @@ interface ProspectoAgrupado {
 
 export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaShowroomDialogProps) {
   const { profile, user } = useAuth();
-  const { impersonatedAgentPersonaId } = useAgentImpersonation();
+  const { impersonatedAgentPersonaId, impersonatedAgentEmail } = useAgentImpersonation();
   const effectivePersonaId = impersonatedAgentPersonaId || profile?.id_persona;
+  const effectiveAgentEmail = impersonatedAgentEmail || user?.email || profile?.email;
   const queryClient = useQueryClient();
   const { track } = useCtaTracker();
   const hasTrackedFieldFill = useRef(false);
