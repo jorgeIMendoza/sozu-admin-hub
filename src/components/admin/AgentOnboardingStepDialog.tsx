@@ -2656,17 +2656,17 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
       {step === 'basic' && (
         <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="personal" className="text-xs">Datos personales</TabsTrigger>
-            <TabsTrigger value="address" className="text-xs">Dirección</TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs">Documentos</TabsTrigger>
+            <TabsTrigger value="personal" className={cn("text-xs", activeTab === 'personal' && "data-[state=active]:bg-emerald-500 data-[state=active]:text-white")}>Datos personales</TabsTrigger>
+            <TabsTrigger value="address" className={cn("text-xs", activeTab === 'address' && "data-[state=active]:bg-emerald-500 data-[state=active]:text-white")}>Dirección</TabsTrigger>
+            <TabsTrigger value="documents" className={cn("text-xs", activeTab === 'documents' && "data-[state=active]:bg-emerald-500 data-[state=active]:text-white")}>Documentos</TabsTrigger>
           </TabsList>
 
-          {/* Step indicator */}
+          {/* Step indicator — clickable */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
             {basicTabs.map((tab, i) => (
-              <div key={tab} className={cn(
-                "h-1.5 rounded-full transition-all duration-300",
-                i === currentTabIndex ? "w-6 bg-primary" : i < currentTabIndex ? "w-4 bg-emerald-400" : "w-4 bg-muted"
+              <button key={tab} onClick={() => setActiveTab(tab)} className={cn(
+                "h-1.5 rounded-full transition-all duration-300 cursor-pointer hover:opacity-80",
+                i === currentTabIndex ? "w-6 bg-emerald-500" : i < currentTabIndex ? "w-4 bg-emerald-400" : "w-4 bg-muted"
               )} />
             ))}
             <span className="text-[10px] text-muted-foreground ml-2">
