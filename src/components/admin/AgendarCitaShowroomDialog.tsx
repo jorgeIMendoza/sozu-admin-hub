@@ -498,7 +498,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   <CalendarDays className="h-4 w-4" />
-                  Fechas disponibles
+                  Selecciona una fecha
                 </Label>
                 {availLoading ? (
                   <div className="flex justify-center py-4">
@@ -517,24 +517,27 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                       </div>
                     );
                   }
-                  const projColor = projectColorMap.get(selectedProyectoId) || PROJECT_COLORS[0];
+                  const availableDateSet = new Set(dates.map(d => d.dateStr));
+                  const availableDateObjects = dates.map(d => new Date(d.dateStr + "T12:00:00"));
+                  const minDate = availableDateObjects.reduce((a, b) => a < b ? a : b);
+                  const maxDate = availableDateObjects.reduce((a, b) => a > b ? a : b);
+
                   return (
-                    <div className="flex flex-wrap gap-2">
-                      {dates.map((d) => (
-                        <button
-                          key={d.dateStr}
-                          type="button"
-                          onClick={() => handleSelectDate(d.dateStr)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-                            selectedDate === d.dateStr
-                              ? `${projColor.badge} ${projColor.border}`
-                              : "bg-background text-foreground border-border hover:bg-muted"
-                          )}
-                        >
-                          {d.label}
-                        </button>
-                      ))}
+                    <div className="flex justify-center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate ? new Date(selectedDate + "T12:00:00") : undefined}
+                        onSelect={(date) => {
+                          if (date) handleSelectDate(format(date, "yyyy-MM-dd"));
+                        }}
+                        disabled={(date) => {
+                          const dateStr = format(date, "yyyy-MM-dd");
+                          return !availableDateSet.has(dateStr);
+                        }}
+                        fromDate={minDate}
+                        toDate={maxDate}
+                        className="rounded-md border"
+                      />
                     </div>
                   );
                 })()}
