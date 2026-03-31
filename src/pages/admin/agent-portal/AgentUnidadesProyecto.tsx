@@ -422,7 +422,8 @@ const AgentUnidadesProyecto = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenFilters}
-            className="flex items-center gap-2 px-4 h-10 rounded-xl border border-gray-200 bg-white text-sm font-medium"
+            className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[hsl(214.3_31.8%_91.4%)] bg-[hsl(0_0%_100%)] text-[hsl(222.2_84%_4.9%)] shadow-sm text-sm font-medium"
+            style={{ colorScheme: "light" }}
           >
             <SlidersHorizontal className="h-4 w-4" />
             Filtros
@@ -433,13 +434,13 @@ const AgentUnidadesProyecto = () => {
             )}
           </button>
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--agent-text-secondary))]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(215.4_16.3%_46.9%)]" />
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-9 pr-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-sm font-medium text-[hsl(var(--agent-text))] placeholder:text-[hsl(var(--agent-text-secondary))] placeholder:opacity-100 caret-[hsl(var(--agent-primary))] shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full h-10 pl-9 pr-3 rounded-xl border border-[hsl(214.3_31.8%_91.4%)] bg-[hsl(0_0%_100%)] text-sm font-medium text-[hsl(222.2_84%_4.9%)] placeholder:text-[hsl(215.4_16.3%_46.9%)] placeholder:opacity-100 caret-[hsl(222.2_84%_4.9%)] shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               placeholder="Buscar..."
-              style={{ WebkitTextFillColor: "hsl(var(--agent-text))" }}
+              style={{ WebkitTextFillColor: "hsl(222.2 84% 4.9%)", colorScheme: "light" }}
             />
           </div>
           <button
