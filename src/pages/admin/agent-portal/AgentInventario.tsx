@@ -265,7 +265,7 @@ function ProjectCard({
     <>
       <div className="rounded-xl bg-white border border-gray-100 shadow-sm overflow-hidden">
         {/* Image with overlay */}
-        <div className="relative h-44 w-full overflow-hidden">
+        <div className="relative h-44 lg:h-auto lg:aspect-video w-full overflow-hidden">
           {proyecto.imagen_url ? (
             <img
               src={proyecto.imagen_url}
