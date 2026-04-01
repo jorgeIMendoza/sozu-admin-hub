@@ -555,7 +555,7 @@ const AgentUnidadesProyecto = () => {
 
       {/* Property Detail Dialog */}
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogContent className="light max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>Departamento {selectedProperty?.numero || selectedProperty?.id} de {selectedProperty?.proyecto_nombre}</DialogTitle>
           </DialogHeader>
