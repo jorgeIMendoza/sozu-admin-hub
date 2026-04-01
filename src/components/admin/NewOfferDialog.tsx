@@ -188,11 +188,12 @@ interface NewOfferDialogProps {
   customTrigger?: React.ReactNode; // Optional custom trigger element
   preSelectedSchemeId?: number | null; // Pre-selected payment scheme from inventory detail
   onTrackSubmit?: () => void; // Optional callback to track "Generar Oferta" submit inside modal
-  onTrackFillIntent?: () => void; // Optional callback to track first field fill in the modal
-  hideBankingInPdf?: boolean; // Hide banking section in generated PDF (for unverified agents)
+  onTrackFillIntent?: () => void;
+  hideBankingInPdf?: boolean;
+  forceLight?: boolean; // Force light mode on dialog (for agent portal on mobile)
 }
 
-export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger, preSelectedSchemeId, onTrackSubmit, onTrackFillIntent, hideBankingInPdf = false }: NewOfferDialogProps) {
+export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = false, hideManualMode = false, hidePdfOptions = false, customTrigger, preSelectedSchemeId, onTrackSubmit, onTrackFillIntent, hideBankingInPdf = false, forceLight = false }: NewOfferDialogProps) {
   const fillIntentTracked = React.useRef(false);
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1369,7 +1370,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[600px] max-h-[90vh] overflow-y-auto", forceLight && "light")}>
         <DialogHeader>
           <DialogTitle>Configurar Oferta</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -2432,7 +2433,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
 
     {/* Confirmation Dialog for generating multiple offers */}
     <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-      <AlertDialogContent className="max-w-lg">
+      <AlertDialogContent className={cn("max-w-lg", forceLight && "light")}>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-500" />

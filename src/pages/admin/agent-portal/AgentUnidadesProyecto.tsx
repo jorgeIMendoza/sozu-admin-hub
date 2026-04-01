@@ -499,7 +499,7 @@ const AgentUnidadesProyecto = () => {
 
       {/* Filters Drawer */}
       <Drawer open={filtersDrawerOpen} onOpenChange={setFiltersDrawerOpen}>
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="light max-h-[85vh]">
           <DrawerHeader className="pb-2">
             <DrawerTitle className="flex items-center justify-between">
               <span>Filtrar unidades</span>
@@ -555,7 +555,7 @@ const AgentUnidadesProyecto = () => {
 
       {/* Property Detail Dialog */}
       <Dialog open={!!selectedProperty} onOpenChange={(open) => !open && setSelectedProperty(null)}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogContent className="light max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-3 shrink-0">
             <DialogTitle>Departamento {selectedProperty?.numero || selectedProperty?.id} de {selectedProperty?.proyecto_nombre}</DialogTitle>
           </DialogHeader>
@@ -690,6 +690,7 @@ const AgentUnidadesProyecto = () => {
                       hidePdfOptions={true}
                       preSelectedSchemeId={selectedSchemeId}
                       hideBankingInPdf={isAgentRole && !hasBasicIdentityComplete}
+                      forceLight={true}
                       customTrigger={
                         <button className="group relative w-full inline-flex items-center justify-center gap-3 px-8 py-4 rounded-full bg-emerald-600 text-white font-semibold text-sm shadow-lg hover:bg-emerald-700 active:scale-[0.98] transition-all">
                           <FileText className="h-5 w-5" />

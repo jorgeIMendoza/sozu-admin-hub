@@ -180,7 +180,7 @@ export function PipelineOfferDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md mx-auto p-0 gap-0 rounded-2xl max-h-[90vh]">
+      <DialogContent className="light max-w-md mx-auto p-0 gap-0 rounded-2xl max-h-[90vh]">
         <DialogHeader className="p-4 pb-2 border-b">
           <DialogTitle className="text-base font-bold text-center">
             Detalle de Oferta
