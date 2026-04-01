@@ -280,7 +280,7 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
       const numeroDepa = resolveDepto(rawPropertyNumber, numeroPiso);
 
       // 4. Query plano arquitectónico específico
-      let planoArqUrl: string | null = planoArquitectonico;
+      let planoArqUrl: string | null = null;
       const emId = emData?.id;
       if (emId && numeroPiso && numeroDepa) {
         const { data: planosArq } = await (supabase as any)
@@ -297,9 +297,16 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
             return depts.some(d => d === numeroDepa || normalizeForMatch(d) === normalizeForMatch(numeroDepa));
           });
           if (depaMatch) {
-            planoArqUrl = depaMatch.imagen_url || planoArqUrl;
+            planoArqUrl = depaMatch.imagen_url || null;
           }
+          // No match → stays null (unit not configured)
+        } else {
+          // No specific plans for this level → use generic model plan
+          planoArqUrl = planoArquitectonico;
         }
+      } else {
+        // No building-model or floor info → use generic model plan
+        planoArqUrl = planoArquitectonico;
       }
 
       // 5. Query plano de ubicación

@@ -219,7 +219,7 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
       const numeroDepa = numeroDepaRaw.length === 1 ? numeroDepaRaw.padStart(2, "0") : numeroDepaRaw;
 
       // Fetch plano arquitectónico from modelos_planos_arquitectonicos by nivel + depto
-      let planoArqUrl: string | null = planoArquitectonico; // fallback to generic model plan
+      let planoArqUrl: string | null = null;
       const emId = emData?.id;
       if (emId && numeroPiso && numeroDepa) {
         const { data: planosArq } = await supabase
@@ -229,16 +229,23 @@ export function useClientePropiedadDetalle(cuentaId: number | null | undefined) 
           .eq("nivel", numeroPiso)
           .eq("activo", true);
         if (planosArq && planosArq.length > 0) {
-          // Find a plan that has this depto assigned
+          // Entries exist for this level — only use a match, never fallback to generic
           const normalizeForMatch = (v: string) => v.replace(/^0+/, "") || "0";
           const depaMatch = (planosArq as any[]).find((p: any) => {
             const depts: string[] = Array.isArray(p.departamentos) ? p.departamentos : [];
             return depts.some(d => d === numeroDepa || normalizeForMatch(d) === normalizeForMatch(numeroDepa));
           });
           if (depaMatch) {
-            planoArqUrl = (depaMatch as any).imagen_url || planoArqUrl;
+            planoArqUrl = (depaMatch as any).imagen_url || null;
           }
+          // If no match found, planoArqUrl stays null — unit not configured
+        } else {
+          // No specific plans for this level — use generic model plan as fallback
+          planoArqUrl = planoArquitectonico;
         }
+      } else {
+        // No building-model or floor info — use generic model plan as fallback
+        planoArqUrl = planoArquitectonico;
       }
 
       // Model image
