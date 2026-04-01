@@ -1370,7 +1370,7 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[600px] max-h-[90vh] overflow-y-auto", forceLight && "light")}>
         <DialogHeader>
           <DialogTitle>Configurar Oferta</DialogTitle>
           <p className="text-sm text-muted-foreground">
