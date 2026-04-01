@@ -317,11 +317,39 @@ const AgentProyectoDetalle = () => {
         }
       });
 
+      // Fetch floor plans for each edificio_modelo
+      const { data: planos } = await (supabase as any)
+        .from("modelos_planos_arquitectonicos")
+        .select("id, id_edificio_modelo, imagen_url")
+        .in("id_edificio_modelo", emIds)
+        .eq("activo", true);
+
+      // Find the most common floor plan per modelo (the one appearing in most edificio_modelos)
+      const planosPorModelo = new Map<number, string>();
+      if (planos?.length) {
+        for (const [mid, entry] of modeloMap.entries()) {
+          const modelPlanos = planos.filter((pl: any) => entry.emIds.includes(pl.id_edificio_modelo));
+          if (modelPlanos.length > 0) {
+            // Count occurrences of each imagen_url
+            const urlCounts = new Map<string, number>();
+            modelPlanos.forEach((pl: any) => {
+              urlCounts.set(pl.imagen_url, (urlCounts.get(pl.imagen_url) || 0) + 1);
+            });
+            // Pick the most frequent
+            let bestUrl = modelPlanos[0].imagen_url;
+            let bestCount = 0;
+            urlCounts.forEach((count, url) => { if (count > bestCount) { bestCount = count; bestUrl = url; } });
+            planosPorModelo.set(mid, bestUrl);
+          }
+        }
+      }
+
       return Array.from(modeloMap.values()).map(v => ({
         ...v.modelo,
         minPrice: v.minPrice === Infinity ? null : v.minPrice,
         m2: v.m2 || null,
         availableCount: v.availableCount,
+        planoUrl: planosPorModelo.get(v.modelo.id) || null,
       }));
     },
     enabled: projectId > 0,
