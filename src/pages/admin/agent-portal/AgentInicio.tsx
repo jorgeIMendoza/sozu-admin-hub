@@ -456,7 +456,6 @@ const AgentInicio = () => {
                       </span>
                     );
                   })()}
-                  </div>
                 </div>
               ))}
             </div>
