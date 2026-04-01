@@ -531,7 +531,7 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
 
           <Tabs defaultValue="ubicacion" className="w-full">
             <TabsList className="w-full">
-              <TabsTrigger value="ubicacion" className="flex-1 text-xs">
+              <TabsTrigger value="ubicacion" className="flex-1 text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
                 <MapPin className="h-3.5 w-3.5 mr-1.5" />
                 Ubicación
               </TabsTrigger>
