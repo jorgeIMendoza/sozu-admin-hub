@@ -624,7 +624,7 @@ const AgentProyectoDetalle = () => {
             <h2 className="text-xs font-semibold text-[hsl(var(--agent-primary))] tracking-widest uppercase mb-3">Modelos</h2>
             <div className="flex overflow-x-auto gap-3 pb-2 -mx-1 px-1">
               {modelos.map((m: any) => {
-                const modelImage = m.url_imagen_portada || m.plano_arquitectonico;
+                
                 return (
                   <div key={m.id} className="min-w-[260px] max-w-[280px] flex-shrink-0 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                     {(() => {
