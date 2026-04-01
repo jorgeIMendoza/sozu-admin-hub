@@ -377,7 +377,68 @@ const AgentInicio = () => {
         )}
       </div>
 
-      {/* Dialogs */}
+      {/* Citas agendadas */}
+      {(citasProximas.length > 0 || citasHistorial.length > 0) && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-[hsl(var(--agent-text))] px-1 flex items-center gap-1.5">
+            <Calendar className="h-4 w-4 text-[hsl(var(--agent-primary))]" />
+            Citas
+          </h2>
+
+          {citasProximas.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Próximas</p>
+              {citasProximas.map((cita: any) => (
+                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
+                      {cita.tipos_cita?.nombre || 'Cita'} {cita.proyectos?.nombre ? `· ${cita.proyectos.nombre}` : ''}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-[hsl(var(--agent-text-secondary))] flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · {cita.hora_inicio?.slice(0, 5)}
+                      </span>
+                      {cita.ubicacion && <span className="text-xs text-[hsl(var(--agent-text-secondary))]">· {cita.ubicacion}</span>}
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                    cita.id_estatus_cita === 3 ? 'bg-green-100 text-green-700' :
+                    cita.id_estatus_cita === 1 ? 'bg-blue-100 text-blue-700' :
+                    'bg-amber-100 text-amber-700'
+                  }`}>
+                    {cita.estatus_cita?.nombre || cita.estatus || 'Pendiente'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {citasHistorial.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Historial</p>
+              {citasHistorial.map((cita: any) => (
+                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 opacity-70">
+                  <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
+                      {cita.tipos_cita?.nombre || 'Cita'} {cita.proyectos?.nombre ? `· ${cita.proyectos.nombre}` : ''}
+                    </p>
+                    <span className="text-xs text-[hsl(var(--agent-text-secondary))]">
+                      {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {inicioPerms.canCreate && (
         <>
           <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
