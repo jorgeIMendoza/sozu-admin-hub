@@ -28,7 +28,7 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
       // 2. Get edificio_modelo with modelo fallback
       const { data: emData } = await (supabase as any)
         .from("edificios_modelos")
-        .select("id, id_edificio, id_modelo, modelos(plano_arquitectonico)")
+        .select("id, id_edificio, id_modelo, modelos!edificios_modelos_id_modelo_fkey(plano_arquitectonico)")
         .eq("id", prop.id_edificio_modelo)
         .single();
 
