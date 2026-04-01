@@ -1205,8 +1205,8 @@ Deno.serve(async (req) => {
       const prospLabel = prospectoName ? `${prospectoName} (${prospectoEmail})` : prospectoEmail;
       const agentLabel = agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal;
       desc = scheduleDescInv 
-        ? `${scheduleDescInv}${notasSection}\n\n--- Prospecto ---\n• ${prospLabel}\n\n--- Agente ---\n• ${agentLabel}`
-        : `Cita con prospecto: ${prospLabel}${notasSection}\n\n--- Agente ---\n• ${agentLabel}`;
+        ? `${scheduleDescInv}${notasSection}\n\n--- Invitado ---\n• ${prospLabel}\n\n--- Atiende ---\n• ${agentLabel}`
+        : `Cita con prospecto: ${prospLabel}${notasSection}\n\n--- Atiende ---\n• ${agentLabel}`;
     } else {
       desc = scheduleDescInv 
         ? `${scheduleDescInv}${notasSection}\n\n--- Asistentes ---\n• ${agentName ? `${agentName} (${agentEmailFinal})` : agentEmailFinal}`
