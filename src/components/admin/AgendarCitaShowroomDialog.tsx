@@ -294,6 +294,14 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
       const hour = parseInt(selectedHour);
       const horaInicio = `${String(hour).padStart(2, "0")}:00`;
 
+      // Find the selected slot to get its tipo_cita_id
+      const selectedSlot = selectedDateData?.slots?.find(
+        (s: any) => s.hour === hour && s.configId === selectedConfigId
+      );
+      // Get tipo_cita_id from the config
+      const configData = availabilityData?.configs?.find((c: any) => c.id === selectedConfigId);
+      const tipoCitaId = configData?.tipo_cita_id || 2;
+
       const { data: fnData, error: fnError } = await supabase.functions.invoke("agendar-capacitacion", {
         body: {
           fecha: selectedDate,
@@ -305,6 +313,8 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           id_agente: effectivePersonaId,
           id_proyecto: selectedProyectoId,
           notas: notas || null,
+          tipo_cita_id: tipoCitaId,
+          prospecto_email: selectedProspectoData?.email || null,
         },
       });
 
