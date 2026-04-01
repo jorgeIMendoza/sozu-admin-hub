@@ -643,10 +643,19 @@ const AgentProyectoDetalle = () => {
                           <p className="text-base font-bold text-foreground italic">{formatCurrency(m.minPrice)}</p>
                         </div>
                       )}
+                      {m.planoUrl && (
+                        <button
+                          onClick={() => setPlanoModeloUrl(m.planoUrl)}
+                          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-medium text-muted-foreground hover:bg-gray-50 transition-colors"
+                        >
+                          <FileImage className="h-3.5 w-3.5" />
+                          Ver plano
+                        </button>
+                      )}
                       {m.availableCount > 0 && (
                         <button
                           onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_ver_unidades_modelo', elementLabel: 'Ver unidades', metadata: { modelo_id: m.id } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`); }}
-                          className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
+                          className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
                         >
                           Ver unidades
                           <ChevronRight className="h-4 w-4" />
