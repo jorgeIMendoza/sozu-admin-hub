@@ -345,12 +345,30 @@ const AgentProyectoDetalle = () => {
         }
       }
 
+      // Fetch multimedia images per modelo
+      const modeloIds = Array.from(modeloMap.keys());
+      const { data: multimediaModelos } = await (supabase as any)
+        .from("multimedias_modelo")
+        .select("id, id_modelo, url")
+        .in("id_modelo", modeloIds)
+        .eq("activo", true)
+        .eq("es_imagen", true);
+
+      const multimediaPorModelo = new Map<number, string[]>();
+      (multimediaModelos || []).forEach((mm: any) => {
+        if (!multimediaPorModelo.has(mm.id_modelo)) {
+          multimediaPorModelo.set(mm.id_modelo, []);
+        }
+        multimediaPorModelo.get(mm.id_modelo)!.push(mm.url);
+      });
+
       return Array.from(modeloMap.values()).map(v => ({
         ...v.modelo,
         minPrice: v.minPrice === Infinity ? null : v.minPrice,
         m2: v.m2 || null,
         availableCount: v.availableCount,
         planoUrl: planosPorModelo.get(v.modelo.id) || null,
+        multimediaImages: multimediaPorModelo.get(v.modelo.id) || [],
       }));
     },
     enabled: projectId > 0,
