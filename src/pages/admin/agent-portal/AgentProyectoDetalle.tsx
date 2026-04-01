@@ -785,6 +785,17 @@ const AgentProyectoDetalle = () => {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Plano de modelo dialog */}
+      <Dialog open={!!planoModeloUrl} onOpenChange={() => setPlanoModeloUrl(null)}>
+        <DialogContent className="max-w-lg p-2">
+          <DialogHeader>
+            <DialogTitle>Plano arquitectónico</DialogTitle>
+          </DialogHeader>
+          {planoModeloUrl && (
+            <img src={planoModeloUrl} alt="Plano del modelo" className="w-full object-contain max-h-[70vh] rounded-lg" />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
