@@ -350,6 +350,15 @@ export function PlanoArquitectonicoUpload({ currentUrl, onUrlChange, modeloId, p
   }
 
   return (
+    <>
+      {/* Image preview dialog */}
+      {previewUrl && (
+        <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
+          <DialogContent className="sm:max-w-[90vw] max-h-[90vh] p-2 bg-foreground/95 border-none">
+            <img src={previewUrl} alt="Vista previa" className="w-full h-full max-h-[85vh] object-contain rounded" />
+          </DialogContent>
+        </Dialog>
+      )}
     <div className="space-y-2">
       <Label>Planos Arquitectónicos por Piso</Label>
       <p className="text-[10px] text-muted-foreground">
