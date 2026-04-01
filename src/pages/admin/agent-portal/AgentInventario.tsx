@@ -181,8 +181,8 @@ const AgentInventario = () => {
                 track({ page: 'agent_inventario', elementId: 'input_buscar_desarrollo', elementLabel: 'Buscar desarrollo', elementType: 'input' });
               }
             }}
-            className="pl-9 h-10 rounded-xl bg-[hsl(var(--card))] border-[hsl(var(--border))] text-[hsl(var(--agent-text))] placeholder:text-[hsl(var(--agent-text-secondary))]"
-            style={{ WebkitTextFillColor: "hsl(var(--agent-text))" }}
+            className="pl-9 h-10 rounded-xl border-[hsl(214.3_31.8%_91.4%)] bg-[hsl(0_0%_100%)] text-[hsl(222.2_84%_4.9%)] placeholder:text-[hsl(215.4_16.3%_46.9%)] placeholder:opacity-100 caret-[hsl(222.2_84%_4.9%)] shadow-sm"
+            style={{ WebkitTextFillColor: "hsl(222.2 84% 4.9%)", colorScheme: "light" }}
           />
         </div>
       </AgentPortalHeader>
