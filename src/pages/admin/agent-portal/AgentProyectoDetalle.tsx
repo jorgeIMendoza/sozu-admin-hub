@@ -65,6 +65,8 @@ const AgentProyectoDetalle = () => {
   const { track } = useCtaTracker();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
+  const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
+  const [showAllAmenidades, setShowAllAmenidades] = useState(false);
 
   const publicUrl = `https://www.sozu.com/desarrollos/${projectId}`;
 
