@@ -274,7 +274,7 @@ const AgentProyectoDetalle = () => {
       // Get edificios_modelos with modelo info
       const { data: edModelos, error: emError } = await (supabase as any)
         .from("edificios_modelos")
-        .select("id, id_modelo, id_edificio, modelos!fk_edificios_modelos_modelo(id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano)")
+        .select("id, id_modelo, id_edificio, modelos!fk_edificios_modelos_modelo(id, nombre, numero_recamaras, numero_completo_banos, numero_medio_bano, url_imagen_portada, plano_arquitectonico)")
         .in("id_edificio", edIds);
 
       if (emError) { console.error("edModelos error:", emError); return []; }
