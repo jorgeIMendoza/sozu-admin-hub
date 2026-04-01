@@ -1091,15 +1091,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "no_disponible", message: "El horario seleccionado no está disponible." }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Get agent name for description
+    // Get agent name for description — use id_agente when available (showroom), fallback to id_persona
     let agentName = "";
-    const { data: personaData } = await supabase
-      .from("personas")
-      .select("nombre_legal, email")
-      .eq("id", id_persona)
-      .maybeSingle();
-    agentName = personaData?.nombre_legal || "";
-    const agentEmailFinal = agent_email || personaData?.email || "";
+    let agentEmailFinal = agent_email || "";
+    const agentIdForLookup = id_agente || id_persona;
+    if (agentIdForLookup) {
+      const { data: agentData } = await supabase
+        .from("personas")
+        .select("nombre_legal, email")
+        .eq("id", agentIdForLookup)
+        .maybeSingle();
+      agentName = agentData?.nombre_legal || "";
+      if (!agentEmailFinal) agentEmailFinal = agentData?.email || "";
+    }
 
     // Resolve prospect email if this is a showroom/prospect appointment
     let prospectoEmail = prospecto_email || "";
