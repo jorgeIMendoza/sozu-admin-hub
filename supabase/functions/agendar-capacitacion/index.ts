@@ -1264,7 +1264,11 @@ Deno.serve(async (req) => {
       resultCita = newCita;
     }
 
-    return new Response(JSON.stringify({ success: true, meet_link: meetLink, event_id: calendarEvent.id, cita: resultCita }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const responsePayload: any = { success: true, meet_link: meetLink, event_id: calendarEvent.id, cita: resultCita };
+    if (!attendeesAdded && bookingAttendees.length > 0) {
+      responsePayload.warning = "El evento se creó pero Google no pudo agregar invitados. El prospecto podría no recibir la notificación por correo.";
+    }
+    return new Response(JSON.stringify(responsePayload), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error: unknown) {
     console.error("Error in agendar-capacitacion:", error);
