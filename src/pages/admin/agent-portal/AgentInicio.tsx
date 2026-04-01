@@ -197,8 +197,22 @@ const AgentInicio = () => {
   });
 
   const today = new Date().toISOString().split('T')[0];
-  const citasProximas = citas.filter((c: any) => c.fecha >= today && (!c.id_estatus_cita || c.id_estatus_cita <= 3));
-  const citasHistorial = citas.filter((c: any) => c.fecha < today || (c.id_estatus_cita && c.id_estatus_cita > 3)).slice(0, 5);
+  const citasProximas = citas.filter((c: any) => c.fecha >= today);
+  const citasHistorial = citas.filter((c: any) => c.fecha < today).slice(0, 5);
+
+  const getCitaStatusBadge = (cita: any) => {
+    const isPast = cita.fecha < today;
+    if (!isPast) {
+      return { label: 'Agendada', className: 'bg-blue-100 text-blue-700' };
+    }
+    if (cita.estatus === 'asistio') {
+      return { label: 'Asistió', className: 'bg-green-100 text-green-700' };
+    }
+    if (cita.estatus === 'no_asistio') {
+      return { label: 'No asistió', className: 'bg-red-100 text-red-700' };
+    }
+    return { label: 'Sin confirmar', className: 'bg-gray-100 text-gray-500' };
+  };
 
   const isLoading = onboardingLoading || metricsLoading;
 
