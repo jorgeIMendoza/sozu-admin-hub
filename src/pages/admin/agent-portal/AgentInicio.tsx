@@ -197,8 +197,22 @@ const AgentInicio = () => {
   });
 
   const today = new Date().toISOString().split('T')[0];
-  const citasProximas = citas.filter((c: any) => c.fecha >= today && (!c.id_estatus_cita || c.id_estatus_cita <= 3));
-  const citasHistorial = citas.filter((c: any) => c.fecha < today || (c.id_estatus_cita && c.id_estatus_cita > 3)).slice(0, 5);
+  const citasProximas = citas.filter((c: any) => c.fecha >= today);
+  const citasHistorial = citas.filter((c: any) => c.fecha < today).slice(0, 5);
+
+  const getCitaStatusBadge = (cita: any) => {
+    const isPast = cita.fecha < today;
+    if (!isPast) {
+      return { label: 'Agendada', className: 'bg-blue-100 text-blue-700' };
+    }
+    if (cita.estatus === 'asistio') {
+      return { label: 'Asistió', className: 'bg-green-100 text-green-700' };
+    }
+    if (cita.estatus === 'no_asistio') {
+      return { label: 'No asistió', className: 'bg-red-100 text-red-700' };
+    }
+    return { label: 'Sin confirmar', className: 'bg-gray-100 text-gray-500' };
+  };
 
   const isLoading = onboardingLoading || metricsLoading;
 
@@ -405,13 +419,14 @@ const AgentInicio = () => {
                       {cita.ubicacion && <span className="text-xs text-[hsl(var(--agent-text-secondary))]">· {cita.ubicacion}</span>}
                     </div>
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                    cita.id_estatus_cita === 3 ? 'bg-green-100 text-green-700' :
-                    cita.id_estatus_cita === 1 ? 'bg-blue-100 text-blue-700' :
-                    'bg-amber-100 text-amber-700'
-                  }`}>
-                    {cita.estatus_cita?.nombre || cita.estatus || 'Pendiente'}
-                  </span>
+                  {(() => {
+                    const badge = getCitaStatusBadge(cita);
+                    return (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -433,6 +448,14 @@ const AgentInicio = () => {
                       {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   </div>
+                  {(() => {
+                    const badge = getCitaStatusBadge(cita);
+                    return (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
