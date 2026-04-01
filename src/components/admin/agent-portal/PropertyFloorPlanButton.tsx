@@ -497,7 +497,7 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
         className="w-full flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-muted/30 py-3 text-sm font-medium text-foreground hover:bg-muted/60 transition-colors"
       >
         <FileImage className="h-4 w-4 text-muted-foreground" />
-        Plano
+        Planos
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -531,7 +531,7 @@ export function PropertyFloorPlanButton({ propertyId }: PropertyFloorPlanButtonP
 
           <Tabs defaultValue="ubicacion" className="w-full">
             <TabsList className="w-full">
-              <TabsTrigger value="ubicacion" className="flex-1 text-xs">
+              <TabsTrigger value="ubicacion" className="flex-1 text-xs data-[state=active]:bg-emerald-500 data-[state=active]:text-white">
                 <MapPin className="h-3.5 w-3.5 mr-1.5" />
                 Ubicación
               </TabsTrigger>
