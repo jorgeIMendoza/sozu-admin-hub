@@ -427,7 +427,7 @@ async function patchEventWithAttendee(
   return updated;
 }
 
-async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string }[], description?: string, location?: string) {
+async function createCalendarEvent(token: string, calendarId: string, fecha: string, horaInicio: string, horaFin: string, summary: string, agentEmail: string, attendees?: { email: string; displayName?: string; organizer?: boolean; responseStatus?: string }[], description?: string, location?: string) {
   const event: any = {
     summary,
     start: { dateTime: `${fecha}T${horaInicio}:00`, timeZone: "America/Mexico_City" },
