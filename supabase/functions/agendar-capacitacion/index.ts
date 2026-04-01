@@ -1075,7 +1075,7 @@ Deno.serve(async (req) => {
       .eq("activo", true);
     
     if (id_persona_prospecto) {
-      oldCitaQuery = oldCitaQuery.eq("id_persona_prospecto", id_persona_prospecto).eq("id_tipo_cita", 2);
+      oldCitaQuery = oldCitaQuery.eq("id_persona_prospecto", id_persona_prospecto).in("id_tipo_cita", [2, 5]);
     } else {
       oldCitaQuery = oldCitaQuery.eq("id_persona", id_persona);
     }
