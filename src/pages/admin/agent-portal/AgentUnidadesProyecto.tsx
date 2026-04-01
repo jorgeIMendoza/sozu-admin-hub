@@ -387,7 +387,7 @@ const AgentUnidadesProyecto = () => {
   };
 
   return (
-    <div className="pb-24">
+    <div className="pb-24 light" style={{ colorScheme: "light" }}>
       {/* No verificado badge - fixed */}
       {isAgentRole && !isLoadingOnboarding && percentage < 100 && (
         <div className="fixed top-3 right-4 z-50">
