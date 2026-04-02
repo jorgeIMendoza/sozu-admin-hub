@@ -5923,7 +5923,7 @@ const Propiedades = () => {
                                            if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
                                              const { data: schemeData } = await supabase
                                                .from('esquemas_pago')
-                                               .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                                .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, tramos_mensualidad, porcentaje_descuento_aumento')
                                                .eq('id', offer.esquema_id)
                                                .eq('es_manual', false)
                                                .single();
