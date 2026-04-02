@@ -1917,13 +1917,39 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
   return (
     <div className="space-y-5 pb-4">
-      {/* Config name removed from here — shown below in Fechas disponibles */}
-
-      {/* Status */}
-      {(existingCita || citaCancelledExternally) && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-foreground">Estado actual:</span>
-          {getStatusBadge()}
+      {/* Existing citas list */}
+      {allCitas.length > 0 && (
+        <div className="space-y-2">
+          <span className="text-sm font-semibold text-foreground">Tus capacitaciones</span>
+          <div className="space-y-2">
+            {allCitas.map((cita: any) => {
+              const estatusCita = cita.id_estatus_cita;
+              const cfgName = trainingConfigs.find((c: any) => c.id === cita.id_configuracion_cita)?.nombre;
+              const badge = estatusCita === 3 || cita.estatus === 'asistio'
+                ? <Badge className="bg-emerald-500 text-white border-0 text-[10px]"><CheckCircle2 className="h-3 w-3 mr-0.5" />Confirmada</Badge>
+                : estatusCita === 2
+                  ? <Badge className="bg-amber-500 text-white border-0 text-[10px]"><Clock className="h-3 w-3 mr-0.5" />Pend. confirmación</Badge>
+                  : estatusCita === 1 || cita.estatus === 'programada'
+                    ? <Badge className="bg-blue-500 text-white border-0 text-[10px]"><CalendarDays className="h-3 w-3 mr-0.5" />Agendada</Badge>
+                    : cita.estatus === 'no_asistio'
+                      ? <Badge variant="destructive" className="text-[10px]">No asistió</Badge>
+                      : null;
+              return (
+                <div key={cita.id} className="flex items-center justify-between rounded-lg border border-border/60 p-2.5 bg-card">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium">{cita.fecha}</span>
+                      {cita.hora_inicio !== '00:00' && (
+                        <span className="text-[10px] text-muted-foreground">{cita.hora_inicio?.slice(0, 5)}</span>
+                      )}
+                      {badge}
+                    </div>
+                    {cfgName && <p className="text-[10px] text-muted-foreground">{cfgName}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1945,17 +1971,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
         </div>
       )}
 
-      {isCompleted ? (
-        <div className="text-center py-6 space-y-2">
-          <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
-          <p className="text-sm font-semibold text-emerald-600">¡Capacitación completada!</p>
-          <p className="text-xs text-muted-foreground">
-            {existingCita?.fecha
-              ? `Asistencia confirmada el ${existingCita.fecha}.`
-              : 'Este paso ya está completado. No requiere acción adicional.'}
-          </p>
-        </div>
-      ) : isPendingConfirmation ? (
+      {isPendingConfirmation && !allCompleted ? (
         <div className="text-center py-6 space-y-2">
           <Clock className="h-12 w-12 text-amber-500 mx-auto" />
           <p className="text-sm font-semibold text-amber-600">Pendiente de confirmación</p>
