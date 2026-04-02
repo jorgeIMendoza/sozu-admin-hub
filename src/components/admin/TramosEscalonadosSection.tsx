@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, DollarSign } from "lucide-react";
 
 export interface Tramo {
   orden: number;
   numero_mensualidades: number;
+  monto_mensualidad?: number;
 }
 
 interface TramosEscalonadosSectionProps {
@@ -18,6 +19,8 @@ interface TramosEscalonadosSectionProps {
   onTramosChange: (tramos: Tramo[]) => void;
   totalMensualidades: number;
   visible: boolean;
+  /** When true, shows a fixed-amount input per tramo */
+  allowFixedAmount?: boolean;
 }
 
 export const TramosEscalonadosSection = ({
@@ -27,12 +30,15 @@ export const TramosEscalonadosSection = ({
   onTramosChange,
   totalMensualidades,
   visible,
+  allowFixedAmount = true,
 }: TramosEscalonadosSectionProps) => {
   if (!visible) return null;
 
   const sumTramos = tramos.reduce((sum, t) => sum + (t.numero_mensualidades || 0), 0);
   const isValid = sumTramos === totalMensualidades;
   const remaining = totalMensualidades - sumTramos;
+
+  const hasAnyMonto = tramos.some(t => t.monto_mensualidad && t.monto_mensualidad > 0);
 
   const addTramo = () => {
     if (tramos.length >= 3) return;
@@ -50,9 +56,9 @@ export const TramosEscalonadosSection = ({
     onTramosChange(updated);
   };
 
-  const updateTramo = (index: number, value: number) => {
+  const updateTramo = (index: number, field: keyof Tramo, value: number) => {
     const updated = tramos.map((t, i) =>
-      i === index ? { ...t, numero_mensualidades: value } : t
+      i === index ? { ...t, [field]: value } : t
     );
     onTramosChange(updated);
   };
@@ -60,7 +66,6 @@ export const TramosEscalonadosSection = ({
   const handleToggle = (checked: boolean) => {
     onEnabledChange(checked);
     if (checked && tramos.length === 0) {
-      // Auto-create 2 tramos splitting evenly
       const half = Math.floor(totalMensualidades / 2);
       onTramosChange([
         { orden: 1, numero_mensualidades: half },
@@ -70,6 +75,14 @@ export const TramosEscalonadosSection = ({
     if (!checked) {
       onTramosChange([]);
     }
+  };
+
+  const formatMonto = (centavos: number) => {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 0,
+    }).format(centavos / 100);
   };
 
   return (
@@ -90,33 +103,60 @@ export const TramosEscalonadosSection = ({
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
             Divide las {totalMensualidades} mensualidades en bloques. La suma debe ser igual al total.
+            {allowFixedAmount && (
+              <> Opcionalmente define un monto fijo por mensualidad en cada tramo.</>
+            )}
           </p>
 
           {tramos.map((tramo, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground w-16 shrink-0">
-                Tramo {tramo.orden}:
-              </span>
-              <Input
-                type="number"
-                min="1"
-                max={totalMensualidades}
-                value={tramo.numero_mensualidades || ""}
-                onChange={(e) => updateTramo(index, parseInt(e.target.value) || 0)}
-                className="h-8"
-                placeholder="Mensualidades"
-              />
-              <span className="text-xs text-muted-foreground shrink-0">meses</span>
-              {tramos.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-destructive"
-                  onClick={() => removeTramo(index)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+            <div key={index} className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground w-16 shrink-0">
+                  Tramo {tramo.orden}:
+                </span>
+                <Input
+                  type="number"
+                  min="1"
+                  max={totalMensualidades}
+                  value={tramo.numero_mensualidades || ""}
+                  onChange={(e) => updateTramo(index, "numero_mensualidades", parseInt(e.target.value) || 0)}
+                  className="h-8"
+                  placeholder="Meses"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">meses</span>
+                {tramos.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive"
+                    onClick={() => removeTramo(index)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              {allowFixedAmount && (
+                <div className="flex items-center gap-2 ml-16">
+                  <DollarSign className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <Input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={tramo.monto_mensualidad ? tramo.monto_mensualidad / 100 : ""}
+                    onChange={(e) => {
+                      const pesos = parseFloat(e.target.value) || 0;
+                      updateTramo(index, "monto_mensualidad", Math.round(pesos * 100));
+                    }}
+                    className="h-7 text-xs"
+                    placeholder="Monto por mes (MXN, opcional)"
+                  />
+                  {tramo.monto_mensualidad && tramo.monto_mensualidad > 0 && (
+                    <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap">
+                      = {formatMonto(tramo.monto_mensualidad * tramo.numero_mensualidades)} total
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -146,6 +186,12 @@ export const TramosEscalonadosSection = ({
               {remaining > 0
                 ? `Faltan ${remaining} mensualidades por asignar.`
                 : `Excede por ${Math.abs(remaining)} mensualidades.`}
+            </p>
+          )}
+
+          {allowFixedAmount && hasAnyMonto && (
+            <p className="text-xs text-muted-foreground border-t pt-2">
+              💡 Al definir montos fijos, el porcentaje de mensualidades se ignorará y el restante irá a contra-entrega automáticamente al generar la oferta.
             </p>
           )}
         </div>
