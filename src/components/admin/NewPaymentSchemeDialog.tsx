@@ -82,12 +82,12 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
 
   const remainingPercentage = 100 - (parseFloat(watchedEnganche || "0") + parseFloat(watchedMensualidades || "0"));
 
-  // Auto-set numero_mensualidades to 0 when porcentaje_mensualidades is 0
+  // Auto-set numero_mensualidades to 0 only when porcentaje_mensualidades is 0 AND no tramos with fixed amounts
   useEffect(() => {
-    if (mensualidadesPct === 0) {
+    if (mensualidadesPct === 0 && !tramosEnabled) {
       form.setValue("numero_mensualidades", "0");
     }
-  }, [watchedMensualidades, form]);
+  }, [watchedMensualidades, tramosEnabled, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>, event?: any) => {
     if (event) {
