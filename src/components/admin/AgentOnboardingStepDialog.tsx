@@ -1493,36 +1493,30 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     staleTime: 0,
   });
 
-  // Fetch existing appointment — prioritize completed (asistio) over others
-  const { data: existingCita } = useQuery({
+  // Fetch ALL existing appointments for this agent (not just one)
+  const { data: allCitas = [] } = useQuery({
     queryKey: ['agent-training-cita', personaId],
     queryFn: async () => {
-      // First check if there's a completed cita
-      const { data: completedCita } = await supabase
-        .from('reservas_citas')
-        .select('*')
-        .eq('id_persona', personaId)
-        .eq('activo', true)
-        .or('estatus.eq.asistio,id_estatus_cita.eq.3')
-        .order('fecha_creacion', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (completedCita) return completedCita;
-
-      // Otherwise get the latest cita
       const { data, error } = await supabase
         .from('reservas_citas')
         .select('*')
         .eq('id_persona', personaId)
-        .in('estatus', ['programada', 'asistio', 'cancelada', 'no_asistio'])
-        .order('fecha_creacion', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .eq('activo', true)
+        .in('estatus', ['programada', 'asistio', 'no_asistio'])
+        .order('fecha_creacion', { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
     },
     staleTime: 0,
   });
+
+  // For backward compat, derive existingCita as the one matching selectedConfigId, or first non-completed
+  const existingCitaForConfig = selectedConfigId
+    ? allCitas.find((c: any) => c.id_configuracion_cita === selectedConfigId)
+    : null;
+  const existingCita = existingCitaForConfig || allCitas.find((c: any) =>
+    c.estatus === 'programada' || c.estatus === 'no_asistio'
+  ) || allCitas[0] || null;
 
   // Fetch training configs matching agent's projects (DB-only)
   const { data: trainingConfigs = [], isLoading: loadingConfigs } = useQuery({
