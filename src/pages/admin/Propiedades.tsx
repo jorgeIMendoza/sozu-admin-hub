@@ -3423,7 +3423,7 @@ const Propiedades = () => {
   const fetchAvailableSchemes = async (projectId: number) => {
     const { data, error } = await supabase
       .from('esquemas_pago')
-      .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+      .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, tramos_mensualidad, porcentaje_descuento_aumento')
       .eq('id_proyecto', projectId)
       .eq('es_manual', false)
       .eq('activo', true)
@@ -5923,7 +5923,7 @@ const Propiedades = () => {
                                            if (!availableSchemes.find(s => s.id === offer.esquema_id)) {
                                              const { data: schemeData } = await supabase
                                                .from('esquemas_pago')
-                                               .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                                .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, tramos_mensualidad, porcentaje_descuento_aumento')
                                                .eq('id', offer.esquema_id)
                                                .eq('es_manual', false)
                                                .single();
@@ -6302,7 +6302,7 @@ const Propiedades = () => {
                                       if (!availableSchemes.find(s => s.id === offer.id_esquema_pago_seleccionado)) {
                                         const { data: schemeData } = await supabase
                                           .from('esquemas_pago')
-                                          .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                           .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, tramos_mensualidad, porcentaje_descuento_aumento')
                                           .eq('id', offer.id_esquema_pago_seleccionado)
                                           .eq('es_manual', false)
                                           .maybeSingle();
