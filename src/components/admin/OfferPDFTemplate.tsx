@@ -71,6 +71,8 @@ interface PaymentScheme {
     orden: number;
     numero_mensualidades: number;
     monto: number;
+    monto_mensualidad?: number;
+    fecha_limite?: string;
   }> | null;
 }
 
