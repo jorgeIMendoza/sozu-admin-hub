@@ -188,8 +188,8 @@ const AgentInicio = () => {
       const { data } = await (supabase as any)
         .from('reservas_citas')
         .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
-        .eq('id_agente', personaId)
         .eq('activo', true)
+        .or(`id_agente.eq.${personaId},id_persona.eq.${personaId}`)
         .order('fecha', { ascending: true });
       return data || [];
     },
