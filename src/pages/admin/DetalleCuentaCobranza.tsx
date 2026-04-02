@@ -3879,8 +3879,8 @@ export default function DetalleCuentaCobranza() {
                                   <span className="text-xs text-muted-foreground">
                                     {isEscalonado
                                       ? hasFixedAmount
-                                        ? `Eng: ${scheme.porcentaje_enganche || 0}% | Monto de mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')}`
-                                        : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos)`
+                                        ? `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')} | Ent: ${scheme.porcentaje_entrega || 0}%`
+                                        : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`
                                       : `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%`
                                     }
                                   </span>
