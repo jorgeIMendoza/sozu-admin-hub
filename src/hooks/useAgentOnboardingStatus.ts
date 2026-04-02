@@ -95,9 +95,9 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
         .from('reservas_citas')
         .select('id, estatus, activo, id_estatus_cita')
         .eq('id_persona', personaId)
+        .eq('activo', true)
         .in('estatus', ['asistio', 'programada', 'cancelada', 'no_asistio'])
-        .order('fecha_creacion', { ascending: false })
-        .limit(5);
+        .order('fecha_creacion', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -107,14 +107,16 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
 
-  const latestTrainingCita = citasCapacitacion[0] as any | undefined;
-  const trainingComplete = !!latestTrainingCita && latestTrainingCita.activo && (latestTrainingCita.id_estatus_cita === 3 || latestTrainingCita.estatus === 'asistio');
-  const trainingPartial = !!latestTrainingCita && !trainingComplete && latestTrainingCita.activo && (latestTrainingCita.id_estatus_cita === 1 || latestTrainingCita.id_estatus_cita === 2 || latestTrainingCita.estatus === 'programada');
-  const trainingCancelled = !!latestTrainingCita && !trainingComplete && !trainingPartial && (latestTrainingCita.estatus === 'cancelada' || latestTrainingCita.estatus === 'no_asistio' || !latestTrainingCita.activo);
+  // Training is complete if at least one cita is confirmed (asistio / id_estatus_cita=3)
+  const activeCitas = citasCapacitacion.filter((c: any) => c.activo);
+  const trainingComplete = activeCitas.some((c: any) => c.id_estatus_cita === 3 || c.estatus === 'asistio');
+  const trainingPartial = !trainingComplete && activeCitas.some((c: any) => c.id_estatus_cita === 1 || c.id_estatus_cita === 2 || c.estatus === 'programada');
+  const trainingCancelled = !trainingComplete && !trainingPartial && activeCitas.some((c: any) => c.estatus === 'cancelada' || c.estatus === 'no_asistio');
 
   const trainingMissing: string[] = [];
   if (!trainingComplete) {
-    if (latestTrainingCita?.estatus === 'no_asistio') trainingMissing.push('Reagendar capacitación');
+    const hasNoShow = activeCitas.some((c: any) => c.estatus === 'no_asistio');
+    if (hasNoShow) trainingMissing.push('Reagendar capacitación');
     else if (trainingPartial) trainingMissing.push('Cita programada (pendiente de asistencia)');
     else trainingMissing.push('Agendar capacitación');
   }
