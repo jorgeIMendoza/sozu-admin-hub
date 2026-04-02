@@ -260,18 +260,14 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
                 control={form.control}
                 name="numero_mensualidades"
                 render={({ field }) => {
-                  const isDisabled = mensualidadesPct === 0;
                   return (
                     <FormItem>
                       <FormLabel>Número de Mensualidades</FormLabel>
                       <FormControl>
                         <Input 
                           type="number" min="0" 
-                          placeholder={isDisabled ? "0" : "12"} 
-                          disabled={isDisabled}
+                          placeholder="12" 
                           {...field}
-                          value={isDisabled ? "0" : field.value}
-                          onChange={(e) => { if (!isDisabled) field.onChange(e); }}
                         />
                       </FormControl>
                       <FormMessage />
