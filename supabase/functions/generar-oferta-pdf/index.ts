@@ -848,7 +848,7 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
       if (hasSavings) schemeHeight += 12;
       if (scheme.porcentaje_enganche > 0) schemeHeight += 12;
       if (hasFixedAmountTramos) {
-        schemeHeight += tramosCount * 12 + 12; // tramos + contra-entrega
+        schemeHeight += tramosCount * 12 + 12 + 12; // "Durante la obra:" + tramos + contra-entrega
       } else {
         if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
           schemeHeight += 24;
