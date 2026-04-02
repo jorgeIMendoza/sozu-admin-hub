@@ -2564,9 +2564,9 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                                           if (isEscalonado) {
                                             if (hasFixedAmount) {
                                               const montoStr = tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ');
-                                              return `Eng: ${scheme.porcentaje_enganche || 0}% | Monto de mensualidades: ${montoStr}`;
+                                              return `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${montoStr} | Ent: ${scheme.porcentaje_entrega || 0}%`;
                                             }
-                                            return `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos)`;
+                                            return `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`;
                                           }
                                           return `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%`;
                                         })()}
