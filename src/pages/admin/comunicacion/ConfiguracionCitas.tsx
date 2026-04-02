@@ -72,7 +72,7 @@ export default function ConfiguracionCitas() {
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set());
   const [selectedSlots, setSelectedSlots] = useState<Map<number, Set<string>>>(new Map());
   const [duracionMinutos, setDuracionMinutos] = useState<number>(60);
-  const [calendarioEmail, setCalendarioEmail] = useState<string>("citas@souom.com");
+  const [calendarioEmail, setCalendarioEmail] = useState<string>("citas@sozu.com");
   const [maxInvitados, setMaxInvitados] = useState<number>(1);
   const [selectedProyectoIds, setSelectedProyectoIds] = useState<number[]>([]);
   const [correosEnterado, setCorreosEnterado] = useState<string[]>([]);
@@ -311,7 +311,7 @@ export default function ConfiguracionCitas() {
   useEffect(() => {
     if (selectedConfig) {
       setDuracionMinutos(selectedConfig.duracion_minutos || 60);
-      setCalendarioEmail("citas@souom.com");
+      setCalendarioEmail("citas@sozu.com");
       setMaxInvitados(selectedConfig.max_invitados || 1);
       setCorreosEnterado(selectedConfig.correos_enterado || []);
       setCorreosEnteradoFijos((selectedConfig as any).correos_enterado_fijos || []);
@@ -536,7 +536,7 @@ export default function ConfiguracionCitas() {
     mutationFn: async () => {
       if (!selectedConfigId || !selectedConfig) throw new Error("No config selected");
       if (selectedProyectoIds.length === 0) throw new Error("Selecciona al menos un proyecto");
-      const fixedCalendarioEmail = "citas@souom.com";
+      const fixedCalendarioEmail = "citas@sozu.com";
       const configId = parseInt(selectedConfigId);
 
       // 1. Update configuracion_citas_usuarios
@@ -874,7 +874,7 @@ export default function ConfiguracionCitas() {
                             <div className="flex items-center gap-2 max-w-md">
                               <Input
                                 type="email"
-                                value="citas@souom.com"
+                                value="citas@sozu.com"
                                 readOnly
                                 disabled
                                 className="bg-muted cursor-not-allowed"
