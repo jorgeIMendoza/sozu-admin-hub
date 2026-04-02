@@ -1,55 +1,43 @@
 
 
-# Plan: Múltiples citas de capacitación por agente (por proyecto)
+# Plan: Agregar soporte de tramos escalonados a esquemas de pago precargados
 
-## Problema actual
-El sistema trata la capacitación como un evento único: busca **una sola cita** (la más reciente) y la usa como indicador binario de completitud. Un agente asignado a múltiples proyectos no puede tener citas de capacitación independientes por proyecto.
+## Contexto
+
+Actualmente, la opción de "montos escalonados" (tramos de mensualidades con diferentes montos) solo existe en el formulario de ofertas manuales (`NewOfferDialog`). Sin embargo, la tabla `esquemas_pago` ya tiene la columna `tramos_mensualidad` (JSON), por lo que no se requieren cambios de base de datos. Solo falta agregar la UI y la lógica de guardado en los formularios de esquemas de pago del proyecto.
 
 ## Cambios propuestos
 
-### 1. Modificar la consulta de citas existentes en el step de capacitación
-**Archivo**: `src/components/admin/AgentOnboardingStepDialog.tsx` (~línea 1496)
+### 1. Agregar tramos escalonados al formulario de CREAR esquema
+**Archivo**: `src/components/admin/NewPaymentSchemeDialog.tsx`
 
-- Cambiar la query `agent-training-cita` para traer **todas** las citas activas del agente (no solo una), agrupadas por `id_configuracion_cita` (que se asocia a un proyecto vía `configuracion_citas_proyectos`).
-- Mostrar las citas como una **lista por configuración/proyecto**, donde cada una puede tener su propio estado (agendada, completada, etc.).
-- Permitir agendar una nueva cita aunque ya exista otra completada, siempre que sea para una configuración/proyecto diferente.
-- Mantener el comportamiento actual de desactivar la cita anterior **solo dentro del mismo config** al reagendar.
+- Agregar un Switch "Usar montos escalonados" que aparezca cuando `porcentaje_mensualidades > 0` y `numero_mensualidades > 0`.
+- Permitir hasta 3 tramos, cada uno con: numero de mensualidades y monto (en centavos, usando un input numérico simple ya que no hay precio base para calcular).
+- Validar que la suma de mensualidades de los tramos sea igual al `numero_mensualidades` total.
+- Al guardar, enviar el campo `tramos_mensualidad` como JSON al insert de `esquemas_pago`.
 
-### 2. Actualizar la lógica de completitud del onboarding
-**Archivo**: `src/hooks/useAgentOnboardingStatus.ts` (~línea 90-113)
+### 2. Agregar tramos escalonados al formulario de EDITAR esquema
+**Archivo**: `src/components/admin/EditPaymentSchemeDialog.tsx`
 
-- Cambiar la query para traer todas las citas activas (no solo 5).
-- `trainingComplete` = verdadero si **al menos una** cita tiene estatus confirmada/asistió (mantener comportamiento actual — una capacitación basta para desbloquear ofertas).
-- `trainingPartial` = verdadero si hay al menos una cita programada pero ninguna confirmada.
+- Misma UI que el de crear.
+- Al abrir el dialog, cargar los tramos existentes del esquema (`scheme.tramos_mensualidad`).
+- Al guardar, actualizar el campo `tramos_mensualidad`.
 
-### 3. Rediseñar la UI del step de capacitación (AgentTrainingStep)
-**Archivo**: `src/components/admin/AgentOnboardingStepDialog.tsx` (~línea 1916+)
+### 3. Mostrar tramos en el detalle del esquema
+**Archivo**: `src/components/admin/PaymentSchemeManagement.tsx`
 
-- Mostrar un listado de capacitaciones existentes (fecha, proyecto/config, estado) con badges.
-- Debajo del listado, mantener el formulario de agendar nueva cita (calendario + slots), que ahora permite agendar otra cita sin desactivar las ya confirmadas.
-- Si ya existe una cita **programada** para la misma configuración, preseleccionarla como antes.
+- En `PaymentSchemeDetailsDialog`, si el esquema tiene `tramos_mensualidad`, mostrar el desglose de tramos en lugar del número simple de mensualidades.
 
-### 4. Actualizar la celda de capacitación en tabla de Agentes (admin)
-**Archivo**: `src/pages/admin/Agentes.tsx` (AgentTrainingCell, línea 51-170)
-
-- Cambiar la query para traer **todas** las citas activas del agente.
-- Mostrar un resumen compacto: ej. "2/3 completadas" o badges apilados.
-- Mantener los botones de "Asistió" / "No asistió" para cada cita pendiente.
-
-### 5. Historial de citas por proyecto (vista admin)
-**Archivo**: Nuevo componente o sección dentro del dialog de onboarding/agentes.
-
-- Al hacer clic en la celda de capacitación de un agente, abrir un dialog/panel que muestre el historial completo de citas de ese agente, filtrable por proyecto.
-- Incluir: fecha, hora, proyecto/config, estado, fecha de confirmación.
-- Datos ya disponibles en `reservas_citas` + `configuracion_citas_usuarios` + `configuracion_citas_proyectos`.
+### 4. Consumo en ofertas (Pipeline)
+- Cuando un agente selecciona un esquema precargado que tiene tramos, los tramos se copian automáticamente a `ofertas_esquemas_pago.tramos_mensualidad`. Esto ya funciona porque el PDF y las vistas leen `tramos_mensualidad` de donde esté disponible.
 
 ## Detalle técnico
 
-No se requieren cambios de base de datos. La relación cita → proyecto ya existe:
-```text
-reservas_citas.id_configuracion_cita → configuracion_citas_usuarios.id
-configuracion_citas_proyectos (id_configuracion_cita, id_proyecto)
-```
+- No se requieren migraciones de base de datos (la columna `tramos_mensualidad: Json | null` ya existe en `esquemas_pago`).
+- El formato JSON es: `[{ orden: 1, numero_mensualidades: 6, monto: 1500000 }, ...]` (monto en centavos).
+- Para los esquemas precargados, el monto del tramo es un valor fijo (no calculado sobre un precio base), ya que el precio varía por propiedad. Por esto, en la UI de esquemas de proyecto se ingresará como **porcentaje del monto de mensualidades** o simplemente como **proporción** (ej. "primeras 6 mensualidades al 60%, siguientes 6 al 40%"). Alternativamente, se puede dejar solo el número de mensualidades por tramo sin monto, y que el monto se calcule al momento de generar la oferta.
 
-La lógica de desactivación al reagendar se limita al mismo `id_configuracion_cita`, no a todas las citas del agente.
+**Nota importante**: En ofertas manuales, los tramos tienen un monto fijo porque ya se conoce el precio. En esquemas precargados (plantillas), no se conoce el precio hasta que se asigna a una propiedad. Por lo tanto, los tramos en esquemas precargados solo definirán la **distribución de mensualidades** (cuántas por tramo), y el monto se calculará proporcionalmente al generar la oferta.
+
+Formato almacenado: `[{ orden: 1, numero_mensualidades: 6 }, { orden: 2, numero_mensualidades: 6 }]` (sin monto, ya que se calcula después).
 
