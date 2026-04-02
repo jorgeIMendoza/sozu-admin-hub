@@ -536,8 +536,7 @@ export default function ConfiguracionCitas() {
     mutationFn: async () => {
       if (!selectedConfigId || !selectedConfig) throw new Error("No config selected");
       if (selectedProyectoIds.length === 0) throw new Error("Selecciona al menos un proyecto");
-      if (!calendarioEmail.trim() || !calendarioEmail.includes("@")) throw new Error("El email del calendario Google es obligatorio");
-      if (calendarAccessStatus !== "ok") throw new Error("El acceso al calendario debe estar verificado correctamente antes de guardar");
+      const fixedCalendarioEmail = "citas@souom.com";
       const configId = parseInt(selectedConfigId);
 
       // 1. Update configuracion_citas_usuarios
