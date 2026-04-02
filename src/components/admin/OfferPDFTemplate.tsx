@@ -395,7 +395,7 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                                 )}
                               </div>
                             )
-                          )
+                          )}
                         </>
                       );
                     })()}
