@@ -51,29 +51,49 @@ const ITEMS_PER_PAGE = 50;
 function AgentTrainingCell({ personaId }: { personaId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [showHistory, setShowHistory] = useState(false);
 
-  const { data: cita, isLoading } = useQuery({
+  const { data: citas = [], isLoading } = useQuery({
     queryKey: ['agent-training-cell', personaId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia, id_configuracion_cita')
         .eq('id_persona', personaId)
         .eq('activo', true)
-        .order('fecha_creacion', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .in('estatus', ['programada', 'asistio', 'no_asistio'])
+        .order('fecha_creacion', { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
     },
   });
 
-  const handleConfirmAttendance = async () => {
-    if (!cita) return;
+  // Fetch config names for the citas
+  const configIds = [...new Set(citas.filter(c => c.id_configuracion_cita).map(c => c.id_configuracion_cita))];
+  const { data: configNames = [] } = useQuery({
+    queryKey: ['training-config-names', configIds],
+    queryFn: async () => {
+      if (configIds.length === 0) return [];
+      const { data } = await supabase
+        .from('configuracion_citas_usuarios')
+        .select('id, nombre')
+        .in('id', configIds);
+      return data || [];
+    },
+    enabled: configIds.length > 0,
+  });
+
+  const getConfigName = (configId: number | null) => {
+    if (!configId) return '';
+    const found = configNames.find((c: any) => c.id === configId);
+    return found?.nombre || '';
+  };
+
+  const handleConfirmAttendance = async (citaId: number) => {
     const { error } = await supabase
       .from('reservas_citas')
       .update({ estatus: 'asistio', id_estatus_cita: 3, fecha_confirmacion: new Date().toISOString() })
-      .eq('id', cita.id);
+      .eq('id', citaId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
@@ -82,89 +102,80 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
     }
   };
 
-  const handleMarkNoShow = async () => {
-    if (!cita) return;
-    // Set to "Pendiente" (id_estatus_cita null) and reset so agent can reschedule
+  const handleMarkNoShow = async (citaId: number) => {
     const { error } = await supabase
       .from('reservas_citas')
       .update({ estatus: 'no_asistio', id_estatus_cita: null, fecha_confirmacion: new Date().toISOString() })
-      .eq('id', cita.id);
+      .eq('id', citaId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Actualizado", description: "Marcado como no asistió. El agente puede reagendar." });
+      toast({ title: "Actualizado", description: "Marcado como no asistió." });
       queryClient.invalidateQueries({ queryKey: ['agent-training-cell', personaId] });
     }
   };
 
   if (isLoading) return <span className="text-xs text-muted-foreground">...</span>;
-  if (!cita) return <span className="text-xs text-muted-foreground">Sin cita</span>;
+  if (citas.length === 0) return <span className="text-xs text-muted-foreground">Sin cita</span>;
 
-  const estatusCita = (cita as any).id_estatus_cita;
+  const completedCount = citas.filter(c => (c as any).id_estatus_cita === 3 || c.estatus === 'asistio').length;
+  const pendingCount = citas.filter(c => (c as any).id_estatus_cita === 1 || (c as any).id_estatus_cita === 2 || c.estatus === 'programada').length;
 
+  const renderCitaBadge = (cita: any) => {
+    const estatusCita = cita.id_estatus_cita;
+    if (estatusCita === 3 || cita.estatus === 'asistio') return <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>;
+    if (estatusCita === 1) return <Badge className="bg-blue-500 text-white border-0 text-[10px]">Agendada</Badge>;
+    if (estatusCita === 2) return <Badge className="bg-amber-500 text-white border-0 text-[10px]">Pend. confirmación</Badge>;
+    if (cita.estatus === 'no_asistio') return <Badge variant="destructive" className="text-[10px]">No asistió</Badge>;
+    return <Badge variant="outline" className="text-[10px]">{cita.estatus}</Badge>;
+  };
+
+  const renderCitaActions = (cita: any) => {
+    const estatusCita = cita.id_estatus_cita;
+    const showActions = estatusCita === 1 || estatusCita === 2 || (!estatusCita && cita.estatus === 'programada');
+    if (!showActions) return null;
+    return (
+      <div className="flex gap-1">
+        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={() => handleConfirmAttendance(cita.id)}>
+          <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
+        </Button>
+        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={() => handleMarkNoShow(cita.id)}>
+          No asistió
+        </Button>
+      </div>
+    );
+  };
+
+  // Show summary + expandable list
   return (
     <div className="space-y-1">
-      <div className="text-xs">
-        <span className="font-medium">{cita.fecha}</span>
-        {cita.hora_inicio !== '00:00' && (
-          <span className="text-muted-foreground ml-1">{cita.hora_inicio?.slice(0,5)}-{cita.hora_fin?.slice(0,5)}</span>
-        )}
-      </div>
+      {/* Summary badge */}
+      <button onClick={() => setShowHistory(!showHistory)} className="text-xs font-medium text-primary hover:underline flex items-center gap-1">
+        {completedCount > 0 && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">{completedCount} ✓</Badge>}
+        {pendingCount > 0 && <Badge className="bg-blue-500 text-white border-0 text-[10px]">{pendingCount} pend.</Badge>}
+        <span className="text-muted-foreground text-[10px]">({citas.length} total)</span>
+      </button>
 
-      {/* Estatus: Agendada (1) - show Asistió / No asistió */}
-      {estatusCita === 1 && (
-        <div className="space-y-1">
-          <Badge className="bg-blue-500 text-white border-0 text-[10px]">Agendada</Badge>
-          <div className="flex gap-1">
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
-              <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
-            </Button>
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
-              No asistió
-            </Button>
-          </div>
+      {/* Expanded list */}
+      {showHistory && (
+        <div className="space-y-2 pt-1 border-t border-border/40">
+          {citas.map((cita: any) => {
+            const configName = getConfigName(cita.id_configuracion_cita);
+            return (
+              <div key={cita.id} className="space-y-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium">{cita.fecha}</span>
+                  {cita.hora_inicio !== '00:00' && (
+                    <span className="text-[10px] text-muted-foreground">{cita.hora_inicio?.slice(0,5)}</span>
+                  )}
+                  {renderCitaBadge(cita)}
+                </div>
+                {configName && <p className="text-[10px] text-muted-foreground">{configName}</p>}
+                {renderCitaActions(cita)}
+              </div>
+            );
+          })}
         </div>
-      )}
-
-      {/* Estatus: Pendiente de confirmación (2) - show Asistió / No asistió */}
-      {estatusCita === 2 && (
-        <div className="space-y-1">
-          <Badge className="bg-amber-500 text-white border-0 text-[10px]">Pend. confirmación</Badge>
-          <div className="flex gap-1">
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
-              <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
-            </Button>
-            <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
-              No asistió
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Estatus: Confirmada (3) */}
-      {estatusCita === 3 && (
-        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>
-      )}
-
-      {/* Fallback for old records without id_estatus_cita */}
-      {!estatusCita && cita.estatus === 'programada' && (
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-emerald-600 hover:bg-emerald-50" onClick={handleConfirmAttendance}>
-            <CalendarCheck className="h-3 w-3 mr-0.5" /> Asistió
-          </Button>
-          <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10" onClick={handleMarkNoShow}>
-            No asistió
-          </Button>
-        </div>
-      )}
-      {!estatusCita && cita.estatus === 'asistio' && (
-        <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>
-      )}
-      {!estatusCita && cita.estatus === 'no_asistio' && (
-        <Badge variant="destructive" className="text-[10px]">No asistió</Badge>
-      )}
-      {!estatusCita && cita.estatus === 'cancelada' && (
-        <Badge variant="outline" className="text-[10px] text-muted-foreground">Cancelada</Badge>
       )}
     </div>
   );
