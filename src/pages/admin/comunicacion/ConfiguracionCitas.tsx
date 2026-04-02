@@ -311,7 +311,7 @@ export default function ConfiguracionCitas() {
   useEffect(() => {
     if (selectedConfig) {
       setDuracionMinutos(selectedConfig.duracion_minutos || 60);
-      setCalendarioEmail(selectedConfig.calendario_email || "");
+      setCalendarioEmail("citas@souom.com");
       setMaxInvitados(selectedConfig.max_invitados || 1);
       setCorreosEnterado(selectedConfig.correos_enterado || []);
       setCorreosEnteradoFijos((selectedConfig as any).correos_enterado_fijos || []);
