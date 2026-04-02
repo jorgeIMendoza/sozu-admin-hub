@@ -2186,7 +2186,6 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
               >
                 {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : isProgrammedForConfig ? "Reagendar Cita" : "Agendar Cita"}
               </button>
-              </button>
             </>
           )}
         </>
