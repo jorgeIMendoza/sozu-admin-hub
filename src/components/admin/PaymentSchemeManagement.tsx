@@ -133,38 +133,62 @@ export const PaymentSchemeManagement = ({ projectId, canCreate = true, canUpdate
             <DialogTitle>Detalles de {scheme.nombre}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Enganche:</span> {scheme.porcentaje_enganche}%
-              </div>
-              <div>
-                <span className="font-medium">Mensualidades:</span> {scheme.porcentaje_mensualidades}%
-              </div>
-              <div>
-                <span className="font-medium">Entrega:</span> {scheme.porcentaje_entrega}%
-              </div>
-              <div>
-                <span className="font-medium">No. Mensualidades:</span> {scheme.numero_mensualidades}
-              </div>
-            </div>
-            {Array.isArray(scheme.tramos_mensualidad) && scheme.tramos_mensualidad.length > 0 && (
-              <div className="pt-2 border-t">
-                <span className="font-medium text-sm">Tramos escalonados:</span>
-                <div className="mt-1 space-y-1">
+            {(() => {
+              const hasFixedAmountTramos = Array.isArray(scheme.tramos_mensualidad) && 
+                scheme.tramos_mensualidad.length > 0 && 
+                scheme.tramos_mensualidad.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
+              
+              if (hasFixedAmountTramos) {
+                return (
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Enganche:</span> {scheme.porcentaje_enganche}%
+                    </div>
                     {scheme.tramos_mensualidad.map((tramo: any, idx: number) => (
-                     <div key={idx} className="flex items-center gap-2 text-sm">
-                       <Badge variant="outline" className="text-xs">Tramo {tramo.orden || idx + 1}</Badge>
-                       <span>{tramo.numero_mensualidades} meses</span>
-                       {tramo.monto_mensualidad && tramo.monto_mensualidad > 0 && (
-                         <Badge variant="secondary" className="text-xs">
-                           ${(tramo.monto_mensualidad / 100).toLocaleString("es-MX")}/mes
-                         </Badge>
-                       )}
-                     </div>
-                   ))}
-                </div>
-              </div>
-            )}
+                      <div key={idx}>
+                        <span className="font-medium">Monto mensual{scheme.tramos_mensualidad.length > 1 ? ` (Tramo ${tramo.orden || idx + 1})` : ''}:</span>{' '}
+                        ${(tramo.monto_mensualidad / 100).toLocaleString("es-MX")}/mes
+                        {tramo.fecha_limite && (
+                          <span className="text-muted-foreground ml-1">(hasta {tramo.fecha_limite})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Enganche:</span> {scheme.porcentaje_enganche}%
+                    </div>
+                    <div>
+                      <span className="font-medium">Mensualidades:</span> {scheme.porcentaje_mensualidades}%
+                    </div>
+                    <div>
+                      <span className="font-medium">Entrega:</span> {scheme.porcentaje_entrega}%
+                    </div>
+                    <div>
+                      <span className="font-medium">No. Mensualidades:</span> {scheme.numero_mensualidades}
+                    </div>
+                  </div>
+                  {Array.isArray(scheme.tramos_mensualidad) && scheme.tramos_mensualidad.length > 0 && (
+                    <div className="pt-2 border-t">
+                      <span className="font-medium text-sm">Tramos escalonados:</span>
+                      <div className="mt-1 space-y-1">
+                        {scheme.tramos_mensualidad.map((tramo: any, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <Badge variant="outline" className="text-xs">Tramo {tramo.orden || idx + 1}</Badge>
+                            <span>{tramo.numero_mensualidades} meses</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
             {hasAdjustment && (
               <div className="pt-2 border-t">
                 <div className="flex justify-between items-center">

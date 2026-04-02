@@ -83,6 +83,7 @@ export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated, canUpdate = t
           orden: t.orden || i + 1,
           numero_mensualidades: t.numero_mensualidades || 0,
           ...(t.monto_mensualidad ? { monto_mensualidad: t.monto_mensualidad } : {}),
+          ...(t.fecha_limite ? { fecha_limite: t.fecha_limite } : {}),
         })));
       } else {
         setTramosEnabled(false);
