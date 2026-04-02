@@ -28,16 +28,6 @@ const formSchema = z.object({
 }, {
   message: "Los porcentajes deben sumar exactamente 100%",
   path: ["porcentaje_entrega"],
-}).refine((data) => {
-  const mensualidades = parseFloat(data.porcentaje_mensualidades) || 0;
-  const numMensualidades = parseInt(data.numero_mensualidades) || 0;
-  if (mensualidades === 0) {
-    return numMensualidades === 0;
-  }
-  return numMensualidades >= 1;
-}, {
-  message: "Si el porcentaje de mensualidades es 0, el número de mensualidades debe ser 0. Si es mayor a 0, debe haber al menos 1 mensualidad.",
-  path: ["numero_mensualidades"],
 });
 
 interface NewPaymentSchemeDialogProps {
@@ -70,7 +60,7 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
 
   const mensualidadesPct = parseFloat(watchedMensualidades || "0");
   const numMensualidades = parseInt(watchedNumMensualidades || "0");
-  const showTramos = mensualidadesPct > 0 && numMensualidades > 1;
+  const showTramos = numMensualidades > 1;
 
   // Reset tramos when conditions no longer met
   useEffect(() => {
@@ -82,12 +72,12 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
 
   const remainingPercentage = 100 - (parseFloat(watchedEnganche || "0") + parseFloat(watchedMensualidades || "0"));
 
-  // Auto-set numero_mensualidades to 0 when porcentaje_mensualidades is 0
+  // Auto-set numero_mensualidades to 0 only when porcentaje_mensualidades is 0 AND no tramos with fixed amounts
   useEffect(() => {
-    if (mensualidadesPct === 0) {
+    if (mensualidadesPct === 0 && !tramosEnabled) {
       form.setValue("numero_mensualidades", "0");
     }
-  }, [watchedMensualidades, form]);
+  }, [watchedMensualidades, tramosEnabled, form]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>, event?: any) => {
     if (event) {
@@ -260,18 +250,14 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
                 control={form.control}
                 name="numero_mensualidades"
                 render={({ field }) => {
-                  const isDisabled = mensualidadesPct === 0;
                   return (
                     <FormItem>
                       <FormLabel>Número de Mensualidades</FormLabel>
                       <FormControl>
                         <Input 
                           type="number" min="0" 
-                          placeholder={isDisabled ? "0" : "12"} 
-                          disabled={isDisabled}
+                          placeholder="12" 
                           {...field}
-                          value={isDisabled ? "0" : field.value}
-                          onChange={(e) => { if (!isDisabled) field.onChange(e); }}
                         />
                       </FormControl>
                       <FormMessage />
