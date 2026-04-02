@@ -405,7 +405,13 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
     .eq('id_oferta', oferta.id)
     .eq('activo', true);
 
-  const paymentSchemes = ofertaEsquemas?.map((oe: any) => oe.esquemas_pago).filter(Boolean) || [];
+  const paymentSchemes = ofertaEsquemas?.map((oe: any) => {
+    const s = oe.esquemas_pago;
+    if (s && s.tramos_mensualidad && typeof s.tramos_mensualidad === 'string') {
+      try { s.tramos_mensualidad = JSON.parse(s.tramos_mensualidad); } catch { s.tramos_mensualidad = null; }
+    }
+    return s;
+  }).filter(Boolean) || [];
 
   // Fetch lead info
   let leadInfo: any = null;
