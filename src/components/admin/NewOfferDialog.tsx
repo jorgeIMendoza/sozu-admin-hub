@@ -2549,7 +2549,15 @@ export function NewOfferDialog({ propertyId, propertyNumber, forceManualMode = f
                                     <div className="flex flex-col">
                                       <span>{scheme.nombre}</span>
                                       <span className="text-xs text-muted-foreground">
-                                        Eng: {scheme.porcentaje_enganche || 0}% | Mens: {scheme.porcentaje_mensualidades || 0}% ({scheme.numero_mensualidades || 0} pagos) | Ent: {scheme.porcentaje_entrega || 0}%
+                                        {(() => {
+                                          const tramos = scheme.tramos_mensualidad as any[];
+                                          const hasFixedAmount = tramos?.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
+                                          if (hasFixedAmount) {
+                                            const montoStr = tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ');
+                                            return `Eng: ${scheme.porcentaje_enganche || 0}% | Monto de mensualidades: ${montoStr}`;
+                                          }
+                                          return `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%`;
+                                        })()}
                                       </span>
                                     </div>
                                   </SelectItem>
