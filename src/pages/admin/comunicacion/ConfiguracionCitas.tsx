@@ -545,7 +545,7 @@ export default function ConfiguracionCitas() {
         .update({
           nombre: selectedConfig.nombre,
           duracion_minutos: duracionMinutos,
-          calendario_email: calendarioEmail || null,
+          calendario_email: fixedCalendarioEmail,
           max_invitados: maxInvitados,
           correos_enterado: correosEnterado,
           correos_enterado_fijos: correosEnteradoFijos,
