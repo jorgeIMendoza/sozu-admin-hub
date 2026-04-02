@@ -28,16 +28,6 @@ const formSchema = z.object({
 }, {
   message: "Los porcentajes deben sumar exactamente 100%",
   path: ["porcentaje_entrega"],
-}).refine((data) => {
-  const mensualidades = parseFloat(data.porcentaje_mensualidades) || 0;
-  const numMensualidades = parseInt(data.numero_mensualidades) || 0;
-  if (mensualidades === 0) {
-    return numMensualidades === 0;
-  }
-  return numMensualidades >= 1;
-}, {
-  message: "Si el porcentaje de mensualidades es 0, el número de mensualidades debe ser 0. Si es mayor a 0, debe haber al menos 1 mensualidad.",
-  path: ["numero_mensualidades"],
 });
 
 interface NewPaymentSchemeDialogProps {
