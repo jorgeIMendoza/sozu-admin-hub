@@ -33,6 +33,7 @@ import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { isValidRFC } from "@/utils/fiscalDataValidation";
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 
 // Form validation schema - made more flexible for both modes
 const formSchema = z.object({

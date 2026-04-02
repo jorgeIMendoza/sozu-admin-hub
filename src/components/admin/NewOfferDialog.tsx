@@ -69,6 +69,7 @@ import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { Switch } from "@/components/ui/switch";
 import { isValidRFC } from "@/utils/fiscalDataValidation";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 import {
   Tooltip,
   TooltipContent,

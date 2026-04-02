@@ -153,6 +153,7 @@ interface Multa {
 }
 
 import JSZip from 'jszip';
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 
 // Read-only documents view component
 function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number }) {
