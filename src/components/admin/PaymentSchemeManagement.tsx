@@ -146,10 +146,12 @@ export const PaymentSchemeManagement = ({ projectId, canCreate = true, canUpdate
                     </div>
                     {scheme.tramos_mensualidad.map((tramo: any, idx: number) => (
                       <div key={idx}>
-                        <span className="font-medium">Monto mensual{scheme.tramos_mensualidad.length > 1 ? ` (Tramo ${tramo.orden || idx + 1})` : ''}:</span>{' '}
-                        ${(tramo.monto_mensualidad / 100).toLocaleString("es-MX")}/mes
+                        <span className="font-medium">Monto de mensualidades{scheme.tramos_mensualidad.length > 1 ? ` (Tramo ${tramo.orden || idx + 1})` : ''}:</span>{' '}
+                        ${(tramo.monto_mensualidad / 100).toLocaleString("es-MX")}
                         {tramo.fecha_limite && (
-                          <span className="text-muted-foreground ml-1">(hasta {tramo.fecha_limite})</span>
+                          <span className="text-muted-foreground ml-1">
+                            (hasta {new Date(tramo.fecha_limite + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })})
+                          </span>
                         )}
                       </div>
                     ))}
