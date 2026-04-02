@@ -1733,17 +1733,24 @@ async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprob
       const amounts = calculatePaymentAmounts(scheme, producto.precio_lista);
       const hasSavings = amounts.adjustment < 0;
 
+      const hasFixedAmountTramos = scheme.tramos_mensualidad?.length > 0 && 
+        scheme.tramos_mensualidad.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
+
       // Calculate dynamic height
       const tramosCount = scheme.tramos_mensualidad?.length || 0;
       let schemeHeight = 45;
       if (tramosCount > 1) schemeHeight += (tramosCount - 1) * 12;
       if (hasSavings) schemeHeight += 12;
       if (scheme.porcentaje_enganche > 0) schemeHeight += 12;
-      if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
-        schemeHeight += 24;
-        if (tramosCount > 0) schemeHeight += tramosCount * 12;
+      if (hasFixedAmountTramos) {
+        schemeHeight += tramosCount * 12 + 12;
+      } else {
+        if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
+          schemeHeight += 24;
+          if (tramosCount > 0) schemeHeight += tramosCount * 12;
+        }
+        if (scheme.porcentaje_entrega > 0) schemeHeight += 12;
       }
-      if (scheme.porcentaje_entrega > 0) schemeHeight += 12;
 
       const col = i % 2;
       const xOffset = col * (schemeWidth + 10);
