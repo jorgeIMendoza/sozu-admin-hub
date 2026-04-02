@@ -8,6 +8,7 @@ export interface AgentTrainingAppointment {
   fecha: string;
   hora_inicio: string | null;
   hora_fin: string | null;
+  google_calendar_event_id: string | null;
   estatus: string | null;
   id_estatus_cita: number | null;
   id_persona: number | null;
@@ -57,7 +58,7 @@ export function useAgentTrainingAppointments(personaId: number | null | undefine
       const { data: reservas, error } = await (supabase as any)
         .from("reservas_citas")
         .select(
-          "id, fecha, hora_inicio, hora_fin, estatus, id_estatus_cita, id_persona, id_agente, id_configuracion_cita, id_tipo_cita, activo, fecha_creacion, tipos_cita(nombre), estatus_cita(nombre)",
+          "id, fecha, hora_inicio, hora_fin, google_calendar_event_id, estatus, id_estatus_cita, id_persona, id_agente, id_configuracion_cita, id_tipo_cita, activo, fecha_creacion, tipos_cita(nombre), estatus_cita(nombre)",
         )
         .eq("activo", true)
         .or(`id_persona.eq.${personaId},id_agente.eq.${personaId}`)
