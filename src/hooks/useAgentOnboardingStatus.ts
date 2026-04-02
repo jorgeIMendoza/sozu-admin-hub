@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAgentTrainingAppointments } from "@/hooks/useAgentTrainingAppointments";
 
 export interface OnboardingStep {
   id: 'basic' | 'address' | 'fiscal' | 'documents' | 'bank-accounts' | 'training';
@@ -87,23 +88,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
-  const { data: citasCapacitacion = [], isLoading: loadingCitas } = useQuery({
-    queryKey: ['agent-onboarding-training', personaId],
-    queryFn: async () => {
-      if (!personaId) return [];
-      const { data, error } = await supabase
-        .from('reservas_citas')
-        .select('id, estatus, activo, id_estatus_cita')
-        .eq('id_persona', personaId)
-        .eq('activo', true)
-        .in('estatus', ['asistio', 'programada', 'cancelada', 'no_asistio'])
-        .order('fecha_creacion', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!personaId,
-    staleTime: 0,
-  });
+  const { appointments: citasCapacitacion = [], isLoading: loadingCitas } = useAgentTrainingAppointments(personaId);
 
   const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
 

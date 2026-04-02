@@ -10,6 +10,8 @@ import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
+import { Badge } from "@/components/ui/badge";
+import { getTrainingAppointmentStatus, useAgentTrainingAppointments } from "@/hooks/useAgentTrainingAppointments";
 import { 
   FileText, Receipt, Landmark, GraduationCap, 
   Check, AlertTriangle, ChevronRight, Loader2, LogOut 
@@ -55,10 +57,16 @@ const AgentPerfil = () => {
   const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const displayName = isImpersonating ? impersonatedAgentName : profile?.nombre;
   const { steps, completedCount, totalSteps, percentage, isLoading, missingByStep } = useAgentOnboardingStatus(personaId);
+  const { appointments: trainingAppointments = [] } = useAgentTrainingAppointments(personaId);
   const { permissions } = useAgentPortalPermissions();
   const perfilPerms = permissions['/admin/agent/perfil'];
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
+  const sortedTrainingAppointments = [...trainingAppointments].sort((a, b) => {
+    const aTime = new Date(`${a.fecha}T${a.hora_inicio || '00:00:00'}`).getTime();
+    const bTime = new Date(`${b.fecha}T${b.hora_inicio || '00:00:00'}`).getTime();
+    return aTime - bTime;
+  });
 
   // Fetch agency name for this agent
   const { data: agencyName } = useQuery({
@@ -428,7 +436,34 @@ const AgentPerfil = () => {
                   <p className="text-xs text-[hsl(var(--agent-text-secondary))] truncate">
                     {block.description}
                   </p>
-                  {status !== 'complete' && (missingByStep[block.stepId] || []).length > 0 && (
+                  {block.stepId === 'training' && sortedTrainingAppointments.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {sortedTrainingAppointments.map((cita) => {
+                        const trainingStatus = getTrainingAppointmentStatus(cita);
+
+                        return (
+                          <div key={cita.id} className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-foreground truncate">{cita.display_name}</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  {cita.hora_inicio ? ` · ${cita.hora_inicio.slice(0, 5)}` : ''}
+                                </p>
+                              </div>
+                              <Badge
+                                variant={trainingStatus.tone === 'danger' ? 'destructive' : 'outline'}
+                                className="shrink-0 text-[10px]"
+                              >
+                                {trainingStatus.label}
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {status !== 'complete' && (missingByStep[block.stepId] || []).length > 0 && !(block.stepId === 'training' && sortedTrainingAppointments.length > 0) && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {(missingByStep[block.stepId] || []).slice(0, 3).map((item, i) => (
                         <span key={i} className="inline-block text-[10px] leading-tight px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">

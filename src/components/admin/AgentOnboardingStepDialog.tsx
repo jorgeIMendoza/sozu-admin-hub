@@ -25,6 +25,7 @@ import { es } from "date-fns/locale";
 import type { OnboardingStep } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
+import { getTrainingAppointmentStatus, useAgentTrainingAppointments } from "@/hooks/useAgentTrainingAppointments";
 import { cn } from "@/lib/utils";
 import { ENVIRONMENT } from "@/lib/config";
 import {
@@ -1494,21 +1495,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
   });
 
   // Fetch ALL existing appointments for this agent (not just one)
-  const { data: allCitas = [] } = useQuery({
-    queryKey: ['agent-training-cita', personaId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reservas_citas')
-        .select('*')
-        .eq('id_persona', personaId)
-        .eq('activo', true)
-        .in('estatus', ['programada', 'asistio', 'no_asistio'])
-        .order('fecha_creacion', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 0,
-  });
+  const { appointments: allCitas = [] } = useAgentTrainingAppointments(personaId);
 
   // For backward compat, derive existingCita as the one matching selectedConfigId, or first non-completed
   const existingCitaForConfig = selectedConfigId
@@ -1742,8 +1729,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
           setSelectedSlot('');
           setSelectedConfigId(null);
           initializedFromCita.current = true;
-          queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
-          queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
+          queryClient.invalidateQueries({ queryKey: ['agent-training-appointments', personaId] });
           queryClient.invalidateQueries({ queryKey: ['training-slots-db'] });
         }
       }).catch((err) => {
@@ -1838,8 +1824,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
       toast.success("Cita de capacitación agendada correctamente.");
       initializedFromCita.current = false;
-      queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
-      queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-appointments', personaId] });
       queryClient.invalidateQueries({ queryKey: ['training-slots-db'] });
       onSaved();
     } catch (err: any) {
@@ -1889,8 +1874,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
       toast.success("Asistencia reportada. Pendiente de confirmación del administrador.");
       initializedFromCita.current = false;
-      queryClient.invalidateQueries({ queryKey: ['agent-onboarding-training'] });
-      queryClient.invalidateQueries({ queryKey: ['agent-training-cita', personaId] });
+      queryClient.invalidateQueries({ queryKey: ['agent-training-appointments', personaId] });
       onSaved();
     } catch (err: any) {
       toast.error("Error: " + (err.message || "Error"));
@@ -1907,28 +1891,27 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
           <span className="text-sm font-semibold text-foreground">Tus capacitaciones</span>
           <div className="space-y-2">
             {allCitas.map((cita: any) => {
-              const estatusCita = cita.id_estatus_cita;
-              const cfgName = trainingConfigs.find((c: any) => c.id === cita.id_configuracion_cita)?.nombre;
-              const badge = estatusCita === 3 || cita.estatus === 'asistio'
+              const status = getTrainingAppointmentStatus(cita);
+              const badge = status.tone === 'success'
                 ? <Badge className="bg-emerald-500 text-white border-0 text-[10px]"><CheckCircle2 className="h-3 w-3 mr-0.5" />Confirmada</Badge>
-                : estatusCita === 2
+                : status.tone === 'warning'
                   ? <Badge className="bg-amber-500 text-white border-0 text-[10px]"><Clock className="h-3 w-3 mr-0.5" />Pend. confirmación</Badge>
-                  : estatusCita === 1 || cita.estatus === 'programada'
+                  : status.tone === 'info'
                     ? <Badge className="bg-blue-500 text-white border-0 text-[10px]"><CalendarDays className="h-3 w-3 mr-0.5" />Agendada</Badge>
-                    : cita.estatus === 'no_asistio'
+                    : status.tone === 'danger'
                       ? <Badge variant="destructive" className="text-[10px]">No asistió</Badge>
-                      : null;
+                      : <Badge variant="outline" className="text-[10px]">{status.label}</Badge>;
               return (
                 <div key={cita.id} className="flex items-center justify-between rounded-lg border border-border/60 p-2.5 bg-card">
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">{cita.fecha}</span>
-                      {cita.hora_inicio !== '00:00' && (
+                      {cita.hora_inicio?.slice(0, 5) !== '00:00' && (
                         <span className="text-[10px] text-muted-foreground">{cita.hora_inicio?.slice(0, 5)}</span>
                       )}
                       {badge}
                     </div>
-                    {cfgName && <p className="text-[10px] text-muted-foreground">{cfgName}</p>}
+                    {cita.display_name && <p className="text-[10px] text-muted-foreground">{cita.display_name}</p>}
                   </div>
                 </div>
               );
