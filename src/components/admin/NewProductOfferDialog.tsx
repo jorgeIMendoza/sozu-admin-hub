@@ -33,6 +33,7 @@ import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { isValidRFC } from "@/utils/fiscalDataValidation";
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 
 // Form validation schema - made more flexible for both modes
 const formSchema = z.object({
@@ -1016,18 +1017,16 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
                                   {productPaymentSchemes.map((scheme: any) => {
                                     const tramos = scheme.tramos_mensualidad as any[];
                                     const isEscalonado = Array.isArray(tramos) && tramos.length > 0;
-                                    const hasFixedAmount = isEscalonado && tramos.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
+                                    
                                     return (
                                       <SelectItem key={scheme.id} value={scheme.id.toString()}>
                                         <div className="flex flex-col">
                                           <span>{scheme.nombre}</span>
                                           <span className="text-xs text-muted-foreground">
-                                            {isEscalonado
-                                              ? hasFixedAmount
-                                                ? `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')} | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                                : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                              : `Eng: ${scheme.porcentaje_enganche}% | Mens: ${scheme.porcentaje_mensualidades}% (${scheme.numero_mensualidades}) | Ent: ${scheme.porcentaje_entrega}%`
-                                            }
+                                             {isEscalonado
+                                               ? formatEscalonadoLabel(scheme, tramos, selectedProductData?.precio_lista)
+                                               : `Eng: ${scheme.porcentaje_enganche}% | Mens: ${scheme.porcentaje_mensualidades}% (${scheme.numero_mensualidades}) | Ent: ${scheme.porcentaje_entrega}%`
+                                             }
                                           </span>
                                         </div>
                                       </SelectItem>

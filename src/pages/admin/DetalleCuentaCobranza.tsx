@@ -153,6 +153,7 @@ interface Multa {
 }
 
 import JSZip from 'jszip';
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 
 // Read-only documents view component
 function ReadOnlyDocumentsView({ cuentaCobranzaId }: { cuentaCobranzaId: number }) {
@@ -3877,12 +3878,10 @@ export default function DetalleCuentaCobranza() {
                                 <div className="flex flex-col">
                                   <span>{scheme.nombre}</span>
                                   <span className="text-xs text-muted-foreground">
-                                    {isEscalonado
-                                      ? hasFixedAmount
-                                        ? `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')} | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                        : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                      : `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                    }
+                                     {isEscalonado
+                                       ? formatEscalonadoLabel(scheme, tramos, cuentaDetalle?.precio_final)
+                                       : `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%`
+                                     }
                                   </span>
                                 </div>
                               </SelectItem>

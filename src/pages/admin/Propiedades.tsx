@@ -48,6 +48,7 @@ import { ReventaDialog } from "@/components/admin/ReventaDialog";
 import { RefreshCw } from "lucide-react";
 import { CambiarEstatusAprobacionDialog } from "@/components/admin/CambiarEstatusAprobacionDialog";
 import { PlanosPropertyModal } from "@/components/admin/PlanosPropertyModal";
+import { formatEscalonadoLabel } from "@/utils/escalonadoUtils";
 
 // Component to show factura document link
 const FacturaCell = ({ propertyId }: { propertyId: number }) => {
@@ -6021,20 +6022,17 @@ const Propiedades = () => {
                                 <SelectContent className="bg-background border z-50">
                                   {availableSchemes.map((scheme) => {
                                     const tramos = scheme.tramos_mensualidad as any[];
-                                    const isEscalonado = Array.isArray(tramos) && tramos.length > 0;
-                                    const hasFixedAmount = isEscalonado && tramos.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
-                                    return (
-                                      <SelectItem key={scheme.id} value={scheme.id.toString()}>
-                                        <div className="flex flex-col">
-                                          <span>{scheme.nombre}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {isEscalonado
-                                              ? hasFixedAmount
-                                                ? `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')} | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                                : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                              : `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%${scheme.porcentaje_descuento_aumento ? ` | ${scheme.porcentaje_descuento_aumento > 0 ? '+' : ''}${scheme.porcentaje_descuento_aumento}%` : ''}`
-                                            }
-                                          </span>
+                                     const isEscalonado = Array.isArray(tramos) && tramos.length > 0;
+                                     return (
+                                       <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                         <div className="flex flex-col">
+                                           <span>{scheme.nombre}</span>
+                                           <span className="text-xs text-muted-foreground">
+                                             {isEscalonado
+                                               ? formatEscalonadoLabel(scheme, tramos, selectedPropertyForOffers?.precio_lista)
+                                               : `Eng: ${scheme.porcentaje_enganche || 0}% | Mens: ${scheme.porcentaje_mensualidades || 0}% (${scheme.numero_mensualidades || 0} pagos) | Ent: ${scheme.porcentaje_entrega || 0}%${scheme.porcentaje_descuento_aumento ? ` | ${scheme.porcentaje_descuento_aumento > 0 ? '+' : ''}${scheme.porcentaje_descuento_aumento}%` : ''}`
+                                             }
+                                           </span>
                                         </div>
                                       </SelectItem>
                                     );
@@ -6428,7 +6426,7 @@ const Propiedades = () => {
                                   setIsLoadingSchemes(true);
                                   const { data, error } = await supabase
                                     .from('esquemas_pago')
-                                    .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades')
+                                    .select('id, nombre, porcentaje_enganche, porcentaje_mensualidades, porcentaje_entrega, numero_mensualidades, tramos_mensualidad, porcentaje_descuento_aumento')
                                     .eq('id_producto', offer.id_producto)
                                     .eq('activo', true)
                                     .eq('es_manual', false)
@@ -6456,19 +6454,25 @@ const Propiedades = () => {
                                 ) : (
                                   productSchemes.map((scheme) => {
                                     const tramos = scheme.tramos_mensualidad as any[];
-                                    const isEscalonado = Array.isArray(tramos) && tramos.length > 0;
-                                    const hasFixedAmount = isEscalonado && tramos.some((t: any) => t.monto_mensualidad && t.monto_mensualidad > 0);
-                                    return (
-                                      <SelectItem key={scheme.id} value={scheme.id.toString()}>
-                                        <div>
-                                          <div className="font-medium">{scheme.nombre}</div>
-                                          <div className="text-xs text-muted-foreground">
-                                            {isEscalonado
-                                              ? hasFixedAmount
-                                                ? `Eng: ${scheme.porcentaje_enganche || 0}% | Mensualidades: ${tramos.map((t: any) => `$${(t.monto_mensualidad / 100).toLocaleString('es-MX')}`).join(' / ')} | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                                : `Eng: ${scheme.porcentaje_enganche || 0}% | Escalonado (${tramos.length} tramos) | Ent: ${scheme.porcentaje_entrega || 0}%`
-                                              : `Eng: ${scheme.porcentaje_enganche}% • Mens: ${scheme.porcentaje_mensualidades}% • Ent: ${scheme.porcentaje_entrega}%`
-                                            }
+                                     const isEscalonado = Array.isArray(tramos) && tramos.length > 0;
+                                     const productPrice = (() => {
+                                       // Use the offer's product price if available
+                                       if (schemeSelectionOffer) {
+                                         const pl = schemeSelectionOffer.product_precio_lista || 0;
+                                         const m2 = schemeSelectionOffer.product_metraje || 0;
+                                         return schemeSelectionOffer.tiene_metraje && m2 > 0 ? pl * m2 : pl;
+                                       }
+                                       return 0;
+                                     })();
+                                     return (
+                                       <SelectItem key={scheme.id} value={scheme.id.toString()}>
+                                         <div>
+                                           <div className="font-medium">{scheme.nombre}</div>
+                                           <div className="text-xs text-muted-foreground">
+                                             {isEscalonado
+                                               ? formatEscalonadoLabel(scheme, tramos, productPrice)
+                                               : `Eng: ${scheme.porcentaje_enganche}% • Mens: ${scheme.porcentaje_mensualidades}% • Ent: ${scheme.porcentaje_entrega}%`
+                                             }
                                           </div>
                                         </div>
                                       </SelectItem>
