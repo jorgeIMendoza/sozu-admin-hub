@@ -6467,7 +6467,7 @@ const Propiedades = () => {
                                         </div>
                                       </SelectItem>
                                     );
-                                  }))
+                                  })
                                 )}
                               </SelectContent>
                             </Select>
