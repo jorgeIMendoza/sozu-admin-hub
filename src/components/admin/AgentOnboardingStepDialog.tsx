@@ -1784,12 +1784,16 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
     setSaving(true);
 
-    // Deactivate any existing booking before creating a new one
-    if (existingCita && (existingCita.estatus === 'programada' || existingCita.estatus === 'no_asistio')) {
+    // Only deactivate existing bookings for the SAME config (not all citas)
+    const citasToDeactivate = allCitas.filter((c: any) =>
+      c.id_configuracion_cita === selectedConfigId &&
+      (c.estatus === 'programada' || c.estatus === 'no_asistio')
+    );
+    for (const cita of citasToDeactivate) {
       await supabase
         .from('reservas_citas')
         .update({ activo: false, estatus: 'cancelada' })
-        .eq('id', existingCita.id);
+        .eq('id', cita.id);
     }
     try {
       const { data: persona } = await supabase
