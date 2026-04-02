@@ -453,7 +453,13 @@ const AgentPerfil = () => {
                               </div>
                               <Badge
                                 variant={trainingStatus.tone === 'danger' ? 'destructive' : 'outline'}
-                                className="shrink-0 text-[10px]"
+                                className={cn(
+                                  "shrink-0 text-[10px] border-0",
+                                  trainingStatus.tone === 'success' && "bg-emerald-500 text-white",
+                                  trainingStatus.tone === 'warning' && "bg-amber-500 text-white",
+                                  trainingStatus.tone === 'info' && "bg-blue-500 text-white",
+                                  trainingStatus.tone === 'neutral' && "bg-gray-400 text-white",
+                                )}
                               >
                                 {trainingStatus.label}
                               </Badge>
