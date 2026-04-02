@@ -338,9 +338,9 @@ export const OfferPDFTemplate = forwardRef<HTMLDivElement, OfferPDFTemplateProps
                           )}
 
                           {hasFixedAmountTramos ? (
-                            // Fixed amount mode: show only monto mensual
+                            // Fixed amount mode: show "Durante la obra" + monto mensual (no percentages)
                             <div className="text-center">
-                              <p className="text-xs text-muted-foreground">Mensualidades</p>
+                              <p className="text-xs text-muted-foreground">Durante la obra</p>
                               {scheme.tramos_mensualidad!.map((tramo, idx) => (
                                 <div key={idx} className="text-xs">
                                   <p className="font-bold">

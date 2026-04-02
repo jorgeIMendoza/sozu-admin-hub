@@ -405,7 +405,13 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
     .eq('id_oferta', oferta.id)
     .eq('activo', true);
 
-  const paymentSchemes = ofertaEsquemas?.map((oe: any) => oe.esquemas_pago).filter(Boolean) || [];
+  const paymentSchemes = ofertaEsquemas?.map((oe: any) => {
+    const s = oe.esquemas_pago;
+    if (s && s.tramos_mensualidad && typeof s.tramos_mensualidad === 'string') {
+      try { s.tramos_mensualidad = JSON.parse(s.tramos_mensualidad); } catch { s.tramos_mensualidad = null; }
+    }
+    return s;
+  }).filter(Boolean) || [];
 
   // Fetch lead info
   let leadInfo: any = null;
@@ -842,7 +848,7 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
       if (hasSavings) schemeHeight += 12;
       if (scheme.porcentaje_enganche > 0) schemeHeight += 12;
       if (hasFixedAmountTramos) {
-        schemeHeight += tramosCount * 12 + 12; // tramos + contra-entrega
+        schemeHeight += tramosCount * 12 + 12 + 12; // "Durante la obra:" + tramos + contra-entrega
       } else {
         if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
           schemeHeight += 24;
@@ -1020,7 +1026,11 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
       }
 
       if (hasFixedAmountTramos) {
-        // Fixed amount mode: show mensualidades + contra-entrega
+        // Fixed amount mode: show "Durante la obra:" + mensualidades monto + contra-entrega (no percentages)
+        currentPage.drawText('Durante la obra:', {
+          x: schemeX + padding, y: lineY, size: 8, font: helvetica, color: gray,
+        });
+        lineY -= 12;
         for (let idx = 0; idx < scheme.tramos_mensualidad.length; idx++) {
           const tramo = scheme.tramos_mensualidad[idx];
           currentPage.drawText(`${tramo.numero_mensualidades} mensualidades:`, {
@@ -1033,7 +1043,7 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
           });
           lineY -= 12;
         }
-        // Contra-entrega as remainder
+        // Contra-entrega as remainder (no percentage)
         const totalFixedMens = scheme.tramos_mensualidad.reduce((sum: number, t: any) => 
           sum + ((t.monto_mensualidad || 0) / 100) * t.numero_mensualidades, 0);
         const contraEntrega = amounts.finalPrice - amounts.enganche - totalFixedMens;
@@ -1416,7 +1426,13 @@ async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprob
     .eq('id_oferta', oferta.id)
     .eq('activo', true);
 
-  const paymentSchemes = ofertaEsquemas?.map((oe: any) => oe.esquemas_pago).filter(Boolean) || [];
+  const paymentSchemes = ofertaEsquemas?.map((oe: any) => {
+    const s = oe.esquemas_pago;
+    if (s && s.tramos_mensualidad && typeof s.tramos_mensualidad === 'string') {
+      try { s.tramos_mensualidad = JSON.parse(s.tramos_mensualidad); } catch { s.tramos_mensualidad = null; }
+    }
+    return s;
+  }).filter(Boolean) || [];
 
   // Fetch lead info
   let leadInfo: any = null;
@@ -1743,7 +1759,7 @@ async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprob
       if (hasSavings) schemeHeight += 12;
       if (scheme.porcentaje_enganche > 0) schemeHeight += 12;
       if (hasFixedAmountTramos) {
-        schemeHeight += tramosCount * 12 + 12;
+        schemeHeight += tramosCount * 12 + 12 + 12;
       } else {
         if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
           schemeHeight += 24;
@@ -1905,6 +1921,11 @@ async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprob
       }
 
       if (hasFixedAmountTramos) {
+        // Fixed amount mode: show "Durante la obra:" + mensualidades monto + contra-entrega (no percentages)
+        currentPage.drawText('Durante la obra:', {
+          x: schemeX + padding, y: lineY, size: 8, font: helvetica, color: gray,
+        });
+        lineY -= 12;
         for (let idx = 0; idx < scheme.tramos_mensualidad.length; idx++) {
           const tramo = scheme.tramos_mensualidad[idx];
           currentPage.drawText(`${tramo.numero_mensualidades} mensualidades:`, {

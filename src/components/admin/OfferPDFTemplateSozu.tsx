@@ -563,8 +563,12 @@ export const OfferPDFTemplateSozu = forwardRef<HTMLDivElement, OfferPDFTemplateS
                             )}
 
                             {hasFixedAmountTramos ? (
-                              // Fixed amount mode
+                              // Fixed amount mode: "Durante la obra" + mensualidades + contra-entrega (no percentages)
                               <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                  <span style={{ color: '#000000' }}>Durante la obra:</span>
+                                  <span></span>
+                                </div>
                                 {scheme.tramos_mensualidad!.map((tramo, idx) => (
                                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ color: '#000000' }}>
