@@ -82,6 +82,7 @@ export const EditPaymentSchemeDialog = ({ scheme, onSchemeUpdated, canUpdate = t
         setTramos(existingTramos.map((t: any, i: number) => ({
           orden: t.orden || i + 1,
           numero_mensualidades: t.numero_mensualidades || 0,
+          ...(t.monto_mensualidad ? { monto_mensualidad: t.monto_mensualidad } : {}),
         })));
       } else {
         setTramosEnabled(false);
