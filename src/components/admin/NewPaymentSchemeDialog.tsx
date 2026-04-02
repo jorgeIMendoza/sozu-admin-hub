@@ -70,7 +70,7 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
 
   const mensualidadesPct = parseFloat(watchedMensualidades || "0");
   const numMensualidades = parseInt(watchedNumMensualidades || "0");
-  const showTramos = mensualidadesPct > 0 && numMensualidades > 1;
+  const showTramos = numMensualidades > 1;
 
   // Reset tramos when conditions no longer met
   useEffect(() => {
