@@ -1784,17 +1784,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
 
     setSaving(true);
 
-    // Only deactivate existing bookings for the SAME config (not all citas)
-    const citasToDeactivate = allCitas.filter((c: any) =>
-      c.id_configuracion_cita === selectedConfigId &&
-      (c.estatus === 'programada' || c.estatus === 'no_asistio')
-    );
-    for (const cita of citasToDeactivate) {
-      await supabase
-        .from('reservas_citas')
-        .update({ activo: false, estatus: 'cancelada' })
-        .eq('id', cita.id);
-    }
+    // No longer deactivate existing citas — allow multiple simultaneous citas per config
     try {
       const { data: persona } = await supabase
         .from('personas')
@@ -1879,17 +1869,7 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
     }
     setSaving(true);
     try {
-      // Deactivate existing bookings with same config only (programada/no_asistio)
-      const citasToDeactivate = allCitas.filter((c: any) =>
-        (c.estatus === 'programada' || c.estatus === 'no_asistio') &&
-        (!selectedConfigId || c.id_configuracion_cita === selectedConfigId || !c.id_configuracion_cita)
-      );
-      for (const c of citasToDeactivate) {
-        await supabase
-          .from('reservas_citas')
-          .update({ activo: false, estatus: 'cancelada' })
-          .eq('id', c.id);
-      }
+      // No longer deactivate existing citas — allow multiple simultaneous citas
 
       // Insert a new record with status "Pendiente de confirmación"
       const { error } = await supabase
@@ -2175,20 +2155,12 @@ function AgentTrainingStep({ personaId, onSaved, onTrackSave, onTrackFieldChange
                 </div>
               )}
 
-              {isProgrammedForConfig && (
-                <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3">
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Ya tienes una cita programada para esta configuración. Si reagendas, se cancelará la anterior.
-                  </p>
-                </div>
-              )}
-
               <button
                 onClick={handleSchedule}
                 disabled={saving || !selectedDate || !selectedSlot}
                 className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : isProgrammedForConfig ? "Reagendar Cita" : "Agendar Cita"}
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Agendando...</> : citaCancelledExternally ? "Reprogramar Cita" : "Agendar Cita"}
               </button>
             </>
           )}
