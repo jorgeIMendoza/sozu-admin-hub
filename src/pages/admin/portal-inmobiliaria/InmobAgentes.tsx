@@ -1118,6 +1118,49 @@ export default function InmobAgentes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Agent Dialog */}
+      <Dialog open={isAddAgentOpen} onOpenChange={(open) => { if (!open) setIsAddAgentOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar agente</DialogTitle>
+            <DialogDescription>Registra un nuevo agente para {inmobiliariaNombre}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nombre *</Label>
+              <Input value={newAgentName} onChange={(e) => setNewAgentName(e.target.value)} placeholder="Nombre completo" />
+            </div>
+            <div className="space-y-2">
+              <Label>Correo electrónico *</Label>
+              <Input value={newAgentEmail} onChange={(e) => setNewAgentEmail(e.target.value)} type="email" placeholder="correo@ejemplo.com" />
+            </div>
+            <div className="space-y-2">
+              <Label>Teléfono</Label>
+              <Input value={newAgentPhone} onChange={(e) => setNewAgentPhone(e.target.value)} placeholder="10 dígitos" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddAgentOpen(false)}>Cancelar</Button>
+            <Button onClick={handleAddAgent} disabled={addingAgent || !newAgentName || !newAgentEmail}>
+              {addingAgent ? "Registrando…" : "Registrar agente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      {personaId && (
+        <BulkUploadMisAgentesDialog
+          open={isBulkUploadOpen}
+          onClose={() => setIsBulkUploadOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
+          }}
+          inmobiliariaId={personaId}
+          inmobiliariaNombre={inmobiliariaNombre}
+        />
+      )}
     </div>
   );
 }
