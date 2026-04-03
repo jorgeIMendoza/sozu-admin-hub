@@ -496,14 +496,13 @@ export default function InmobComisiones() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Comisión</span>
-                  <span className="font-bold text-emerald-600">{fmt2(selectedComision.comision)}</span>
-                </div>
-                {selectedComision.ivaIncluido && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">IVA (16%)</span>
-                    <span className="text-sm font-medium">{fmt2(selectedComision.comision * 0.16)}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-emerald-600">{fmt2(selectedComision.comision)}</span>
+                    {!selectedComision.ivaIncluido && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 leading-4 font-medium text-muted-foreground border-border">+ IVA</Badge>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
               {selectedComision.facturaUrl && (
