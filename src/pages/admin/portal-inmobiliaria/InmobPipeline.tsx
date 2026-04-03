@@ -540,20 +540,25 @@ export default function InmobPipeline() {
     return result;
   }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta, searchOfertaId]);
 
-  // Auto-open offer detail when offerId param is present
+  // Auto-open offer detail when offerId param is present (run once)
+  const offerIdHandledRef = React.useRef<string | null>(null);
   useEffect(() => {
-    if (!offerIdParam || !ofertas.length || selectedCard) return;
+    if (!offerIdParam || !ofertas.length) return;
+    if (offerIdHandledRef.current === offerIdParam) return;
+    offerIdHandledRef.current = offerIdParam;
     const targetId = Number(offerIdParam);
     if (!targetId) return;
     const card = ofertas.find((o) => o.id === targetId);
     if (card) {
       setSelectedCard(card);
-      // Clean the param from URL
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete("offerId");
-      window.history.replaceState({}, "", `${window.location.pathname}?${newParams.toString()}`);
+      // Clean the param from URL using setSearchParams so React Router stays in sync
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("offerId");
+        return next;
+      }, { replace: true });
     }
-  }, [offerIdParam, ofertas, selectedCard]);
+  }, [offerIdParam, ofertas]);
 
 
   const stageMap = useMemo(() => {
