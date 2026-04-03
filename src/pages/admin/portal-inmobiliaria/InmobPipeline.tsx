@@ -541,7 +541,7 @@ export default function InmobPipeline() {
   }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta, searchOfertaId]);
 
   // Auto-open offer detail when offerId param is present (run once)
-  const offerIdHandledRef = React.useRef<string | null>(null);
+  const offerIdHandledRef = useRef<string | null>(null);
   useEffect(() => {
     if (!offerIdParam || !ofertas.length) return;
     if (offerIdHandledRef.current === offerIdParam) return;
