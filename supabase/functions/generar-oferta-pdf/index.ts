@@ -897,7 +897,7 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
       if (hasSavings) schemeHeight += 12;
       if (scheme.porcentaje_enganche > 0) schemeHeight += 12;
       if (escalonadoDisplay.isEscalonado) {
-        schemeHeight += 24;
+        schemeHeight += 32;
       } else {
         if (scheme.porcentaje_mensualidades > 0 && scheme.numero_mensualidades > 0) {
           schemeHeight += 24;
