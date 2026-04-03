@@ -615,7 +615,7 @@ export class OfertaPdfNativeService {
           data.offerData.id_esquema_pago_seleccionado === scheme.id;
         const amounts = calculatePaymentAmounts(scheme);
         const hasSavings = amounts.adjustment < 0;
-        const escalonadoDisplay = getEscalonadoDisplayData(scheme, amounts);
+        const escalonadoDisplay = getEscalonadoDisplayData(scheme, amounts, data.offerData.fecha_generacion);
 
         // Background
         if (isSelected) {
