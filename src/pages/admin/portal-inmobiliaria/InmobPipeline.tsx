@@ -270,6 +270,10 @@ export default function InmobPipeline() {
     track({ page: "inmob_pipeline", elementId: "page_view", elementType: "page" });
   }, []);
 
+  // Auto-open offer detail if offerId is in URL
+  const offerIdParam = searchParams.get("offerId");
+
+
   const agentEmails = useMemo(() => agents.map((a) => a.email), [agents]);
   const agentNameMap = useMemo(() => {
     const m = new Map<string, string>();
