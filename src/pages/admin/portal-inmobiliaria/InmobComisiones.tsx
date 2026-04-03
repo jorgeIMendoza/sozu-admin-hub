@@ -498,7 +498,7 @@ export default function InmobComisiones() {
                   <span className="text-sm text-muted-foreground">Comisión</span>
                   <span className="font-bold text-emerald-600">{fmt2(selectedComision.comision)}</span>
                 </div>
-                {!selectedComision.ivaIncluido && (
+                {selectedComision.ivaIncluido && (
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">IVA (16%)</span>
                     <span className="text-sm font-medium">{fmt2(selectedComision.comision * 0.16)}</span>
