@@ -360,10 +360,23 @@ const AgentComisiones = () => {
                   </p>
                 </div>
                 <div className="mt-2.5 flex items-center justify-between">
-                  <Badge variant="outline" className={cn("text-[10px] shrink-0 border gap-1", status.color)}>
-                    <StatusIcon className="h-3 w-3" />
-                    {status.label}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={cn("text-[10px] shrink-0 border gap-1", status.color)}>
+                      <StatusIcon className="h-3 w-3" />
+                      {status.label}
+                    </Badge>
+                    {c.detailed_status === 'pagada' && c.url_evidencia_pago && (
+                      <a
+                        href={c.url_evidencia_pago}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-[hsl(var(--agent-primary))] font-medium underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Ver comprobante
+                      </a>
+                    )}
+                  </div>
                   {c.precio_final > 0 && (
                     <span className="text-[10px] text-[hsl(var(--agent-text-secondary))]">
                       Venta: {formatCurrency(c.precio_final)}
