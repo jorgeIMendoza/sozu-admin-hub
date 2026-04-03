@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -13,6 +13,8 @@ import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Cart
 import { FileText, CalendarDays, Percent, Home, BarChart3, DollarSign, Timer } from "lucide-react";
 
 const COLORS = ["#239E6C", "#3B82F6", "#F97316", "#A855F7", "#14B8A6", "#EC4899", "#06B6D4", "#84CC16"];
+
+const ADVANCED_STAGES = new Set(["apartado", "gen_contrato", "firma_contrato", "cierre"]);
 
 export default function InmobReportes() {
   const { registrarVista } = useActivityLogger();
@@ -48,7 +50,7 @@ export default function InmobReportes() {
     staleTime: 10 * 60_000,
   });
 
-  // Fetch offers using correct columns
+  // Fetch offers
   const { data: ofertas = [] } = useQuery({
     queryKey: ["inmob-reportes-ofertas", agentEmails, dateRanges],
     queryFn: async () => {
@@ -59,7 +61,7 @@ export default function InmobReportes() {
       for (const range of ranges) {
         let q = (supabase as any)
           .from("ofertas")
-          .select("id, email_creador, id_estatus_aprobacion, id_propiedad, id_producto, fecha_generacion")
+          .select("id, email_creador, id_estatus_aprobacion, id_propiedad, id_producto, id_esquema_pago_seleccionado, fecha_generacion")
           .in("email_creador", agentEmails)
           .eq("activo", true);
         if (range) {
@@ -75,53 +77,204 @@ export default function InmobReportes() {
     staleTime: 3 * 60_000,
   });
 
-  // Fetch comisionistas (real table) for commission data
-  const { data: comisionistas = [] } = useQuery({
-    queryKey: ["inmob-reportes-comisionistas", agentEmails, dateRanges],
-    queryFn: async () => {
-      if (agentEmails.length === 0) return [];
-      const all: any[] = [];
-      for (let i = 0; i < agentEmails.length; i += 200) {
-        const batch = agentEmails.slice(i, i + 200);
-        const { data } = await (supabase as any)
-          .from("comisionistas")
-          .select("id, email_usuario, monto_comision, porcentaje_comision, pagada, aprobada, fecha_creacion, id_cuenta_cobranza")
-          .in("email_usuario", batch)
-          .eq("activo", true);
-        if (data) all.push(...data);
-      }
-      return all;
-    },
-    enabled: agentEmails.length > 0,
-    staleTime: 3 * 60_000,
-  });
-
-  // Fetch cuentas for precio_final
-  const cuentaIds = useMemo(() => [...new Set(comisionistas.map((c: any) => c.id_cuenta_cobranza).filter(Boolean))] as number[], [comisionistas]);
-  const { data: cuentasMap = new Map<number, any>() } = useQuery({
-    queryKey: ["inmob-reportes-cuentas", cuentaIds],
+  // Fetch propiedades for estatus_disponibilidad (needed for stage classification)
+  const propIds = useMemo(() => [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[], [ofertas]);
+  const { data: propMap = new Map<number, any>() } = useQuery({
+    queryKey: ["inmob-reportes-props", propIds],
     queryFn: async () => {
       const m = new Map<number, any>();
-      for (let i = 0; i < cuentaIds.length; i += 200) {
-        const batch = cuentaIds.slice(i, i + 200);
-        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, precio_final, id_oferta").in("id", batch);
-        (data || []).forEach((c: any) => m.set(c.id, c));
+      for (let i = 0; i < propIds.length; i += 200) {
+        const batch = propIds.slice(i, i + 200);
+        const { data } = await supabase.from("propiedades").select("id, id_estatus_disponibilidad, id_edificio_modelo").in("id", batch) as any;
+        (data || []).forEach((p: any) => m.set(p.id, p));
       }
       return m;
     },
-    enabled: cuentaIds.length > 0,
+    enabled: propIds.length > 0,
     staleTime: 3 * 60_000,
   });
 
+  // Fetch cuentas_cobranza by oferta ID (same as dashboard)
+  const ofertaIds = useMemo(() => ofertas.map((o: any) => o.id), [ofertas]);
+  const { data: cuentasMap = new Map<number, any>() } = useQuery({
+    queryKey: ["inmob-reportes-cuentas", ofertaIds],
+    queryFn: async () => {
+      const m = new Map<number, any>();
+      for (let i = 0; i < ofertaIds.length; i += 100) {
+        const batch = ofertaIds.slice(i, i + 100);
+        const { data } = await (supabase as any)
+          .from("cuentas_cobranza")
+          .select("id, id_oferta, precio_final, porcentaje_comision_venta, iva_incluido, contrato_draft, fecha_creacion")
+          .in("id_oferta", batch)
+          .eq("activo", true);
+        (data || []).forEach((c: any) => { if (c.id_oferta) m.set(c.id_oferta, c); });
+      }
+      // Check signed contracts (tipo_documento 42)
+      const cuentaIds = [...m.values()].map((c: any) => c.id);
+      if (cuentaIds.length > 0) {
+        const firmadoSet = new Set<number>();
+        for (let i = 0; i < cuentaIds.length; i += 200) {
+          const batch = cuentaIds.slice(i, i + 200);
+          const { data: docs } = await supabase
+            .from("documentos")
+            .select("id_cuenta_cobranza")
+            .in("id_cuenta_cobranza", batch)
+            .eq("id_tipo_documento", 42)
+            .eq("activo", true) as any;
+          (docs || []).forEach((d: any) => firmadoSet.add(d.id_cuenta_cobranza));
+        }
+        m.forEach((c: any) => {
+          c.tiene_contrato_firmado = firmadoSet.has(c.id);
+        });
+      }
+      return m;
+    },
+    enabled: ofertaIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
+  // Comisionistas by cuenta
+  const cuentaCobranzaIds = useMemo(() => {
+    const ids = new Set<number>();
+    cuentasMap.forEach((c: any) => { if (c?.id) ids.add(c.id); });
+    return [...ids];
+  }, [cuentasMap]);
+
+  const { data: comisiones = [] } = useQuery({
+    queryKey: ["inmob-reportes-comisiones", cuentaCobranzaIds],
+    queryFn: async () => {
+      if (!cuentaCobranzaIds.length) return [];
+      const all: any[] = [];
+      for (let i = 0; i < cuentaCobranzaIds.length; i += 200) {
+        const batch = cuentaCobranzaIds.slice(i, i + 200);
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("email_usuario, porcentaje_comision, aprobada, pagada, id_cuenta_cobranza, fecha_creacion")
+          .in("id_cuenta_cobranza", batch)
+          .eq("activo", true);
+        if (data) all.push(...data);
+      }
+      // Dedupe by composite key
+      const seen = new Set<string>();
+      const deduped = all.filter((c) => {
+        const key = `${c.id_cuenta_cobranza}-${(c.email_usuario || "").toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      // Compute monto_comision same as dashboard
+      deduped.forEach((c) => {
+        const cuenta = [...cuentasMap.values()].find((cc: any) => cc.id === c.id_cuenta_cobranza);
+        const precioFinal = cuenta ? Number(cuenta.precio_final) || 0 : 0;
+        c.monto_comision = (Number(c.porcentaje_comision) || 0) / 100 * precioFinal;
+      });
+      return deduped;
+    },
+    enabled: cuentaCobranzaIds.length > 0,
+    staleTime: 3 * 60_000,
+  });
+
+  // Stage classification (same logic as dashboard)
+  const classifyOffer = useCallback((o: any) => {
+    const p = propMap.get(o.id_propiedad);
+    const cuenta = cuentasMap.get(o.id);
+    if (p?.id_estatus_disponibilidad === 5) return "cierre";
+    if (cuenta?.tiene_contrato_firmado) return "firma_contrato";
+    if (cuenta?.contrato_draft) return "gen_contrato";
+    if (cuenta && p?.id_estatus_disponibilidad === 4) return "apartado";
+    const fecha = new Date(o.fecha_generacion);
+    const expira = new Date(fecha); expira.setDate(expira.getDate() + 5);
+    const vigente = expira >= new Date();
+    if (!vigente && !cuenta) return "expiradas";
+    if (!o.id_esquema_pago_seleccionado) return vigente ? "nuevas" : "expiradas";
+    if (o.id_estatus_aprobacion === 1) return vigente ? "pendientes" : "expiradas";
+    if (o.id_estatus_aprobacion === 2) return "aprobadas";
+    if (o.id_estatus_aprobacion === 3) return vigente ? "rechazadas" : "expiradas";
+    if (o.id_estatus_aprobacion === 4) return vigente ? "revision" : "expiradas";
+    return "nuevas";
+  }, [propMap, cuentasMap]);
+
+  const classifiedOfertas = useMemo(() => ofertas.map((o: any) => ({ ...o, stage: classifyOffer(o) })), [ofertas, classifyOffer]);
+
+  // Dedup advanced stages (same as dashboard)
+  const dedupedAdvancedOfertas = useMemo(() => {
+    const advanced = classifiedOfertas.filter((o: any) => ADVANCED_STAGES.has(o.stage));
+    const cierre = advanced.filter((o: any) => o.stage === "cierre");
+    const nonCierre = advanced.filter((o: any) => o.stage !== "cierre");
+    const seen = new Set<string>();
+    const dedupedCierre = cierre
+      .filter((o: any) => cuentasMap.has(o.id))
+      .filter((o: any) => {
+        const key = o.id_producto ? `prod-${o.id_producto}-${o.id_propiedad || "none"}` : `prop-${o.id_propiedad}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    return [...nonCierre, ...dedupedCierre];
+  }, [classifiedOfertas, cuentasMap]);
+
+  const ventasCerradas = useMemo(() => dedupedAdvancedOfertas.filter((o: any) => o.stage === "cierre").length, [dedupedAdvancedOfertas]);
+
+  // ───── Strategic KPIs (same formulas as dashboard) ─────
+  const conversionGlobal = ofertas.length > 0 ? ((ventasCerradas / ofertas.length) * 100) : 0;
+
+  const { ticketPropiedades, ticketProductos } = useMemo(() => {
+    const cierres = dedupedAdvancedOfertas.filter((o: any) => o.stage === "cierre");
+    const props = cierres.filter((o: any) => !o.id_producto);
+    const prods = cierres.filter((o: any) => !!o.id_producto);
+    const avg = (arr: any[]) => {
+      if (arr.length === 0) return 0;
+      return arr.reduce((s: number, o: any) => s + (Number(cuentasMap.get(o.id)?.precio_final) || 0), 0) / arr.length;
+    };
+    return { ticketPropiedades: avg(props), ticketProductos: avg(prods) };
+  }, [dedupedAdvancedOfertas, cuentasMap]);
+
+  const agentEmailSetLower = useMemo(() => new Set(agentEmails.map(e => e.toLowerCase())), [agentEmails]);
+
+  const agentsWithSales = useMemo(() => {
+    const sellers = new Set<string>();
+    dedupedAdvancedOfertas.forEach((o: any) => {
+      if (o.stage === "cierre") {
+        const email = (o.email_creador || "").toLowerCase();
+        if (agentEmailSetLower.has(email)) sellers.add(email);
+      }
+    });
+    return sellers.size;
+  }, [dedupedAdvancedOfertas, agentEmailSetLower]);
+
+  const comisionPromAgente = useMemo(() => {
+    if (agentsWithSales === 0) return 0;
+    const advancedCuentaIds = new Set<number>();
+    dedupedAdvancedOfertas.forEach((o: any) => {
+      const cuenta = cuentasMap.get(o.id);
+      if (cuenta) advancedCuentaIds.add(cuenta.id);
+    });
+    const total = comisiones
+      .filter((c: any) => advancedCuentaIds.has(c.id_cuenta_cobranza))
+      .reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
+    return total / agentsWithSales;
+  }, [agentsWithSales, dedupedAdvancedOfertas, cuentasMap, comisiones]);
+
+  const tiempoPromCierre = useMemo(() => {
+    const cierres = dedupedAdvancedOfertas.filter((o: any) => o.stage === "cierre");
+    if (cierres.length === 0) return 0;
+    const totalDays = cierres.reduce((sum: number, o: any) => {
+      const fechaOferta = new Date(o.fecha_generacion);
+      const cuenta = cuentasMap.get(o.id);
+      const fechaCierre = cuenta?.fecha_creacion ? new Date(cuenta.fecha_creacion) : new Date();
+      const diffMs = fechaCierre.getTime() - fechaOferta.getTime();
+      return sum + Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+    }, 0);
+    return Math.round(totalDays / cierres.length);
+  }, [dedupedAdvancedOfertas, cuentasMap]);
+
   // Property → project mapping for project chart
-  const propIds = useMemo(() => [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[], [ofertas]);
   const { data: propToProject = new Map<number, { id: number; nombre: string }>() } = useQuery({
     queryKey: ["inmob-reportes-prop-proj", propIds],
     queryFn: async () => {
       if (!propIds.length) return new Map();
       const m = new Map<number, { id: number; nombre: string }>();
-      const { data: props } = await supabase.from("propiedades").select("id, id_edificio_modelo").in("id", propIds) as any;
-      if (!props?.length) return m;
+      const props = [...propMap.values()];
       const emIds = [...new Set(props.map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
       if (!emIds.length) return m;
       const { data: ems } = await supabase.from("edificios_modelos").select("id, id_edificio").in("id", emIds) as any;
@@ -142,69 +295,9 @@ export default function InmobReportes() {
       });
       return m;
     },
-    enabled: propIds.length > 0,
+    enabled: propIds.length > 0 && propMap.size > 0,
     staleTime: 5 * 60_000,
   });
-
-  // Approved offers (estatus 2 = aprobada)
-  const aprobadas = useMemo(() => ofertas.filter((o: any) => o.id_estatus_aprobacion === 2), [ofertas]);
-
-  // Strategic KPIs
-  const conversionGlobal = ofertas.length > 0 ? ((aprobadas.length / ofertas.length) * 100) : 0;
-
-  const ticketPropiedades = useMemo(() => {
-    const propAprobadas = aprobadas.filter((o: any) => !o.id_producto);
-    if (propAprobadas.length === 0) return 0;
-    let total = 0;
-    let count = 0;
-    propAprobadas.forEach((o: any) => {
-      // Find cuenta via comisionistas
-      const comision = comisionistas.find((c: any) => {
-        const cuenta = cuentasMap.get(c.id_cuenta_cobranza);
-        return cuenta?.id_oferta === o.id;
-      });
-      if (comision) {
-        const cuenta = cuentasMap.get(comision.id_cuenta_cobranza);
-        if (cuenta?.precio_final) { total += Number(cuenta.precio_final); count++; }
-      }
-    });
-    return count > 0 ? total / count : 0;
-  }, [aprobadas, comisionistas, cuentasMap]);
-
-  const ticketProductos = useMemo(() => {
-    const prodAprobadas = aprobadas.filter((o: any) => !!o.id_producto);
-    if (prodAprobadas.length === 0) return 0;
-    let total = 0;
-    let count = 0;
-    prodAprobadas.forEach((o: any) => {
-      const comision = comisionistas.find((c: any) => {
-        const cuenta = cuentasMap.get(c.id_cuenta_cobranza);
-        return cuenta?.id_oferta === o.id;
-      });
-      if (comision) {
-        const cuenta = cuentasMap.get(comision.id_cuenta_cobranza);
-        if (cuenta?.precio_final) { total += Number(cuenta.precio_final); count++; }
-      }
-    });
-    return count > 0 ? total / count : 0;
-  }, [aprobadas, comisionistas, cuentasMap]);
-
-  const comisionPromAgente = useMemo(() => {
-    const agentsWithSales = new Set(aprobadas.map((o: any) => (o.email_creador || "").toLowerCase()));
-    if (agentsWithSales.size === 0) return 0;
-    const totalComision = comisionistas.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
-    return totalComision / agentsWithSales.size;
-  }, [aprobadas, comisionistas]);
-
-  const tiempoPromCierre = useMemo(() => {
-    if (aprobadas.length === 0) return 0;
-    const totalDays = aprobadas.reduce((sum: number, o: any) => {
-      const created = new Date(o.fecha_generacion);
-      const diffMs = Date.now() - created.getTime();
-      return sum + Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
-    }, 0);
-    return Math.round(totalDays / aprobadas.length);
-  }, [aprobadas]);
 
   // 1. Offers per agent
   const offersPerAgent = useMemo(() => {
@@ -234,7 +327,7 @@ export default function InmobReportes() {
   // 3. Commissions monthly trend
   const commissionTrend = useMemo(() => {
     const m = new Map<string, number>();
-    comisionistas.forEach((c: any) => {
+    comisiones.forEach((c: any) => {
       const d = c.fecha_creacion?.slice(0, 7);
       if (!d) return;
       m.set(d, (m.get(d) || 0) + (Number(c.monto_comision) || 0));
@@ -243,7 +336,7 @@ export default function InmobReportes() {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-12)
       .map(([mes, monto]) => ({ mes, monto: Math.round(monto) }));
-  }, [comisionistas]);
+  }, [comisiones]);
 
   // 4. Conversion per agent
   const conversionData = useMemo(() => {
@@ -269,7 +362,7 @@ export default function InmobReportes() {
     return fmt(n);
   };
 
-  const hasData = ofertas.length > 0 || comisionistas.length > 0;
+  const hasData = ofertas.length > 0 || comisiones.length > 0;
 
   return (
     <div className="space-y-6">
