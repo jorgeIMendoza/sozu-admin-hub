@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -235,7 +235,7 @@ async function enrichOfertas(data: any[], agentNameMap: Map<string, string>) {
 import { buildDateRangesFromMonths as buildDateRanges } from "@/components/ui/month-multi-selector";
 
 export default function InmobPipeline() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { data: agents = [], isLoading: agentsLoading } = useInmobAgents();
@@ -540,20 +540,25 @@ export default function InmobPipeline() {
     return result;
   }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta, searchOfertaId]);
 
-  // Auto-open offer detail when offerId param is present
+  // Auto-open offer detail when offerId param is present (run once)
+  const offerIdHandledRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!offerIdParam || !ofertas.length || selectedCard) return;
+    if (!offerIdParam || !ofertas.length) return;
+    if (offerIdHandledRef.current === offerIdParam) return;
+    offerIdHandledRef.current = offerIdParam;
     const targetId = Number(offerIdParam);
     if (!targetId) return;
     const card = ofertas.find((o) => o.id === targetId);
     if (card) {
       setSelectedCard(card);
-      // Clean the param from URL
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete("offerId");
-      window.history.replaceState({}, "", `${window.location.pathname}?${newParams.toString()}`);
+      // Clean the param from URL using setSearchParams so React Router stays in sync
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("offerId");
+        return next;
+      }, { replace: true });
     }
-  }, [offerIdParam, ofertas, selectedCard]);
+  }, [offerIdParam, ofertas]);
 
 
   const stageMap = useMemo(() => {

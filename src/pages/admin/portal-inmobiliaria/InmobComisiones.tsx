@@ -180,6 +180,7 @@ export default function InmobComisiones() {
   const [currentPage, setCurrentPage] = useState(1);
   const [estatusFilter, setEstatusFilter] = useState<string>("todos");
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [selectedComision, setSelectedComision] = useState<any | null>(null);
 
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
   const dateRanges = useMemo(() => buildDateRangesFromMonths(selectedMonths), [selectedMonths]);
@@ -369,7 +370,7 @@ export default function InmobComisiones() {
                   </TableHeader>
                   <TableBody>
                     {paginatedRows.map((r: any, idx: number) => (
-                      <TableRow key={`${r.cuentaId}-${idx}`}>
+                      <TableRow key={`${r.cuentaId}-${idx}`} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedComision(r)}>
                         <TableCell className="font-medium">{r.proyecto}</TableCell>
                         <TableCell><ClienteCell clientes={r.clientes} /></TableCell>
                         <TableCell>{r.unidad}</TableCell>
@@ -383,7 +384,7 @@ export default function InmobComisiones() {
                         </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={e => e.stopPropagation()}>
                           {r.facturaUrl ? (
                             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPdfUrl(r.facturaUrl)}>
                               <FileText className="h-3.5 w-3.5" /> Ver
@@ -448,6 +449,76 @@ export default function InmobComisiones() {
           )}
         </>
       )}
+
+      {/* Commission detail modal */}
+      <Dialog open={!!selectedComision} onOpenChange={(v) => { if (!v) setSelectedComision(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalle de Comisión</DialogTitle>
+          </DialogHeader>
+          {selectedComision && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-muted-foreground text-xs">Proyecto</p>
+                  <p className="font-medium">{selectedComision.proyecto}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Unidad</p>
+                  <p className="font-medium">{selectedComision.unidad}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Agente</p>
+                  <p className="font-medium">{selectedComision.agente}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Estatus</p>
+                  {estatusBadge(selectedComision.estatus)}
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Compradores</p>
+                  <div className="space-y-0.5">
+                    {selectedComision.clientes?.map((c: ClienteInfo, i: number) => (
+                      <p key={i} className="font-medium">{c.nombre}</p>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Fecha de pago</p>
+                  <p className="font-medium">{formatFechaPago(selectedComision.fechaPago)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Valor de venta</span>
+                  <span className="font-semibold">{fmt2(selectedComision.venta)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Comisión</span>
+                  <span className="font-bold text-emerald-600">{fmt2(selectedComision.comision)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">IVA</span>
+                  <span className="text-sm">{selectedComision.ivaIncluido ? "Incluido" : "+ IVA"}</span>
+                </div>
+              </div>
+
+              {selectedComision.facturaUrl && (
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => { setPdfUrl(selectedComision.facturaUrl); setSelectedComision(null); }}>
+                  <FileText className="h-4 w-4" /> Ver factura
+                </Button>
+              )}
+
+              {selectedComision.estatus === "Pagada" && selectedComision.comprobantePagoUrl && (
+                <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => { setPdfUrl(selectedComision.comprobantePagoUrl); setSelectedComision(null); }}>
+                  <Eye className="h-4 w-4" /> Ver comprobante de pago
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <PdfViewerDialog
         open={!!pdfUrl}
@@ -631,6 +702,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
       estatus,
       fechaPago: cuenta.fecha_pago_comision || null,
       facturaUrl: (!cuenta.es_draft_factura_comision && cuenta.url_factura_comision) ? cuenta.url_factura_comision : null,
+      comprobantePagoUrl: null,
     });
   }
 
@@ -690,7 +762,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
   // Get comisionistas for this inmobiliaria
   const { data: comisionistas } = await (supabase as any)
     .from("comisionistas")
-    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision")
+    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision, url_evidencia_pago")
     .in("id_cuenta_cobranza", cuentaIds)
     .eq("email_usuario", inmobEmail)
     .eq("activo", true);
@@ -814,6 +886,7 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
       estatus,
       fechaPago,
       facturaUrl: facturaUrlMap.get(cuentaId) || null,
+      comprobantePagoUrl: com.url_evidencia_pago || null,
     });
   }
 
