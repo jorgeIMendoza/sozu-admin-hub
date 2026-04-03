@@ -452,7 +452,7 @@ export default function InmobComisiones() {
 
       {/* Commission detail modal */}
       <Dialog open={!!selectedComision} onOpenChange={(v) => { if (!v) setSelectedComision(null); }}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="light sm:max-w-lg bg-white text-gray-900">
           <DialogHeader>
             <DialogTitle>Detalle de Comisión</DialogTitle>
           </DialogHeader>
