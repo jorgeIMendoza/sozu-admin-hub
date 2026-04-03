@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { useInmobAgents } from "@/hooks/useInmobAgents";
+import { useInmobiliariaPersonaId } from "@/hooks/useInmobiliariaPersonaId";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateRangesFromMonths } from "@/components/ui/month-multi-selector";
+import { MonthMultiSelector, getMonthFilterLabel, buildDateRangesFromMonths } from "@/components/ui/month-multi-selector";
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { FileText, CalendarDays, Percent, Home, BarChart3, DollarSign, Timer } from "lucide-react";
 
@@ -17,6 +18,7 @@ export default function InmobReportes() {
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const { data: agents = [] } = useInmobAgents();
+  const { personaId } = useInmobiliariaPersonaId();
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
 
   const monthFilterLabel = useMemo(() => getMonthFilterLabel(selectedMonths), [selectedMonths]);
@@ -34,77 +36,185 @@ export default function InmobReportes() {
     return m;
   }, [agents]);
 
-  // Fetch offers
+  // Detect if Sozu
+  const { data: isSozu = false } = useQuery({
+    queryKey: ["inmob-reportes-is-sozu", personaId],
+    queryFn: async () => {
+      if (!personaId) return false;
+      const { data } = await supabase.from("personas").select("nombre_legal").eq("id", personaId).single() as any;
+      return (data?.nombre_legal || "").toLowerCase().includes("real estate ventures");
+    },
+    enabled: !!personaId,
+    staleTime: 10 * 60_000,
+  });
+
+  // Fetch offers using correct columns
   const { data: ofertas = [] } = useQuery({
     queryKey: ["inmob-reportes-ofertas", agentEmails, dateRanges],
     queryFn: async () => {
       if (agentEmails.length === 0) return [];
-      let query = (supabase.from("ofertas") as any)
-        .select("id, email_agente, estatus_aprobacion, precio_final, id_proyecto, fecha_creacion, activo")
-        .in("email_agente", agentEmails)
-        .eq("activo", true)
-        .limit(1000);
-
-      if (dateRanges.length > 0) {
-        const orClauses = dateRanges.map(r => `and(fecha_creacion.gte.${r.start},fecha_creacion.lte.${r.end})`).join(",");
-        query = query.or(orClauses);
+      const isAllMonths = dateRanges.length === 0;
+      const ranges = isAllMonths ? [null] : dateRanges;
+      const all: any[] = [];
+      for (const range of ranges) {
+        let q = (supabase as any)
+          .from("ofertas")
+          .select("id, email_creador, id_estatus_aprobacion, id_propiedad, id_producto, fecha_generacion")
+          .in("email_creador", agentEmails)
+          .eq("activo", true);
+        if (range) {
+          q = q.gte("fecha_generacion", range.start).lte("fecha_generacion", range.end);
+        }
+        const { data } = await q;
+        if (data) all.push(...data);
       }
-
-      const { data } = await query;
-      return data || [];
+      const seen = new Set<number>();
+      return all.filter(o => { if (seen.has(o.id)) return false; seen.add(o.id); return true; });
     },
     enabled: agentEmails.length > 0,
+    staleTime: 3 * 60_000,
   });
 
-  // Fetch commissions
-  const { data: comisiones = [] } = useQuery({
-    queryKey: ["inmob-reportes-comisiones", agentEmails, dateRanges],
+  // Fetch comisionistas (real table) for commission data
+  const { data: comisionistas = [] } = useQuery({
+    queryKey: ["inmob-reportes-comisionistas", agentEmails, dateRanges],
     queryFn: async () => {
       if (agentEmails.length === 0) return [];
-      let query = (supabase as any)
-        .from("comisiones")
-        .select("id, email_agente, monto, estatus_pago, fecha_creacion, activo")
-        .in("email_agente", agentEmails)
-        .eq("activo", true)
-        .limit(1000);
-
-      if (dateRanges.length > 0) {
-        const orClauses = dateRanges.map(r => `and(fecha_creacion.gte.${r.start},fecha_creacion.lte.${r.end})`).join(",");
-        query = query.or(orClauses);
+      const all: any[] = [];
+      for (let i = 0; i < agentEmails.length; i += 200) {
+        const batch = agentEmails.slice(i, i + 200);
+        const { data } = await (supabase as any)
+          .from("comisionistas")
+          .select("id, email_usuario, monto_comision, porcentaje_comision, pagada, aprobada, fecha_creacion, id_cuenta_cobranza")
+          .in("email_usuario", batch)
+          .eq("activo", true);
+        if (data) all.push(...data);
       }
-
-      const { data } = await query;
-      return data || [];
+      return all;
     },
     enabled: agentEmails.length > 0,
+    staleTime: 3 * 60_000,
   });
 
-  // Fetch project names
-  const projectIds = useMemo(() => [...new Set(ofertas.map((o: any) => o.id_proyecto).filter(Boolean))] as number[], [ofertas]);
-  const { data: proyectos = [] } = useQuery({
-    queryKey: ["inmob-reportes-proyectos", projectIds],
+  // Fetch cuentas for precio_final
+  const cuentaIds = useMemo(() => [...new Set(comisionistas.map((c: any) => c.id_cuenta_cobranza).filter(Boolean))] as number[], [comisionistas]);
+  const { data: cuentasMap = new Map<number, any>() } = useQuery({
+    queryKey: ["inmob-reportes-cuentas", cuentaIds],
     queryFn: async () => {
-      if (projectIds.length === 0) return [];
-      const { data } = await supabase.from("proyectos").select("id, nombre").in("id", projectIds) as any;
-      return data || [];
+      const m = new Map<number, any>();
+      for (let i = 0; i < cuentaIds.length; i += 200) {
+        const batch = cuentaIds.slice(i, i + 200);
+        const { data } = await (supabase as any).from("cuentas_cobranza").select("id, precio_final, id_oferta").in("id", batch);
+        (data || []).forEach((c: any) => m.set(c.id, c));
+      }
+      return m;
     },
-    enabled: projectIds.length > 0,
+    enabled: cuentaIds.length > 0,
+    staleTime: 3 * 60_000,
   });
-  const projMap = useMemo(() => {
-    const m = new Map<number, string>();
-    proyectos.forEach((p: any) => m.set(p.id, p.nombre));
-    return m;
-  }, [proyectos]);
+
+  // Property → project mapping for project chart
+  const propIds = useMemo(() => [...new Set(ofertas.map((o: any) => o.id_propiedad).filter(Boolean))] as number[], [ofertas]);
+  const { data: propToProject = new Map<number, { id: number; nombre: string }>() } = useQuery({
+    queryKey: ["inmob-reportes-prop-proj", propIds],
+    queryFn: async () => {
+      if (!propIds.length) return new Map();
+      const m = new Map<number, { id: number; nombre: string }>();
+      const { data: props } = await supabase.from("propiedades").select("id, id_edificio_modelo").in("id", propIds) as any;
+      if (!props?.length) return m;
+      const emIds = [...new Set(props.map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
+      if (!emIds.length) return m;
+      const { data: ems } = await supabase.from("edificios_modelos").select("id, id_edificio").in("id", emIds) as any;
+      if (!ems?.length) return m;
+      const edIds = [...new Set(ems.map((e: any) => e.id_edificio).filter(Boolean))] as number[];
+      if (!edIds.length) return m;
+      const { data: eds } = await supabase.from("edificios").select("id, id_proyecto").in("id", edIds) as any;
+      if (!eds?.length) return m;
+      const pjIds = [...new Set(eds.map((e: any) => e.id_proyecto).filter(Boolean))] as number[];
+      const { data: pjs } = await supabase.from("proyectos").select("id, nombre").in("id", pjIds) as any;
+      const pjMap = new Map<number, string>((pjs || []).map((p: any) => [p.id, p.nombre]));
+      const edToP = new Map<number, number>(eds.map((e: any) => [e.id, e.id_proyecto]));
+      const emToE = new Map<number, number>(ems.map((em: any) => [em.id, em.id_edificio]));
+      props.forEach((p: any) => {
+        const eId = emToE.get(p.id_edificio_modelo);
+        const pjId = eId ? edToP.get(eId) : null;
+        if (pjId) m.set(p.id, { id: pjId, nombre: pjMap.get(pjId) || `Proyecto ${pjId}` });
+      });
+      return m;
+    },
+    enabled: propIds.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
+  // Approved offers (estatus 2 = aprobada)
+  const aprobadas = useMemo(() => ofertas.filter((o: any) => o.id_estatus_aprobacion === 2), [ofertas]);
+
+  // Strategic KPIs
+  const conversionGlobal = ofertas.length > 0 ? ((aprobadas.length / ofertas.length) * 100) : 0;
+
+  const ticketPropiedades = useMemo(() => {
+    const propAprobadas = aprobadas.filter((o: any) => !o.id_producto);
+    if (propAprobadas.length === 0) return 0;
+    let total = 0;
+    let count = 0;
+    propAprobadas.forEach((o: any) => {
+      // Find cuenta via comisionistas
+      const comision = comisionistas.find((c: any) => {
+        const cuenta = cuentasMap.get(c.id_cuenta_cobranza);
+        return cuenta?.id_oferta === o.id;
+      });
+      if (comision) {
+        const cuenta = cuentasMap.get(comision.id_cuenta_cobranza);
+        if (cuenta?.precio_final) { total += Number(cuenta.precio_final); count++; }
+      }
+    });
+    return count > 0 ? total / count : 0;
+  }, [aprobadas, comisionistas, cuentasMap]);
+
+  const ticketProductos = useMemo(() => {
+    const prodAprobadas = aprobadas.filter((o: any) => !!o.id_producto);
+    if (prodAprobadas.length === 0) return 0;
+    let total = 0;
+    let count = 0;
+    prodAprobadas.forEach((o: any) => {
+      const comision = comisionistas.find((c: any) => {
+        const cuenta = cuentasMap.get(c.id_cuenta_cobranza);
+        return cuenta?.id_oferta === o.id;
+      });
+      if (comision) {
+        const cuenta = cuentasMap.get(comision.id_cuenta_cobranza);
+        if (cuenta?.precio_final) { total += Number(cuenta.precio_final); count++; }
+      }
+    });
+    return count > 0 ? total / count : 0;
+  }, [aprobadas, comisionistas, cuentasMap]);
+
+  const comisionPromAgente = useMemo(() => {
+    const agentsWithSales = new Set(aprobadas.map((o: any) => (o.email_creador || "").toLowerCase()));
+    if (agentsWithSales.size === 0) return 0;
+    const totalComision = comisionistas.reduce((s: number, c: any) => s + (Number(c.monto_comision) || 0), 0);
+    return totalComision / agentsWithSales.size;
+  }, [aprobadas, comisionistas]);
+
+  const tiempoPromCierre = useMemo(() => {
+    if (aprobadas.length === 0) return 0;
+    const totalDays = aprobadas.reduce((sum: number, o: any) => {
+      const created = new Date(o.fecha_generacion);
+      const diffMs = Date.now() - created.getTime();
+      return sum + Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+    }, 0);
+    return Math.round(totalDays / aprobadas.length);
+  }, [aprobadas]);
 
   // 1. Offers per agent
   const offersPerAgent = useMemo(() => {
     const m = new Map<string, { name: string; ofertas: number; aprobadas: number }>();
     ofertas.forEach((o: any) => {
-      const email = o.email_agente;
+      const email = o.email_creador;
       if (!m.has(email)) m.set(email, { name: agentMap.get(email) || email, ofertas: 0, aprobadas: 0 });
       const r = m.get(email)!;
       r.ofertas++;
-      if (o.estatus_aprobacion === "aprobada") r.aprobadas++;
+      if (o.id_estatus_aprobacion === 2) r.aprobadas++;
     });
     return Array.from(m.values()).sort((a, b) => b.ofertas - a.ofertas).slice(0, 10);
   }, [ofertas, agentMap]);
@@ -113,37 +223,37 @@ export default function InmobReportes() {
   const offersPerProject = useMemo(() => {
     const m = new Map<number, { name: string; value: number }>();
     ofertas.forEach((o: any) => {
-      const pid = o.id_proyecto;
-      if (!pid) return;
-      if (!m.has(pid)) m.set(pid, { name: projMap.get(pid) || `Proyecto ${pid}`, value: 0 });
-      m.get(pid)!.value++;
+      const proj = propToProject.get(o.id_propiedad);
+      if (!proj) return;
+      if (!m.has(proj.id)) m.set(proj.id, { name: proj.nombre, value: 0 });
+      m.get(proj.id)!.value++;
     });
     return Array.from(m.values()).sort((a, b) => b.value - a.value).slice(0, 8);
-  }, [ofertas, projMap]);
+  }, [ofertas, propToProject]);
 
   // 3. Commissions monthly trend
   const commissionTrend = useMemo(() => {
     const m = new Map<string, number>();
-    comisiones.forEach((c: any) => {
+    comisionistas.forEach((c: any) => {
       const d = c.fecha_creacion?.slice(0, 7);
       if (!d) return;
-      m.set(d, (m.get(d) || 0) + (Number(c.monto) || 0));
+      m.set(d, (m.get(d) || 0) + (Number(c.monto_comision) || 0));
     });
     return Array.from(m.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-12)
       .map(([mes, monto]) => ({ mes, monto: Math.round(monto) }));
-  }, [comisiones]);
+  }, [comisionistas]);
 
   // 4. Conversion per agent
   const conversionData = useMemo(() => {
     const m = new Map<string, { name: string; total: number; aprobadas: number }>();
     ofertas.forEach((o: any) => {
-      const email = o.email_agente;
+      const email = o.email_creador;
       if (!m.has(email)) m.set(email, { name: agentMap.get(email) || email, total: 0, aprobadas: 0 });
       const r = m.get(email)!;
       r.total++;
-      if (o.estatus_aprobacion === "aprobada") r.aprobadas++;
+      if (o.id_estatus_aprobacion === 2) r.aprobadas++;
     });
     return Array.from(m.values())
       .filter(r => r.total > 0)
@@ -159,40 +269,7 @@ export default function InmobReportes() {
     return fmt(n);
   };
 
-  // Strategic KPIs
-  const aprobadas = ofertas.filter((o: any) => o.estatus_aprobacion === "aprobada");
-  const conversionGlobal = ofertas.length > 0 ? ((aprobadas.length / ofertas.length) * 100) : 0;
-
-  const ticketPropiedades = useMemo(() => {
-    const props = aprobadas.filter((o: any) => !o.id_producto_servicio);
-    if (props.length === 0) return 0;
-    return props.reduce((s: number, o: any) => s + (Number(o.precio_final) || 0), 0) / props.length;
-  }, [aprobadas]);
-
-  const ticketProductos = useMemo(() => {
-    const prods = aprobadas.filter((o: any) => !!o.id_producto_servicio);
-    if (prods.length === 0) return 0;
-    return prods.reduce((s: number, o: any) => s + (Number(o.precio_final) || 0), 0) / prods.length;
-  }, [aprobadas]);
-
-  const comisionPromAgente = useMemo(() => {
-    const agentsWithSales = new Set(aprobadas.map((o: any) => o.email_agente));
-    if (agentsWithSales.size === 0) return 0;
-    const totalComision = comisiones.reduce((s: number, c: any) => s + (Number(c.monto) || 0), 0);
-    return totalComision / agentsWithSales.size;
-  }, [aprobadas, comisiones]);
-
-  const tiempoPromCierre = useMemo(() => {
-    if (aprobadas.length === 0) return 0;
-    const totalDays = aprobadas.reduce((sum: number, o: any) => {
-      const created = new Date(o.fecha_creacion);
-      const diffMs = Date.now() - created.getTime();
-      return sum + Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
-    }, 0);
-    return Math.round(totalDays / aprobadas.length);
-  }, [aprobadas]);
-
-  const hasData = ofertas.length > 0 || comisiones.length > 0;
+  const hasData = ofertas.length > 0 || comisionistas.length > 0;
 
   return (
     <div className="space-y-6">
@@ -211,26 +288,24 @@ export default function InmobReportes() {
         </Popover>
       </div>
 
-      {/* Strategic mini-metrics */}
-      {hasData && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: "Conversión global", value: `${conversionGlobal.toFixed(1)}%`, icon: Percent },
-            { label: "Ticket prom. Prop.", value: fmtShort(ticketPropiedades), icon: Home },
-            { label: "Ticket prom. Prod.", value: fmtShort(ticketProductos), icon: BarChart3 },
-            { label: "Comisión prom/agente", value: fmtShort(comisionPromAgente), icon: DollarSign },
-            { label: "Tiempo prom. cierre", value: tiempoPromCierre > 0 ? `${tiempoPromCierre} días` : "— días", icon: Timer },
-          ].map((m) => (
-            <div key={m.label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <m.icon className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-muted-foreground truncate">{m.label}</p>
-                <p className="text-sm font-bold">{m.value}</p>
-              </div>
+      {/* Strategic mini-metrics — always visible */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[
+          { label: "Conversión global", value: `${conversionGlobal.toFixed(1)}%`, icon: Percent },
+          { label: "Ticket prom. Prop.", value: fmtShort(ticketPropiedades), icon: Home },
+          { label: "Ticket prom. Prod.", value: fmtShort(ticketProductos), icon: BarChart3 },
+          { label: "Comisión prom/agente", value: fmtShort(comisionPromAgente), icon: DollarSign },
+          { label: "Tiempo prom. cierre", value: tiempoPromCierre > 0 ? `${tiempoPromCierre} días` : "— días", icon: Timer },
+        ].map((m) => (
+          <div key={m.label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+            <m.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-muted-foreground truncate">{m.label}</p>
+              <p className="text-sm font-bold">{m.value}</p>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {!hasData ? (
         <Card><CardContent className="p-12 text-center">

@@ -87,12 +87,12 @@ function ClienteCell({ clientes }: { clientes: ClienteInfo[] }) {
         className="inline-flex items-center gap-1.5 text-primary hover:underline text-sm font-medium"
       >
         <Users className="h-3.5 w-3.5" />
-        {clientes.length} clientes
+        {clientes.length} compradores
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Clientes de la operación</DialogTitle>
+            <DialogTitle>Compradores de la operación</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {clientes.map((c, i) => (

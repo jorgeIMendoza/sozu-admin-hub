@@ -859,10 +859,10 @@ export default function InmobDashboard() {
       const agent = o.email_creador?.split("@")[0] || "—";
       const ofertaLabel = `${o.id_producto ? "OP" : "O"}-${String(o.id).padStart(6, "0")}`;
       if ([1, 4].includes(o.id_estatus_aprobacion) && days > 7) {
-        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — ${ofertaLabel} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
+        result.push({ id: `offer-${o.id}`, type: "warning", text: `${agent} — ${ofertaLabel} sin respuesta (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}&offerId=${o.id}` });
       }
       if (p.id_estatus_disponibilidad === 4 && days > 5) {
-        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — ${ofertaLabel} apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}` });
+        result.push({ id: `apt-${o.id}`, type: "danger", text: `${agent} — ${ofertaLabel} apartado sin firma (${days} días)`, to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}&offerId=${o.id}` });
       }
     });
     return result.slice(0, 5);
@@ -1314,7 +1314,7 @@ export default function InmobDashboard() {
           text: type === "aprobada" ? "Oferta aprobada" : type === "firmada" ? "Contrato firmado" : "Nueva oferta generada",
           detail: `${o.email_creador?.split("@")[0] || "—"} · ${ofertaLabel}`,
           time: formatDistanceToNow(new Date(o.fecha_generacion), { addSuffix: true, locale: es }),
-          to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}`,
+          to: `${NAV_PREFIX}/pipeline?meses=${encodeURIComponent(selectedMonths.join(","))}&offerId=${o.id}`,
         };
       });
   }, [filteredOfertas]);

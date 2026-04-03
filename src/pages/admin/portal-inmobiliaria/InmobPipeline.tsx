@@ -270,6 +270,10 @@ export default function InmobPipeline() {
     track({ page: "inmob_pipeline", elementId: "page_view", elementType: "page" });
   }, []);
 
+  // Auto-open offer detail if offerId is in URL
+  const offerIdParam = searchParams.get("offerId");
+
+
   const agentEmails = useMemo(() => agents.map((a) => a.email), [agents]);
   const agentNameMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -536,7 +540,22 @@ export default function InmobPipeline() {
     return result;
   }, [ofertas, selectedAgentes, selectedProyectos, selectedTipoOferta, searchOfertaId]);
 
-  // Group by stage with cierre deduplication, sorted by fecha descending
+  // Auto-open offer detail when offerId param is present
+  useEffect(() => {
+    if (!offerIdParam || !ofertas.length || selectedCard) return;
+    const targetId = Number(offerIdParam);
+    if (!targetId) return;
+    const card = ofertas.find((o) => o.id === targetId);
+    if (card) {
+      setSelectedCard(card);
+      // Clean the param from URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("offerId");
+      window.history.replaceState({}, "", `${window.location.pathname}?${newParams.toString()}`);
+    }
+  }, [offerIdParam, ofertas, selectedCard]);
+
+
   const stageMap = useMemo(() => {
     const m = new Map<string, PipelineCard[]>();
     STAGES.forEach((s) => m.set(s.key, []));
