@@ -1954,7 +1954,16 @@ async function generateProductOfferPdf(supabase: any, oferta: any, estatus_aprob
           x: schemeX + schemeWidth - padding - helveticaBold.widthOfTextAtSize(escalonadoDisplay.montoMensualText, 8),
           y: lineY, size: 8, font: helveticaBold, color: black,
         });
-        lineY -= 12;
+        lineY -= 8;
+        if (escalonadoDisplay.fechaFinalText) {
+          currentPage.drawText(escalonadoDisplay.fechaFinalText, {
+            x: schemeX + schemeWidth - padding - helvetica.widthOfTextAtSize(escalonadoDisplay.fechaFinalText, 6),
+            y: lineY, size: 6, font: helvetica, color: gray,
+          });
+          lineY -= 10;
+        } else {
+          lineY -= 4;
+        }
 
         currentPage.drawText('Monto a la entrega:', {
           x: schemeX + padding, y: lineY, size: 8, font: helvetica, color: gray,
