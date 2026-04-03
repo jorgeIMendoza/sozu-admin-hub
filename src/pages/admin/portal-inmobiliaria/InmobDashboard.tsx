@@ -1393,33 +1393,6 @@ export default function InmobDashboard() {
         </div>
       )}
 
-      {/* Strategic mini-metrics with trends */}
-      {!isLoading && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: "Conversión global", value: `${conversionGlobal.toFixed(1)}%`, icon: Percent, trend: trendConversion },
-            { label: "Ticket prom. Prop.", value: fmtShort(ticketPropiedades), icon: Home, trend: trendTicket },
-            { label: "Ticket prom. Prod.", value: fmtShort(ticketProductos), icon: BarChart3, trend: null },
-            { label: "Comisión prom/agente", value: fmtShort(comisionPromAgente), icon: DollarSign, trend: trendComisionProm },
-            { label: "Tiempo prom. cierre", value: tiempoPromCierre > 0 ? `${tiempoPromCierre} días` : "— días", icon: Timer, trend: trendTiempoCierre },
-          ].map((m) => (
-            <div key={m.label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
-              <m.icon className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-muted-foreground truncate">{m.label}</p>
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-bold">{m.value}</p>
-                  {m.trend && (
-                    <span className={cn("flex items-center gap-0.5 text-[10px] font-semibold", m.trend.color)}>
-                      <m.trend.icon className="h-2.5 w-2.5" /> {m.trend.label}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Pipeline Funnel + Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { MonthMultiSelector, getCurrentMonthKey, getMonthFilterLabel, buildDateRangesFromMonths } from "@/components/ui/month-multi-selector";
 import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { FileText, CalendarDays } from "lucide-react";
+import { FileText, CalendarDays, Percent, Home, BarChart3, DollarSign, Timer } from "lucide-react";
 
 const COLORS = ["#239E6C", "#3B82F6", "#F97316", "#A855F7", "#14B8A6", "#EC4899", "#06B6D4", "#84CC16"];
 
@@ -153,6 +153,44 @@ export default function InmobReportes() {
   }, [ofertas, agentMap]);
 
   const fmt = (n: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+  const fmtShort = (n: number) => {
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+    return fmt(n);
+  };
+
+  // Strategic KPIs
+  const aprobadas = ofertas.filter((o: any) => o.estatus_aprobacion === "aprobada");
+  const conversionGlobal = ofertas.length > 0 ? ((aprobadas.length / ofertas.length) * 100) : 0;
+
+  const ticketPropiedades = useMemo(() => {
+    const props = aprobadas.filter((o: any) => !o.id_producto_servicio);
+    if (props.length === 0) return 0;
+    return props.reduce((s: number, o: any) => s + (Number(o.precio_final) || 0), 0) / props.length;
+  }, [aprobadas]);
+
+  const ticketProductos = useMemo(() => {
+    const prods = aprobadas.filter((o: any) => !!o.id_producto_servicio);
+    if (prods.length === 0) return 0;
+    return prods.reduce((s: number, o: any) => s + (Number(o.precio_final) || 0), 0) / prods.length;
+  }, [aprobadas]);
+
+  const comisionPromAgente = useMemo(() => {
+    const agentsWithSales = new Set(aprobadas.map((o: any) => o.email_agente));
+    if (agentsWithSales.size === 0) return 0;
+    const totalComision = comisiones.reduce((s: number, c: any) => s + (Number(c.monto) || 0), 0);
+    return totalComision / agentsWithSales.size;
+  }, [aprobadas, comisiones]);
+
+  const tiempoPromCierre = useMemo(() => {
+    if (aprobadas.length === 0) return 0;
+    const totalDays = aprobadas.reduce((sum: number, o: any) => {
+      const created = new Date(o.fecha_creacion);
+      const diffMs = Date.now() - created.getTime();
+      return sum + Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+    }, 0);
+    return Math.round(totalDays / aprobadas.length);
+  }, [aprobadas]);
 
   const hasData = ofertas.length > 0 || comisiones.length > 0;
 
@@ -172,6 +210,27 @@ export default function InmobReportes() {
           </PopoverContent>
         </Popover>
       </div>
+
+      {/* Strategic mini-metrics */}
+      {hasData && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { label: "Conversión global", value: `${conversionGlobal.toFixed(1)}%`, icon: Percent },
+            { label: "Ticket prom. Prop.", value: fmtShort(ticketPropiedades), icon: Home },
+            { label: "Ticket prom. Prod.", value: fmtShort(ticketProductos), icon: BarChart3 },
+            { label: "Comisión prom/agente", value: fmtShort(comisionPromAgente), icon: DollarSign },
+            { label: "Tiempo prom. cierre", value: tiempoPromCierre > 0 ? `${tiempoPromCierre} días` : "— días", icon: Timer },
+          ].map((m) => (
+            <div key={m.label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+              <m.icon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-muted-foreground truncate">{m.label}</p>
+                <p className="text-sm font-bold">{m.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!hasData ? (
         <Card><CardContent className="p-12 text-center">
