@@ -48,6 +48,12 @@ export default function InmobAgentes() {
   const [search, setSearch] = useState(searchParams.get("q") || "");
   const [activeTab, setActiveTab] = useState<"activos" | "desactivados">("activos");
   const [resetTarget, setResetTarget] = useState<any | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isAddAgentOpen, setIsAddAgentOpen] = useState(false);
+  const [newAgentName, setNewAgentName] = useState("");
+  const [newAgentEmail, setNewAgentEmail] = useState("");
+  const [newAgentPhone, setNewAgentPhone] = useState("");
+  const [addingAgent, setAddingAgent] = useState(false);
   const currentUserEmail = (profile?.email || "").toLowerCase();
 
   const { data: isSozu = false } = useQuery({
