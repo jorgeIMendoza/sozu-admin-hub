@@ -90,13 +90,14 @@ function getTrend(current: number, previous: number | null | undefined, lowerIsB
   const pctChange = previous !== 0 ? Math.abs(diff / previous * 100) : 100;
   const pctLabel = `${pctChange.toFixed(0)}%`;
 
+  // If no change, show nothing
   if (Math.abs(diff) < 0.01) {
-    return { label: `= ${pctLabel}`, color: "text-blue-500", icon: Minus };
+    return null;
   }
   const increased = diff > 0;
   const isPositive = lowerIsBetter ? !increased : increased;
   return {
-    label: `${increased ? "+" : "-"}${pctLabel}`,
+    label: pctLabel,
     color: isPositive ? "text-emerald-600" : "text-destructive",
     icon: increased ? ArrowUp : ArrowDown,
   };
