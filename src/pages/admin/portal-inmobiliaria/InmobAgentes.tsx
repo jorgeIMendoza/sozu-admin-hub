@@ -939,19 +939,67 @@ export default function InmobAgentes() {
     staleTime: 5 * 60_000,
   });
 
+  const handleAddAgent = async () => {
+    if (!newAgentEmail || !newAgentName) {
+      toast.error("Nombre y email son obligatorios");
+      return;
+    }
+    setAddingAgent(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('bulk-create-agents', {
+        body: {
+          agents: [{
+            nombre: newAgentName,
+            telefono: newAgentPhone,
+            email: newAgentEmail,
+            inmobiliaria: inmobiliariaNombre,
+            inmobiliariaId: personaId,
+          }],
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success("Agente registrado exitosamente");
+        setIsAddAgentOpen(false);
+        setNewAgentName("");
+        setNewAgentEmail("");
+        setNewAgentPhone("");
+        queryClient.invalidateQueries({ queryKey: ["inmob-agents-full"] });
+      } else {
+        toast.error(data?.error || data?.message || "Error al registrar agente");
+      }
+    } catch (err: any) {
+      toast.error("Error: " + (err.message || "Intenta de nuevo"));
+    } finally {
+      setAddingAgent(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Agentes</h1>
-        <p className="text-sm text-muted-foreground">Gestión y rendimiento de los agentes de tu inmobiliaria</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Agentes</h1>
+          <p className="text-sm text-muted-foreground">Gestión y rendimiento de los agentes de tu inmobiliaria</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setIsBulkUploadOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Carga masiva
+          </Button>
+          <Button size="sm" onClick={() => setIsAddAgentOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Agregar agente
+          </Button>
+        </div>
       </div>
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MiniKpi icon={Users} label="Agentes Activos" value={totalAgentes} loading={isLoading} />
-        <MiniKpi icon={FileText} label="Ofertas Totales" value={totalOfertas} loading={isLoading} />
-        <MiniKpi icon={ShoppingCart} label="Ventas Cerradas" value={totalVendidas} loading={isLoading} />
-        <MiniKpi icon={TrendingUp} label="Prospectos" value={totalProspectos} loading={isLoading} />
+        <MiniKpi icon={FileText} label="Ofertas Totales" value={totalOfertas} loading={isLoading} onClick={() => navigate(`${NAV_PREFIX}/pipeline`)} />
+        <MiniKpi icon={ShoppingCart} label="Ventas Cerradas" value={totalVendidas} loading={isLoading} onClick={() => navigate(`${NAV_PREFIX}/pipeline?etapa=cierre`)} />
+        <MiniKpi icon={TrendingUp} label="Prospectos" value={totalProspectos} loading={isLoading} onClick={() => navigate(`${NAV_PREFIX}/prospectos`)} />
       </div>
 
       {/* Search */}
