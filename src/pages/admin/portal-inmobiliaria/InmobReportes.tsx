@@ -122,19 +122,19 @@ export default function InmobReportes() {
       const m = new Map<number, { id: number; nombre: string }>();
       const { data: props } = await supabase.from("propiedades").select("id, id_edificio_modelo").in("id", propIds) as any;
       if (!props?.length) return m;
-      const emIds = [...new Set(props.map((p: any) => p.id_edificio_modelo).filter(Boolean))];
+      const emIds = [...new Set(props.map((p: any) => p.id_edificio_modelo).filter(Boolean))] as number[];
       if (!emIds.length) return m;
       const { data: ems } = await supabase.from("edificios_modelos").select("id, id_edificio").in("id", emIds) as any;
       if (!ems?.length) return m;
-      const edIds = [...new Set(ems.map((e: any) => e.id_edificio).filter(Boolean))];
+      const edIds = [...new Set(ems.map((e: any) => e.id_edificio).filter(Boolean))] as number[];
       if (!edIds.length) return m;
       const { data: eds } = await supabase.from("edificios").select("id, id_proyecto").in("id", edIds) as any;
       if (!eds?.length) return m;
-      const pjIds = [...new Set(eds.map((e: any) => e.id_proyecto).filter(Boolean))];
+      const pjIds = [...new Set(eds.map((e: any) => e.id_proyecto).filter(Boolean))] as number[];
       const { data: pjs } = await supabase.from("proyectos").select("id, nombre").in("id", pjIds) as any;
-      const pjMap = new Map((pjs || []).map((p: any) => [p.id, p.nombre]));
-      const edToP = new Map(eds.map((e: any) => [e.id, e.id_proyecto]));
-      const emToE = new Map(ems.map((em: any) => [em.id, em.id_edificio]));
+      const pjMap = new Map<number, string>((pjs || []).map((p: any) => [p.id, p.nombre]));
+      const edToP = new Map<number, number>(eds.map((e: any) => [e.id, e.id_proyecto]));
+      const emToE = new Map<number, number>(ems.map((em: any) => [em.id, em.id_edificio]));
       props.forEach((p: any) => {
         const eId = emToE.get(p.id_edificio_modelo);
         const pjId = eId ? edToP.get(eId) : null;
