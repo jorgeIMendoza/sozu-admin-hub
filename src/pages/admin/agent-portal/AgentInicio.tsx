@@ -575,8 +575,7 @@ const AgentInicio = () => {
         <DialogContent className="sm:max-w-md bg-white text-gray-900">
           <DialogHeader>
             <DialogTitle className="text-lg">
-              {selectedCita?.tipos_cita?.nombre || 'Cita'}
-              {selectedCita?.proyectos?.nombre ? ` · ${selectedCita.proyectos.nombre}` : ''}
+              {selectedCita?.configuracion_citas_usuarios?.nombre || [selectedCita?.tipos_cita?.nombre, selectedCita?.proyectos?.nombre].filter(Boolean).join(' · ') || 'Cita'}
             </DialogTitle>
             <DialogDescription className="sr-only">Detalle de la cita</DialogDescription>
           </DialogHeader>
