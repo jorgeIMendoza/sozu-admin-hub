@@ -322,26 +322,21 @@ export default function ConfiguracionCitas() {
           ? new Date((selectedConfig as any).fecha_fin_recurrencia + "T00:00:00")
           : addMonths(new Date(), 3)
       );
-      // Auto-verify if calendar email already exists
-      if (selectedConfig.calendario_email) {
-        setCalendarAccessStatus("idle");
-        // Trigger verification automatically
-        (async () => {
-          const email = selectedConfig.calendario_email?.trim();
-          if (!email || !email.includes("@")) return;
-          setCalendarVerifying(true);
-          try {
-            const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
-              body: { action: "verify-calendar-access", calendar_email: email, calendar_owner_email: email },
-            });
-            if (error) { setCalendarAccessStatus("error"); return; }
-            setCalendarAccessStatus(data?.accessible ? "ok" : "error");
-          } catch { setCalendarAccessStatus("error"); }
-          finally { setCalendarVerifying(false); }
-        })();
-      } else {
-        setCalendarAccessStatus("idle");
-      }
+      // Auto-verify calendar access (always use fixed email citas@sozu.com)
+      const emailToVerify = selectedConfig.calendario_email?.trim() || "citas@sozu.com";
+      setCalendarAccessStatus("idle");
+      (async () => {
+        if (!emailToVerify || !emailToVerify.includes("@")) return;
+        setCalendarVerifying(true);
+        try {
+          const { data, error } = await supabase.functions.invoke("agendar-capacitacion", {
+            body: { action: "verify-calendar-access", calendar_email: emailToVerify, calendar_owner_email: emailToVerify },
+          });
+          if (error) { setCalendarAccessStatus("error"); return; }
+          setCalendarAccessStatus(data?.accessible ? "ok" : "error");
+        } catch { setCalendarAccessStatus("error"); }
+        finally { setCalendarVerifying(false); }
+      })();
     } else {
       setDuracionMinutos(60);
       setCalendarioEmail("");
