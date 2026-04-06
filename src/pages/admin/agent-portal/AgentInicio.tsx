@@ -197,7 +197,7 @@ const AgentInicio = () => {
       if (!personaId) return [];
       const { data } = await (supabase as any)
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, id_tipo_cita, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, id_tipo_cita, id_configuracion_cita, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal), configuracion_citas_usuarios(nombre)')
         .eq('activo', true)
         .or(`id_agente.eq.${personaId},id_persona.eq.${personaId}`)
         .order('fecha', { ascending: true });
@@ -474,7 +474,7 @@ const AgentInicio = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
-                        {[cita.tipos_cita?.nombre, cita.proyectos?.nombre].filter(Boolean).join(' ') || 'Cita'}
+                        {cita.configuracion_citas_usuarios?.nombre || [cita.tipos_cita?.nombre, cita.proyectos?.nombre].filter(Boolean).join(' ') || 'Cita'}
                       </p>
                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap shrink-0">
                         {cita.tipos_cita?.nombre || 'Cita'}
@@ -520,7 +520,7 @@ const AgentInicio = () => {
                     <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
-                        {[cita.tipos_cita?.nombre, cita.proyectos?.nombre].filter(Boolean).join(' ') || 'Cita'}
+                        {cita.configuracion_citas_usuarios?.nombre || [cita.tipos_cita?.nombre, cita.proyectos?.nombre].filter(Boolean).join(' ') || 'Cita'}
                       </p>
                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap shrink-0">
                         {cita.tipos_cita?.nombre || 'Cita'}
@@ -575,8 +575,7 @@ const AgentInicio = () => {
         <DialogContent className="sm:max-w-md bg-white text-gray-900">
           <DialogHeader>
             <DialogTitle className="text-lg">
-              {selectedCita?.tipos_cita?.nombre || 'Cita'}
-              {selectedCita?.proyectos?.nombre ? ` · ${selectedCita.proyectos.nombre}` : ''}
+              {selectedCita?.configuracion_citas_usuarios?.nombre || [selectedCita?.tipos_cita?.nombre, selectedCita?.proyectos?.nombre].filter(Boolean).join(' · ') || 'Cita'}
             </DialogTitle>
             <DialogDescription className="sr-only">Detalle de la cita</DialogDescription>
           </DialogHeader>
