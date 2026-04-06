@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
+import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { toast } from "sonner";
 
 const AgentInicio = () => {
@@ -36,6 +37,7 @@ const AgentInicio = () => {
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
   const [rescheduleData, setRescheduleData] = useState<{ prospectoId: string; proyectoId: number; prospectoName: string; proyectoName: string } | null>(null);
+  const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const queryClient = useQueryClient();
@@ -195,7 +197,7 @@ const AgentInicio = () => {
       if (!personaId) return [];
       const { data } = await (supabase as any)
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, id_tipo_cita, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
         .eq('activo', true)
         .or(`id_agente.eq.${personaId},id_persona.eq.${personaId}`)
         .order('fecha', { ascending: true });
@@ -538,6 +540,14 @@ const AgentInicio = () => {
             onOpenChange={(v) => { setAgendarCitaOpen(v); if (!v) setRescheduleData(null); }}
             rescheduleData={rescheduleData}
           />
+          {personaId && (
+            <AgentOnboardingStepDialog
+              step="training"
+              personaId={personaId}
+              open={trainingDialogOpen}
+              onOpenChange={setTrainingDialogOpen}
+            />
+          )}
         </>
       )}
 
@@ -655,14 +665,20 @@ const AgentInicio = () => {
                         variant="outline"
                         className="flex-1"
                         onClick={() => {
-                          setRescheduleData({
-                            prospectoId: String(selectedCita.id_persona_prospecto),
-                            proyectoId: selectedCita.id_proyecto,
-                            prospectoName: selectedCita.personas?.nombre_legal || '',
-                            proyectoName: selectedCita.proyectos?.nombre || '',
-                          });
-                          setSelectedCita(null);
-                          setAgendarCitaOpen(true);
+                          const isTraining = selectedCita.id_tipo_cita === 1;
+                          if (isTraining) {
+                            setSelectedCita(null);
+                            setTrainingDialogOpen(true);
+                          } else {
+                            setRescheduleData({
+                              prospectoId: String(selectedCita.id_persona_prospecto),
+                              proyectoId: selectedCita.id_proyecto,
+                              prospectoName: selectedCita.personas?.nombre_legal || '',
+                              proyectoName: selectedCita.proyectos?.nombre || '',
+                            });
+                            setSelectedCita(null);
+                            setAgendarCitaOpen(true);
+                          }
                         }}
                       >
                         <CalendarClock className="h-4 w-4 mr-1.5" />
