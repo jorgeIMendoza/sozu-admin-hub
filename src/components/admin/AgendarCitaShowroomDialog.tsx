@@ -29,9 +29,17 @@ const PROJECT_COLORS = [
   { bg: "bg-cyan-50", border: "border-cyan-200", text: "text-cyan-700", badge: "bg-cyan-100 text-cyan-800", dot: "bg-cyan-500" },
 ];
 
+interface RescheduleData {
+  prospectoId: string;
+  proyectoId: number;
+  prospectoName: string;
+  proyectoName: string;
+}
+
 interface AgendarCitaShowroomDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  rescheduleData?: RescheduleData | null;
 }
 
 interface ProspectoAgrupado {
@@ -41,7 +49,7 @@ interface ProspectoAgrupado {
   proyectos: { id: number; nombre: string }[];
 }
 
-export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaShowroomDialogProps) {
+export function AgendarCitaShowroomDialog({ open, onOpenChange, rescheduleData }: AgendarCitaShowroomDialogProps) {
   const { profile, user } = useAuth();
   const { impersonatedAgentPersonaId, impersonatedAgentEmail } = useAgentImpersonation();
   const effectivePersonaId = impersonatedAgentPersonaId || profile?.id_persona;
@@ -150,7 +158,10 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
   });
 
   // Fetch availability configs for ALL projects of the prospect
-  const projectIds = selectedProspectoData?.proyectos.map(p => p.id) || [];
+  const baseProjectIds = selectedProspectoData?.proyectos.map(p => p.id) || [];
+  const projectIds = rescheduleData && !baseProjectIds.includes(rescheduleData.proyectoId)
+    ? [...baseProjectIds, rescheduleData.proyectoId]
+    : baseProjectIds;
 
   const { data: availabilityData, isLoading: availLoading } = useQuery({
     queryKey: ["showroom-availability-multi", projectIds],
@@ -363,8 +374,20 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
     setSelectedConfigId(null);
   };
 
-  // Auto-select project when prospect has only one
+  // Pre-fill when rescheduling
   useEffect(() => {
+    if (open && rescheduleData) {
+      setSelectedProspecto(rescheduleData.prospectoId);
+      setSelectedProyectoId(rescheduleData.proyectoId);
+      setSelectedDate("");
+      setSelectedHour("");
+      setSelectedConfigId(null);
+    }
+  }, [open, rescheduleData]);
+
+  // Auto-select project when prospect has only one (skip if rescheduling)
+  useEffect(() => {
+    if (rescheduleData) return;
     if (selectedProspecto && selectedProspectoData && selectedProspectoData.proyectos.length === 1 && !selectedProyectoId) {
       handleSelectProject(selectedProspectoData.proyectos[0].id);
     }
@@ -406,7 +429,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5" />
-              Agendar Cita al Showroom
+              {rescheduleData ? "Reagendar Cita" : "Agendar Cita al Showroom"}
             </DialogTitle>
           </DialogHeader>
 
@@ -414,37 +437,45 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
             {/* Prospecto */}
             <div className="space-y-2">
               <Label>Prospecto <span className="text-destructive">*</span></Label>
-              {prospectoOptions.length > 10 ? (
-                <Combobox
-                  value={selectedProspecto}
-                  onValueChange={handleSelectProspecto}
-                  options={prospectoOptions}
-                  placeholder="Seleccionar prospecto..."
-                  searchPlaceholder="Buscar prospecto..."
-                  emptyText="No tienes prospectos asignados"
-                />
+              {rescheduleData ? (
+                <div className="px-3 py-2 rounded-md border border-border bg-muted/30 text-sm font-medium">
+                  {rescheduleData.prospectoName || 'Prospecto'}
+                </div>
               ) : (
-                <Select value={selectedProspecto} onValueChange={handleSelectProspecto}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar prospecto..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prospectoOptions.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">No tienes prospectos asignados</div>
-                    ) : prospectoOptions.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  {prospectoOptions.length > 10 ? (
+                    <Combobox
+                      value={selectedProspecto}
+                      onValueChange={handleSelectProspecto}
+                      options={prospectoOptions}
+                      placeholder="Seleccionar prospecto..."
+                      searchPlaceholder="Buscar prospecto..."
+                      emptyText="No tienes prospectos asignados"
+                    />
+                  ) : (
+                    <Select value={selectedProspecto} onValueChange={handleSelectProspecto}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar prospecto..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {prospectoOptions.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">No tienes prospectos asignados</div>
+                        ) : prospectoOptions.map((p) => (
+                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setAddProspectoOpen(true)}
+                    className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Crear prospecto
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                onClick={() => setAddProspectoOpen(true)}
-                className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Crear prospecto
-              </button>
             </div>
 
             {/* Existing appointments for all projects */}
@@ -470,10 +501,15 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
             )}
 
             {/* Project selector (dropdown) */}
-            {selectedProspecto && selectedProspectoData && selectedProspectoData.proyectos.length > 0 && (
+            {selectedProspecto && (rescheduleData || (selectedProspectoData && selectedProspectoData.proyectos.length > 0)) && (
               <div className="space-y-2">
                 <Label>Desarrollo para la cita <span className="text-destructive">*</span></Label>
-                {selectedProspectoData.proyectos.length === 1 ? (
+                {rescheduleData ? (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-muted/30 text-sm font-medium">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    {rescheduleData.proyectoName || 'Desarrollo'}
+                  </div>
+                ) : selectedProspectoData && selectedProspectoData.proyectos.length === 1 ? (
                   (() => {
                     const p = selectedProspectoData.proyectos[0];
                     const color = projectColorMap.get(p.id) || PROJECT_COLORS[0];
@@ -484,7 +520,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                       </div>
                     );
                   })()
-                ) : (
+                ) : selectedProspectoData ? (
                   <Select
                     value={selectedProyectoId?.toString() || ""}
                     onValueChange={(v) => handleSelectProject(parseInt(v))}
@@ -506,7 +542,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange }: AgendarCitaSho
                       })}
                     </SelectContent>
                   </Select>
-                )}
+                ) : null}
               </div>
             )}
 

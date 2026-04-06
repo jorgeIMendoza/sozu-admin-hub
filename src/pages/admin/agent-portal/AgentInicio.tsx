@@ -35,6 +35,7 @@ const AgentInicio = () => {
   const inicioPerms = permissions['/admin/agent/inicio'];
   const [addProspectoOpen, setAddProspectoOpen] = useState(false);
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
+  const [rescheduleData, setRescheduleData] = useState<{ prospectoId: string; proyectoId: number; prospectoName: string; proyectoName: string } | null>(null);
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
   const queryClient = useQueryClient();
@@ -194,7 +195,7 @@ const AgentInicio = () => {
       if (!personaId) return [];
       const { data } = await (supabase as any)
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
         .eq('activo', true)
         .or(`id_agente.eq.${personaId},id_persona.eq.${personaId}`)
         .order('fecha', { ascending: true });
@@ -532,7 +533,11 @@ const AgentInicio = () => {
       {inicioPerms.canCreate && (
         <>
           <AddProspectoFloatingDialog open={addProspectoOpen} onOpenChange={setAddProspectoOpen} />
-          <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
+          <AgendarCitaShowroomDialog
+            open={agendarCitaOpen}
+            onOpenChange={(v) => { setAgendarCitaOpen(v); if (!v) setRescheduleData(null); }}
+            rescheduleData={rescheduleData}
+          />
         </>
       )}
 
@@ -650,6 +655,12 @@ const AgentInicio = () => {
                         variant="outline"
                         className="flex-1"
                         onClick={() => {
+                          setRescheduleData({
+                            prospectoId: String(selectedCita.id_persona_prospecto),
+                            proyectoId: selectedCita.id_proyecto,
+                            prospectoName: selectedCita.personas?.nombre_legal || '',
+                            proyectoName: selectedCita.proyectos?.nombre || '',
+                          });
                           setSelectedCita(null);
                           setAgendarCitaOpen(true);
                         }}
