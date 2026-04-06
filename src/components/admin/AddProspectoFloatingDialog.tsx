@@ -257,7 +257,8 @@ export function AddProspectoFloatingDialog({ open, onOpenChange, preSelectedPers
       const { data, error } = await supabase.rpc("agent_claim_or_reactivate_prospect_project", {
         _persona_id: personaId,
         _proyecto_id: projId,
-      });
+        _owner_persona_id: effectivePersonaId ?? undefined,
+      } as any);
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
