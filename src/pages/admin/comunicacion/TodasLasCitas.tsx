@@ -1402,8 +1402,8 @@ export default function TodasLasCitas() {
   const slotHeight = 80;
   const numDays = days.length;
 
-  // Stats
-  const totalAgendadas = filteredCitas.length;
+  // Stats – only count citas that actually have a guest booked
+  const totalAgendadas = filteredCitas.filter(c => !!(c.email_invitado || c.nombre_invitado)).length;
   const totalDisponibles = Array.from(singleEmptySlotsByDay.values()).reduce((acc, slots) => acc + slots.length, 0)
     + Array.from(groupSlotsByDay.values()).reduce((acc, slots) => acc + slots.filter((slot) => (slot.agendados || 0) < (slot.maxInvitados || 0)).length, 0);
 
