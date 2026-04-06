@@ -599,8 +599,13 @@ export default function MisAgentes() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => {
-                                    setEditingAgente(agente);
+                                  onClick={async () => {
+                                    const { data: fullPersona } = await supabase
+                                      .from('personas')
+                                      .select('*')
+                                      .eq('id', agente.id)
+                                      .single();
+                                    setEditingAgente(fullPersona ? { ...agente, ...fullPersona } as any : agente);
                                     setIsEditDialogOpen(true);
                                   }}
                                 >
