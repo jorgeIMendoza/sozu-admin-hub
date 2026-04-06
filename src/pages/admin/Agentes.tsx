@@ -163,11 +163,12 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
         <div className="space-y-2 pt-1 border-t border-border/40">
           {citas.map((cita: any) => {
             const configName = getConfigName(cita.id_configuracion_cita);
+            const hasValidTime = cita.hora_inicio && cita.hora_inicio.slice(0, 5) !== '00:00';
             return (
-              <div key={cita.id} className="space-y-0.5">
+              <div key={cita.id} className="space-y-0.5 cursor-pointer hover:bg-muted/50 rounded p-1 -m-1" onClick={() => setSelectedCita(cita)}>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-medium">{cita.fecha}</span>
-                  {cita.hora_inicio !== '00:00' && (
+                  {hasValidTime && (
                     <span className="text-[10px] text-muted-foreground">{cita.hora_inicio?.slice(0,5)}</span>
                   )}
                   {renderCitaBadge(cita)}
