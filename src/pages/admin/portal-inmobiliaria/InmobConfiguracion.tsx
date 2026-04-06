@@ -480,6 +480,7 @@ export default function InmobConfiguracion() {
   const existingAccount = cuentas[0] || null;
 
   return (
+    <>
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Configuración</h1>
 
