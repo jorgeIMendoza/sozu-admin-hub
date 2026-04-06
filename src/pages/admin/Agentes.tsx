@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, User, CalendarCheck, Calendar, RefreshCw } from "lucide-react";
+import { Plus, Search, Edit, Trash2, UserX, RotateCcw, Upload, ChevronLeft, ChevronRight, FileSpreadsheet, User, CalendarCheck, Calendar, RefreshCw, Clock, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";  
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
