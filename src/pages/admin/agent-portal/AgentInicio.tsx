@@ -2,22 +2,26 @@ import { useState, useEffect } from "react";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAgentImpersonation } from "@/contexts/AgentImpersonationContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useAgentPortalPermissions } from "@/hooks/useAgentPortalPermissions";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   CalendarPlus, UserPlus, TrendingUp, DollarSign, 
   ShoppingCart, CheckCircle2, AlertCircle, Loader2,
-  ChevronRight, Building2, Calendar, Clock
+  ChevronRight, Building2, Calendar, Clock, MapPin, X, Ban, CalendarClock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
+import { toast } from "sonner";
 
 const AgentInicio = () => {
   const { profile, user } = useAuth();
@@ -33,6 +37,9 @@ const AgentInicio = () => {
   const [agendarCitaOpen, setAgendarCitaOpen] = useState(false);
   const { registrarVista } = useActivityLogger();
   const { track } = useCtaTracker();
+  const queryClient = useQueryClient();
+  const [selectedCita, setSelectedCita] = useState<any>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
   const nombre = isImpersonating ? (impersonatedAgentName?.split(" ")[0] || "Agente") : (profile?.nombre?.split(" ")[0] || "Agente");
 
@@ -220,6 +227,38 @@ const AgentInicio = () => {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
   };
 
+  const hasValidTime = (time: string | null | undefined) => {
+    if (!time) return false;
+    const t = time.slice(0, 5);
+    return t !== '00:00';
+  };
+
+  const formatTime = (cita: any) => {
+    if (!hasValidTime(cita.hora_inicio)) return null;
+    const start = cita.hora_inicio?.slice(0, 5);
+    const end = hasValidTime(cita.hora_fin) ? cita.hora_fin.slice(0, 5) : null;
+    return end ? `${start} - ${end}` : start;
+  };
+
+  const cancelCitaMutation = useMutation({
+    mutationFn: async (citaId: number) => {
+      const { error } = await (supabase as any)
+        .from('reservas_citas')
+        .update({ estatus: 'cancelada', id_estatus_cita: null, activo: false })
+        .eq('id', citaId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['agent-citas'] });
+      setSelectedCita(null);
+      setCancelConfirmOpen(false);
+      toast.success('Cita cancelada exitosamente');
+    },
+    onError: () => {
+      toast.error('Error al cancelar la cita');
+    },
+  });
+
   const getStatusLabel = (statusId: number) => {
     switch (statusId) {
       case 3: return "Oferta aprobada";
@@ -402,8 +441,10 @@ const AgentInicio = () => {
           {citasProximas.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Próximas</p>
-              {citasProximas.map((cita: any) => (
-                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+              {citasProximas.map((cita: any) => {
+                const time = formatTime(cita);
+                return (
+                <div key={cita.id} onClick={() => setSelectedCita(cita)} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform">
                   <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4 text-blue-600" />
                   </div>
@@ -419,7 +460,7 @@ const AgentInicio = () => {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-[hsl(var(--agent-text-secondary))] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · {cita.hora_inicio?.slice(0, 5)}{cita.hora_fin ? ` - ${cita.hora_fin.slice(0, 5)}` : ''}
+                        {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}{time ? ` · ${time}` : ''}
                       </span>
                       {cita.ubicacion && <span className="text-xs text-[hsl(var(--agent-text-secondary))]">· {cita.ubicacion}</span>}
                     </div>
@@ -433,15 +474,18 @@ const AgentInicio = () => {
                     );
                   })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
           {citasHistorial.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Historial</p>
-              {citasHistorial.map((cita: any) => (
-                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 opacity-70">
+              {citasHistorial.map((cita: any) => {
+                const time = formatTime(cita);
+                return (
+                <div key={cita.id} onClick={() => setSelectedCita(cita)} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 opacity-70 cursor-pointer active:scale-[0.98] transition-transform">
                   <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4 text-gray-400" />
                   </div>
@@ -456,7 +500,7 @@ const AgentInicio = () => {
                     )}
                     <span className="text-xs text-[hsl(var(--agent-text-secondary))] flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })} · {cita.hora_inicio?.slice(0, 5)}{cita.hora_fin ? ` - ${cita.hora_fin.slice(0, 5)}` : ''}
+                      {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}{time ? ` · ${time}` : ''}
                     </span>
                   </div>
                   {(() => {
@@ -468,7 +512,8 @@ const AgentInicio = () => {
                     );
                   })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -479,6 +524,137 @@ const AgentInicio = () => {
           <AgendarCitaShowroomDialog open={agendarCitaOpen} onOpenChange={setAgendarCitaOpen} />
         </>
       )}
+
+      {/* Cita Detail Modal */}
+      <Dialog open={!!selectedCita} onOpenChange={(open) => { if (!open) { setSelectedCita(null); setCancelConfirmOpen(false); } }}>
+        <DialogContent className="sm:max-w-md bg-white text-gray-900">
+          <DialogHeader>
+            <DialogTitle className="text-lg">
+              {selectedCita?.tipos_cita?.nombre || 'Cita'}
+              {selectedCita?.proyectos?.nombre ? ` · ${selectedCita.proyectos.nombre}` : ''}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Detalle de la cita</DialogDescription>
+          </DialogHeader>
+          {selectedCita && (() => {
+            const time = formatTime(selectedCita);
+            const badge = getCitaStatusBadge(selectedCita);
+            const isPast = selectedCita.fecha < today;
+            const isCancelled = selectedCita.estatus === 'cancelada' || selectedCita.estatus === 'no_asistio';
+            const canModify = !isPast && !isCancelled;
+
+            return (
+              <div className="space-y-4">
+                {/* Status */}
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badge.className}`}>
+                    {badge.label}
+                  </span>
+                  {selectedCita.estatus_cita?.nombre && (
+                    <span className="text-xs text-gray-500">{selectedCita.estatus_cita.nombre}</span>
+                  )}
+                </div>
+
+                {/* Details */}
+                <div className="space-y-3 bg-gray-50 rounded-lg p-3">
+                  {selectedCita.personas?.nombre_legal && (
+                    <div className="flex items-start gap-2.5">
+                      <UserPlus className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Prospecto</p>
+                        <p className="text-sm font-medium">{selectedCita.personas.nombre_legal}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2.5">
+                    <Calendar className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-xs text-gray-500">Fecha</p>
+                      <p className="text-sm font-medium">
+                        {new Date(selectedCita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  {time && (
+                    <div className="flex items-start gap-2.5">
+                      <Clock className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Horario</p>
+                        <p className="text-sm font-medium">{time}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedCita.ubicacion && (
+                    <div className="flex items-start gap-2.5">
+                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-gray-500">Ubicación</p>
+                        <p className="text-sm font-medium">{selectedCita.ubicacion}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedCita.notas && (
+                    <div className="pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 mb-1">Notas</p>
+                      <p className="text-sm text-gray-700">{selectedCita.notas}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                {canModify && (
+                  cancelConfirmOpen ? (
+                    <div className="space-y-2 bg-red-50 rounded-lg p-3">
+                      <p className="text-sm font-medium text-red-800">¿Estás seguro de cancelar esta cita?</p>
+                      <p className="text-xs text-red-600">Esta acción no se puede deshacer.</p>
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => cancelCitaMutation.mutate(selectedCita.id)}
+                          disabled={cancelCitaMutation.isPending}
+                        >
+                          {cancelCitaMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Ban className="h-3 w-3 mr-1" />}
+                          Sí, cancelar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCancelConfirmOpen(false)}
+                        >
+                          No, volver
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                        onClick={() => setCancelConfirmOpen(true)}
+                      >
+                        <Ban className="h-4 w-4 mr-1.5" />
+                        Cancelar cita
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedCita(null);
+                          setAgendarCitaOpen(true);
+                        }}
+                      >
+                        <CalendarClock className="h-4 w-4 mr-1.5" />
+                        Reagendar
+                      </Button>
+                    </div>
+                  )
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       </div>
     </div>
   );
