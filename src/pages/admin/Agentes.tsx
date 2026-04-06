@@ -60,7 +60,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
       const { data, error } = await supabase
         .from('reservas_citas')
         .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia, id_configuracion_cita, id_tipo_cita')
-        .eq('id_persona', personaId)
+        .or(`id_persona.eq.${personaId},id_agente.eq.${personaId}`)
         .eq('activo', true)
         .eq('id_tipo_cita', 1)
         .in('estatus', ['programada', 'asistio', 'no_asistio'])

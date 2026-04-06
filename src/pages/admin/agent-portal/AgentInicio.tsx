@@ -201,6 +201,7 @@ const AgentInicio = () => {
       return data || [];
     },
     enabled: !!personaId,
+    staleTime: 0,
   });
 
   const today = new Date().toISOString().split('T')[0];
