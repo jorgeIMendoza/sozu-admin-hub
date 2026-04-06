@@ -13,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Building2, CreditCard, User, Save, Plus, Edit, AlertCircle, Copy, FolderOpen } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Building2, CreditCard, User, Save, Plus, Edit, AlertCircle, Copy, FolderOpen, UserCheck } from "lucide-react";
 import { toast } from "sonner";
+import { PersonForm } from "@/components/admin/PersonForm";
 
 export default function InmobConfiguracion() {
   const { registrarVista } = useActivityLogger();
