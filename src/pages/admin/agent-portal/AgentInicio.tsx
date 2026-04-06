@@ -452,7 +452,7 @@ const AgentInicio = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className="text-sm font-medium text-[hsl(var(--agent-text))] truncate">
-                        {cita.tipos_cita?.nombre || 'Cita'} {cita.proyectos?.nombre ? `· ${cita.proyectos.nombre}` : ''}
+                        {cita.proyectos?.nombre || 'Cita'}
                       </p>
                       <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap shrink-0">
                         {cita.tipos_cita?.nombre || 'Cita'}
