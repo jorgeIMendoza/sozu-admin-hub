@@ -58,9 +58,10 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia, id_configuracion_cita')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, fecha_asistencia, id_configuracion_cita, id_tipo_cita')
         .eq('id_persona', personaId)
         .eq('activo', true)
+        .eq('id_tipo_cita', 1)
         .in('estatus', ['programada', 'asistio', 'no_asistio'])
         .order('fecha_creacion', { ascending: false });
       if (error) throw error;
@@ -123,7 +124,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
 
   const renderCitaBadge = (cita: any) => {
     const estatusCita = cita.id_estatus_cita;
-    if (estatusCita === 3 || cita.estatus === 'asistio') return <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Confirmada</Badge>;
+    if (estatusCita === 3 || cita.estatus === 'asistio') return <Badge className="bg-emerald-500 text-white border-0 text-[10px]">Asistió</Badge>;
     if (estatusCita === 1) return <Badge className="bg-blue-500 text-white border-0 text-[10px]">Agendada</Badge>;
     if (estatusCita === 2) return <Badge className="bg-amber-500 text-white border-0 text-[10px]">Pend. confirmación</Badge>;
     if (cita.estatus === 'no_asistio') return <Badge variant="destructive" className="text-[10px]">No asistió</Badge>;
