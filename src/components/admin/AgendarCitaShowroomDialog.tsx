@@ -498,10 +498,15 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange, rescheduleData }
             )}
 
             {/* Project selector (dropdown) */}
-            {selectedProspecto && selectedProspectoData && selectedProspectoData.proyectos.length > 0 && (
+            {selectedProspecto && (rescheduleData || (selectedProspectoData && selectedProspectoData.proyectos.length > 0)) && (
               <div className="space-y-2">
                 <Label>Desarrollo para la cita <span className="text-destructive">*</span></Label>
-                {selectedProspectoData.proyectos.length === 1 ? (
+                {rescheduleData ? (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border bg-muted/30 text-sm font-medium">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    {rescheduleData.proyectoName || 'Desarrollo'}
+                  </div>
+                ) : selectedProspectoData && selectedProspectoData.proyectos.length === 1 ? (
                   (() => {
                     const p = selectedProspectoData.proyectos[0];
                     const color = projectColorMap.get(p.id) || PROJECT_COLORS[0];
@@ -512,7 +517,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange, rescheduleData }
                       </div>
                     );
                   })()
-                ) : (
+                ) : selectedProspectoData ? (
                   <Select
                     value={selectedProyectoId?.toString() || ""}
                     onValueChange={(v) => handleSelectProject(parseInt(v))}
@@ -534,7 +539,7 @@ export function AgendarCitaShowroomDialog({ open, onOpenChange, rescheduleData }
                       })}
                     </SelectContent>
                   </Select>
-                )}
+                ) : null}
               </div>
             )}
 
