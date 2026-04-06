@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { AddProspectoFloatingDialog } from "@/components/admin/AddProspectoFloatingDialog";
 import { AgendarCitaShowroomDialog } from "@/components/admin/AgendarCitaShowroomDialog";
+import { AgentOnboardingStepDialog } from "@/components/admin/AgentOnboardingStepDialog";
 import { toast } from "sonner";
 
 const AgentInicio = () => {
