@@ -174,7 +174,7 @@ export function AgentOnboardingStepDialog({ step, personaId, open, onOpenChange 
       }} />
     </div>
   ) : (
-    <StepForm step={step} persona={persona} personaId={personaId} onSaved={handleSaved} basicDocTypes={effectiveBasicDocTypes} onTrackSave={() => track({ page: "modal_perfil", elementId: "perfil_fase_guardar", metadata: { fase: step } })} onTrackFieldChange={() => {
+    <StepForm step={step} persona={persona} personaId={personaId} onSaved={handleSaved} onClose={() => onOpenChange(false)} basicDocTypes={effectiveBasicDocTypes} onTrackSave={() => track({ page: "modal_perfil", elementId: "perfil_fase_guardar", metadata: { fase: step } })} onTrackFieldChange={() => {
       if (!hasTrackedFieldChange.current) {
         hasTrackedFieldChange.current = true;
         track({ page: "modal_perfil", elementId: "perfil_fase_campo_modificado", metadata: { fase: step } });
@@ -2159,12 +2159,13 @@ interface StepFormProps {
   persona: any;
   personaId: number;
   onSaved: () => void | Promise<void>;
+  onClose?: () => void;
   onTrackSave?: () => void;
   onTrackFieldChange?: () => void;
   basicDocTypes?: number[];
 }
 
-function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackFieldChange, basicDocTypes }: StepFormProps) {
+function StepForm({ step, persona, personaId, onSaved, onClose, onTrackSave, onTrackFieldChange, basicDocTypes }: StepFormProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState(step === 'basic' ? 'personal' : step === 'fiscal' ? 'datos' : '');
@@ -2775,7 +2776,14 @@ function StepForm({ step, persona, personaId, onSaved, onTrackSave, onTrackField
             Atrás
           </button>
         )}
-        {!isDocTab && (
+        {isDocTab && isLastTab ? (
+          <button
+            onClick={() => onClose?.()}
+            className="flex-1 py-4 rounded-2xl bg-primary text-primary-foreground font-semibold text-sm tracking-wide transition-all duration-300 hover:bg-primary/90 flex items-center justify-center gap-2"
+          >
+            Finalizar
+          </button>
+        ) : !isDocTab && (
           <button
             onClick={isLastTab ? handleSave : handleNextTab}
             disabled={saving}
