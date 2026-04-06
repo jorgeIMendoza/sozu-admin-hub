@@ -264,7 +264,7 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 // ─── Stacked Slot Card ───
 function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "movida" | "confirmada" | "agendada" | "disponible" {
   const slot = item.slot;
-  if (item.status === "override") return "movida";
+  if (slot.isOverride) return "movida";
   if (slot.type === "cita" && slot.cita) {
     if (slot.cita.id_estatus_cita === 3) return "confirmada";
     const hasInv = !!(slot.cita.email_invitado || slot.cita.nombre_invitado);
