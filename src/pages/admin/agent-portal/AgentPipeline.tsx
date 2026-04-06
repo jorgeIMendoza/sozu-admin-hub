@@ -324,6 +324,19 @@ const AgentPipeline = () => {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
+      {/* Prospect search */}
+      <div className="px-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--agent-muted))]" />
+          <Input
+            placeholder="Buscar prospecto..."
+            value={searchProspecto}
+            onChange={(e) => setSearchProspecto(e.target.value)}
+            className="pl-9 h-9 bg-white border-gray-200 text-sm"
+          />
+        </div>
+      </div>
+
       {/* Offer Cards */}
       <div className="px-4 space-y-2.5">
         {isLoading ? (
