@@ -1101,6 +1101,8 @@ export default function TodasLasCitas() {
 
   const filteredCitas = useMemo(() => {
     return citas.filter((c) => {
+      // Exclude citas whose config no longer exists (obsolete/test)
+      if (!c.id_configuracion_cita || !configMap.has(c.id_configuracion_cita)) return false;
       if (ownerFilter === "all") return true;
       const config = configMap.get(c.id_configuracion_cita);
       return config?.id_usuario_email === ownerFilter;
