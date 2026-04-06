@@ -1,0 +1,1 @@
+UPDATE entidades_relacionadas SET id_persona_duena_lead = 2556 WHERE id IN (3788, 3789) AND id_persona_duena_lead = 1113;
