@@ -197,7 +197,7 @@ const AgentInicio = () => {
       if (!personaId) return [];
       const { data } = await (supabase as any)
         .from('reservas_citas')
-        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
+        .select('id, fecha, hora_inicio, hora_fin, ubicacion, estatus, id_estatus_cita, id_proyecto, id_persona_prospecto, id_tipo_cita, notas, proyectos(nombre), tipos_cita(nombre), estatus_cita(nombre), personas!reservas_citas_id_persona_prospecto_fkey(nombre_legal)')
         .eq('activo', true)
         .or(`id_agente.eq.${personaId},id_persona.eq.${personaId}`)
         .order('fecha', { ascending: true });
