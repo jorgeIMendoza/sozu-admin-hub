@@ -391,11 +391,11 @@ const RSVP_MAP: Record<string, { label: string; borderClass: string; textClass: 
     avatarClass: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
   },
   tentative: {
-    label: "Quizá",
-    borderClass: "border-yellow-300 dark:border-yellow-700",
-    textClass: "text-yellow-700 dark:text-yellow-400",
-    bgClass: "bg-yellow-50 dark:bg-yellow-950/20",
-    avatarClass: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400",
+    label: "Agendada",
+    borderClass: "border-blue-300 dark:border-blue-700",
+    textClass: "text-blue-700 dark:text-blue-400",
+    bgClass: "bg-blue-50 dark:bg-blue-950/20",
+    avatarClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
   },
   needsAction: {
     label: "Agendada",
