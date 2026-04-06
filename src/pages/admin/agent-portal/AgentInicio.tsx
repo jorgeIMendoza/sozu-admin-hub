@@ -657,14 +657,20 @@ const AgentInicio = () => {
                         variant="outline"
                         className="flex-1"
                         onClick={() => {
-                          setRescheduleData({
-                            prospectoId: String(selectedCita.id_persona_prospecto),
-                            proyectoId: selectedCita.id_proyecto,
-                            prospectoName: selectedCita.personas?.nombre_legal || '',
-                            proyectoName: selectedCita.proyectos?.nombre || '',
-                          });
-                          setSelectedCita(null);
-                          setAgendarCitaOpen(true);
+                          const isTraining = selectedCita.id_tipo_cita === 1;
+                          if (isTraining) {
+                            setSelectedCita(null);
+                            setTrainingDialogOpen(true);
+                          } else {
+                            setRescheduleData({
+                              prospectoId: String(selectedCita.id_persona_prospecto),
+                              proyectoId: selectedCita.id_proyecto,
+                              prospectoName: selectedCita.personas?.nombre_legal || '',
+                              proyectoName: selectedCita.proyectos?.nombre || '',
+                            });
+                            setSelectedCita(null);
+                            setAgendarCitaOpen(true);
+                          }
                         }}
                       >
                         <CalendarClock className="h-4 w-4 mr-1.5" />
