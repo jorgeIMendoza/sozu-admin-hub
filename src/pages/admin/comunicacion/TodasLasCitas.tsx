@@ -262,24 +262,59 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 }
 
 // ─── Stacked Slot Card ───
+function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "movida" | "confirmada" | "agendada" | "disponible" {
+  const slot = item.slot;
+  if (slot.isOverride) return "movida";
+  if (slot.type === "cita" && slot.cita) {
+    if (slot.cita.id_estatus_cita === 3) return "confirmada";
+    const hasInv = !!(slot.cita.email_invitado || slot.cita.nombre_invitado);
+    if (hasInv) return "agendada";
+  }
+  return "disponible";
+}
+
+const SLOT_STATUS_STYLES: Record<string, { border: string; bg: string; dot: string; text: string }> = {
+  movida: { border: "border-orange-300 dark:border-orange-700", bg: "bg-orange-50 dark:bg-orange-950/30", dot: "bg-orange-500", text: "text-orange-700 dark:text-orange-400" },
+  confirmada: { border: "border-green-300 dark:border-green-700", bg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500", text: "text-green-700 dark:text-green-400" },
+  agendada: { border: "border-blue-300 dark:border-blue-700", bg: "bg-blue-50 dark:bg-blue-950/30", dot: "bg-blue-500", text: "text-blue-700 dark:text-blue-400" },
+  disponible: { border: "border-muted-foreground/25", bg: "bg-muted/10", dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
+};
+
+const STATUS_HIERARCHY = ["movida", "confirmada", "agendada", "disponible"] as const;
+
+function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }[]): string {
+  const counts: Record<string, number> = {};
+  items.forEach(item => {
+    const s = getSlotItemStatus(item);
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  const maxCount = Math.max(...Object.values(counts));
+  const tied = Object.keys(counts).filter(k => counts[k] === maxCount);
+  if (tied.length === 1) return tied[0];
+  for (const h of STATUS_HIERARCHY) {
+    if (tied.includes(h)) return h;
+  }
+  return "disponible";
+}
+
 function StackedSlotCard({ items, onSelectSlot }: {
   items: { slot: CalendarSlot; status: CalendarStatus }[];
   onSelectSlot: (slot: CalendarSlot) => void;
 }) {
-  const citaItems = items.filter(i => i.slot.type === "cita");
-  const totalCitas = citaItems.length;
-
   if (items.length <= 1) return null;
+
+  const dominant = getDominantStatus(items);
+  const style = SLOT_STATUS_STYLES[dominant];
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className="absolute inset-x-1 inset-y-0.5 rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-700 px-2.5 py-1.5 cursor-pointer transition-all hover:shadow-md overflow-hidden">
+        <div className={cn("absolute inset-x-1 inset-y-0.5 rounded-lg border px-2.5 py-1.5 cursor-pointer transition-all hover:shadow-md overflow-hidden", style.border, style.bg)}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 truncate">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" />
+              <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", style.dot)} />
               <span className="font-semibold text-[11px] text-foreground truncate">
-                {items.length} elemento{items.length > 1 ? "s" : ""}
+                {items.length} cita{items.length > 1 ? "s" : ""}
               </span>
             </div>
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4 flex-shrink-0">
@@ -288,23 +323,25 @@ function StackedSlotCard({ items, onSelectSlot }: {
           </div>
 
           <div className="mt-1 space-y-0.5">
-            {items.slice(0, 2).map((item, i) => (
-              <div key={i} className="flex items-center gap-1 text-[9px] text-muted-foreground truncate">
-                <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0",
-                  item.slot.type === "cita" ? "bg-blue-500" : "bg-muted-foreground/40"
-                )} />
-                <span className="truncate font-medium">{item.slot.config?.nombre || (item.slot.type === "cita" ? "Cita" : "Disponible")}</span>
-              </div>
-            ))}
+            {items.slice(0, 2).map((item, i) => {
+              const itemStatus = getSlotItemStatus(item);
+              const itemStyle = SLOT_STATUS_STYLES[itemStatus];
+              return (
+                <div key={i} className="flex items-center gap-1 text-[9px] text-muted-foreground truncate">
+                  <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", itemStyle.dot)} />
+                  <span className="truncate font-medium">{item.slot.config?.nombre || (item.slot.type === "cita" ? "Cita" : "Disponible")}</span>
+                </div>
+              );
+            })}
             {items.length > 2 && (
-              <div className="text-[9px] text-blue-600 dark:text-blue-400 font-medium">+{items.length - 2} más</div>
+              <div className={cn("text-[9px] font-medium", style.text)}>+{items.length - 2} más</div>
             )}
           </div>
         </div>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <div className="p-3 border-b bg-muted/20">
-          <p className="text-sm font-semibold text-foreground">{items.length} elementos en este slot</p>
+          <p className="text-sm font-semibold text-foreground">{items.length} citas en este slot</p>
           <p className="text-xs text-muted-foreground mt-0.5">Click en cada uno para ver detalle</p>
         </div>
         <div className="max-h-64 overflow-y-auto p-2 space-y-1.5">
@@ -313,24 +350,29 @@ function StackedSlotCard({ items, onSelectSlot }: {
             const isCita = slot.type === "cita";
             const cita = slot.cita;
             const statusInfo = cita ? STATUS_MAP[cita.id_estatus_cita ?? 0] : null;
+            const itemStatus = getSlotItemStatus(item);
+            const itemStyle = SLOT_STATUS_STYLES[itemStatus];
 
             return (
               <div
                 key={i}
                 onClick={() => onSelectSlot(slot)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-md px-3 py-2 cursor-pointer transition-colors",
-                  isCita
-                    ? "bg-blue-50/50 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:border-blue-800 dark:hover:bg-blue-950/40"
-                    : "bg-muted/30 border border-border hover:bg-muted/60"
+                  "flex items-center gap-2.5 rounded-md px-3 py-2 cursor-pointer transition-colors border",
+                  itemStatus === "movida" ? "bg-orange-50/50 border-orange-200 hover:bg-orange-100 dark:bg-orange-950/20 dark:border-orange-800" :
+                  itemStatus === "confirmada" ? "bg-green-50/50 border-green-200 hover:bg-green-100 dark:bg-green-950/20 dark:border-green-800" :
+                  itemStatus === "agendada" ? "bg-blue-50/50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:border-blue-800" :
+                  "bg-muted/30 border-border hover:bg-muted/60"
                 )}
               >
                 {isCita && cita ? (
                   <div className={cn(
                     "flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold flex-shrink-0",
-                    cita.id_estatus_cita === 3
+                    itemStatus === "confirmada"
                       ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                      : itemStatus === "agendada"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                        : "bg-muted text-muted-foreground"
                   )}>
                     {getInitials(cita.nombre_invitado)}
                   </div>
@@ -353,16 +395,18 @@ function StackedSlotCard({ items, onSelectSlot }: {
                   <Badge
                     variant="outline"
                     className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0",
-                      cita?.id_estatus_cita === 3 ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400" :
-                      "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400"
+                      itemStatus === "confirmada" ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400" :
+                      itemStatus === "agendada" ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400" :
+                      itemStatus === "movida" ? "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400" :
+                      ""
                     )}
                   >
-                    {statusInfo.label}
+                    {itemStatus === "movida" ? "Movida" : statusInfo.label}
                   </Badge>
                 )}
                 {!isCita && (
                   <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 flex-shrink-0 text-muted-foreground">
-                    Libre
+                    Disponible
                   </Badge>
                 )}
               </div>
