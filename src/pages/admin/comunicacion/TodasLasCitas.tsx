@@ -1466,6 +1466,10 @@ export default function TodasLasCitas() {
           Confirmada
         </span>
         <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+          NO asistirá
+        </span>
+        <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded ring-2 ring-orange-400 bg-orange-50" />
           Movida manualmente
         </span>
