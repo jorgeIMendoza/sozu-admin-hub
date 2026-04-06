@@ -262,8 +262,11 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 }
 
 // ─── Stacked Slot Card ───
-function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "movida" | "confirmada" | "agendada" | "disponible" {
+function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "no_asistira" | "movida" | "confirmada" | "agendada" | "disponible" {
   const slot = item.slot;
+  if (slot.type === "cita" && slot.cita) {
+    if (slot.cita.id_estatus_cita === 4) return "no_asistira";
+  }
   if (slot.isOverride) return "movida";
   if (slot.type === "cita" && slot.cita) {
     if (slot.cita.id_estatus_cita === 3) return "confirmada";
@@ -274,13 +277,14 @@ function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus })
 }
 
 const SLOT_STATUS_STYLES: Record<string, { border: string; bg: string; dot: string; text: string }> = {
+  no_asistira: { border: "border-red-300 dark:border-red-700", bg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500", text: "text-red-700 dark:text-red-400" },
   movida: { border: "border-orange-300 dark:border-orange-700", bg: "bg-orange-50 dark:bg-orange-950/30", dot: "bg-orange-500", text: "text-orange-700 dark:text-orange-400" },
   confirmada: { border: "border-green-300 dark:border-green-700", bg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500", text: "text-green-700 dark:text-green-400" },
   agendada: { border: "border-blue-300 dark:border-blue-700", bg: "bg-blue-50 dark:bg-blue-950/30", dot: "bg-blue-500", text: "text-blue-700 dark:text-blue-400" },
   disponible: { border: "border-muted-foreground/25", bg: "bg-muted/10", dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
 };
 
-const STATUS_HIERARCHY = ["movida", "confirmada", "agendada", "disponible"] as const;
+const STATUS_HIERARCHY = ["no_asistira", "movida", "confirmada", "agendada", "disponible"] as const;
 
 function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }[]): string {
   const counts: Record<string, number> = {};
@@ -359,6 +363,7 @@ function StackedSlotCard({ items, onSelectSlot }: {
                 onClick={() => onSelectSlot(slot)}
                 className={cn(
                   "flex items-center gap-2.5 rounded-md px-3 py-2 cursor-pointer transition-colors border",
+                  itemStatus === "no_asistira" ? "bg-red-50/50 border-red-200 hover:bg-red-100 dark:bg-red-950/20 dark:border-red-800" :
                   itemStatus === "movida" ? "bg-orange-50/50 border-orange-200 hover:bg-orange-100 dark:bg-orange-950/20 dark:border-orange-800" :
                   itemStatus === "confirmada" ? "bg-green-50/50 border-green-200 hover:bg-green-100 dark:bg-green-950/20 dark:border-green-800" :
                   itemStatus === "agendada" ? "bg-blue-50/50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/20 dark:border-blue-800" :
@@ -1459,6 +1464,10 @@ export default function TodasLasCitas() {
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
           Confirmada
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+          NO asistirá
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded ring-2 ring-orange-400 bg-orange-50" />
