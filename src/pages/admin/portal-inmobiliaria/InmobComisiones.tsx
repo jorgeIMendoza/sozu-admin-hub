@@ -365,6 +365,7 @@ export default function InmobComisiones() {
                       <TableHead className="text-right">Comisión</TableHead>
                       <TableHead>Estatus</TableHead>
                       <TableHead>Fecha Pago</TableHead>
+                      <TableHead>Comprobante</TableHead>
                       <TableHead>Factura</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -384,6 +385,17 @@ export default function InmobComisiones() {
                         </TableCell>
                         <TableCell>{estatusBadge(r.estatus)}</TableCell>
                         <TableCell>{formatFechaPago(r.fechaPago)}</TableCell>
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          {r.comprobantePagoUrl ? (
+                            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPdfUrl(r.comprobantePagoUrl)}>
+                              <FileText className="h-3.5 w-3.5" /> Ver
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" disabled>
+                              <FileText className="h-3.5 w-3.5" /> Sin comprobante
+                            </Button>
+                          )}
+                        </TableCell>
                         <TableCell onClick={e => e.stopPropagation()}>
                           {r.facturaUrl ? (
                             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => setPdfUrl(r.facturaUrl)}>
@@ -637,6 +649,19 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
   // Fetch compradores
   const compradoresMap = await fetchCompradores(cuentaIds);
 
+  // Fetch comisionistas for url_evidencia_pago (Sozu's own comisionista entries)
+  const { data: sozuComisionistas } = await (supabase as any)
+    .from("comisionistas")
+    .select("id_cuenta_cobranza, url_evidencia_pago")
+    .in("id_cuenta_cobranza", cuentaIds)
+    .eq("activo", true);
+  const comprobanteMap = new Map<number, string>();
+  (sozuComisionistas || []).forEach((c: any) => {
+    if (c.url_evidencia_pago && !comprobanteMap.has(c.id_cuenta_cobranza)) {
+      comprobanteMap.set(c.id_cuenta_cobranza, c.url_evidencia_pago);
+    }
+  });
+
   // Check enganche
   const { data: acuerdos } = await supabase
     .from("acuerdos_pago")
@@ -703,7 +728,7 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
       estatus,
       fechaPago: cuenta.fecha_pago_comision || null,
       facturaUrl: (!cuenta.es_draft_factura_comision && cuenta.url_factura_comision) ? cuenta.url_factura_comision : null,
-      comprobantePagoUrl: null,
+      comprobantePagoUrl: comprobanteMap.get(cuenta.id) || null,
     });
   }
 

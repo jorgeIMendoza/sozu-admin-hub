@@ -10,7 +10,8 @@ import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Loader2, Plus, User, Clock, Building2, Calendar, FileText, Lock, Mail } from "lucide-react";
+import { Loader2, Plus, User, Clock, Building2, Calendar, FileText, Lock, Mail, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -74,6 +75,7 @@ const AgentPipeline = () => {
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
   const { hasTrainingComplete, isLoading: onboardingLoading } = useAgentOnboardingStatus(personaId);
   const [activeStage, setActiveStage] = useState<string>('all');
+  const [searchProspecto, setSearchProspecto] = useState<string>('');
   const [selectedOferta, setSelectedOferta] = useState<any>(null);
   const { permissions } = useAgentPortalPermissions();
   const pipelinePerms = permissions['/admin/agent/pipeline'];
@@ -240,9 +242,13 @@ const AgentPipeline = () => {
   const nonExpiredOfertas = useMemo(() => ofertas.filter((o: any) => o.stage !== 'expiradas'), [ofertas]);
 
   const displayOfertas = useMemo(() => {
-    if (activeStage === 'all') return nonExpiredOfertas;
-    return grouped[activeStage] || [];
-  }, [nonExpiredOfertas, grouped, activeStage]);
+    let result = activeStage === 'all' ? nonExpiredOfertas : (grouped[activeStage] || []);
+    if (searchProspecto.trim()) {
+      const q = searchProspecto.trim().toLowerCase();
+      result = result.filter((o: any) => (o.lead_nombre || "").toLowerCase().includes(q));
+    }
+    return result;
+  }, [nonExpiredOfertas, grouped, activeStage, searchProspecto]);
 
   const totalMonto = useMemo(() => {
     return nonExpiredOfertas.reduce((sum: number, o: any) => sum + (o.precio || 0), 0);
@@ -317,6 +323,19 @@ const AgentPipeline = () => {
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
+
+      {/* Prospect search */}
+      <div className="px-4 pb-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--agent-muted))]" />
+          <Input
+            placeholder="Buscar prospecto..."
+            value={searchProspecto}
+            onChange={(e) => setSearchProspecto(e.target.value)}
+            className="pl-9 h-9 bg-white border-gray-200 text-sm"
+          />
+        </div>
+      </div>
 
       {/* Offer Cards */}
       <div className="px-4 space-y-2.5">
