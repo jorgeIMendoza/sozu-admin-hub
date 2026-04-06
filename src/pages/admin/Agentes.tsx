@@ -52,6 +52,7 @@ function AgentTrainingCell({ personaId }: { personaId: number }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedCita, setSelectedCita] = useState<any>(null);
 
   const { data: citas = [], isLoading } = useQuery({
     queryKey: ['agent-training-cell', personaId],
