@@ -441,8 +441,10 @@ const AgentInicio = () => {
           {citasProximas.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Próximas</p>
-              {citasProximas.map((cita: any) => (
-                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3">
+              {citasProximas.map((cita: any) => {
+                const time = formatTime(cita);
+                return (
+                <div key={cita.id} onClick={() => setSelectedCita(cita)} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform">
                   <div className="h-9 w-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4 text-blue-600" />
                   </div>
@@ -458,7 +460,7 @@ const AgentInicio = () => {
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-[hsl(var(--agent-text-secondary))] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · {cita.hora_inicio?.slice(0, 5)}{cita.hora_fin ? ` - ${cita.hora_fin.slice(0, 5)}` : ''}
+                        {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}{time ? ` · ${time}` : ''}
                       </span>
                       {cita.ubicacion && <span className="text-xs text-[hsl(var(--agent-text-secondary))]">· {cita.ubicacion}</span>}
                     </div>
@@ -472,15 +474,18 @@ const AgentInicio = () => {
                     );
                   })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
           {citasHistorial.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-[hsl(var(--agent-text-secondary))] px-1">Historial</p>
-              {citasHistorial.map((cita: any) => (
-                <div key={cita.id} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 opacity-70">
+              {citasHistorial.map((cita: any) => {
+                const time = formatTime(cita);
+                return (
+                <div key={cita.id} onClick={() => setSelectedCita(cita)} className="rounded-xl bg-white border border-gray-100 shadow-sm p-3 flex items-center gap-3 opacity-70 cursor-pointer active:scale-[0.98] transition-transform">
                   <div className="h-9 w-9 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4 text-gray-400" />
                   </div>
@@ -495,7 +500,7 @@ const AgentInicio = () => {
                     )}
                     <span className="text-xs text-[hsl(var(--agent-text-secondary))] flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })} · {cita.hora_inicio?.slice(0, 5)}{cita.hora_fin ? ` - ${cita.hora_fin.slice(0, 5)}` : ''}
+                      {new Date(cita.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}{time ? ` · ${time}` : ''}
                     </span>
                   </div>
                   {(() => {
@@ -507,7 +512,8 @@ const AgentInicio = () => {
                     );
                   })()}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
