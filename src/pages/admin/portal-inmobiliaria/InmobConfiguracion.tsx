@@ -29,7 +29,9 @@ export default function InmobConfiguracion() {
   const [fiscalForm, setFiscalForm] = useState<any>({});
   const [isEditingBank, setIsEditingBank] = useState(false);
   const [bankForm, setBankForm] = useState<any>({});
-  const [copiarDireccion, setCopiarDireccion] = useState(false);
+  const [isNewRepLegalDialogOpen, setIsNewRepLegalDialogOpen] = useState(false);
+  const [isNewRepComDialogOpen, setIsNewRepComDialogOpen] = useState(false);
+
 
   useEffect(() => {
     registrarVista("/admin/portal-inmobiliaria/configuracion");
