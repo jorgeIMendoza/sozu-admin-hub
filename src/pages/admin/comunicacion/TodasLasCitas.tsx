@@ -264,14 +264,22 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 // ─── Stacked Slot Card ───
 function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "no_asistira" | "movida" | "confirmada" | "agendada" | "disponible" {
   const slot = item.slot;
+  // Individual cita
   if (slot.type === "cita" && slot.cita) {
     if (slot.cita.id_estatus_cita === 4) return "no_asistira";
-  }
-  if (slot.isOverride) return "movida";
-  if (slot.type === "cita" && slot.cita) {
+    if (slot.isOverride) return "movida";
     if (slot.cita.id_estatus_cita === 3) return "confirmada";
     const hasInv = !!(slot.cita.email_invitado || slot.cita.nombre_invitado);
     if (hasInv) return "agendada";
+    return "disponible";
+  }
+  // Group or empty slot
+  if (slot.isOverride) return "movida";
+  if (slot.type === "group" && slot.citas && slot.citas.length > 0) {
+    // Check dominant status of booked citas
+    if (slot.citas.some(c => c.id_estatus_cita === 4)) return "no_asistira";
+    if (slot.citas.some(c => c.id_estatus_cita === 3)) return "confirmada";
+    return "agendada";
   }
   return "disponible";
 }
@@ -402,6 +410,7 @@ function StackedSlotCard({ items, onSelectSlot }: {
                     className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0",
                       itemStatus === "confirmada" ? "border-green-300 text-green-700 dark:border-green-700 dark:text-green-400" :
                       itemStatus === "agendada" ? "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400" :
+                      itemStatus === "no_asistira" ? "border-red-300 text-red-700 dark:border-red-700 dark:text-red-400" :
                       itemStatus === "movida" ? "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400" :
                       ""
                     )}
@@ -409,11 +418,24 @@ function StackedSlotCard({ items, onSelectSlot }: {
                     {itemStatus === "movida" ? "Movida" : statusInfo.label}
                   </Badge>
                 )}
-                {!isCita && (
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 flex-shrink-0 text-muted-foreground">
-                    Disponible
-                  </Badge>
-                )}
+                {!isCita && (() => {
+                  const isGroup = slot.type === "group" && (slot.maxInvitados || 0) > 1;
+                  const agendados = slot.agendados || 0;
+                  const maxInv = slot.maxInvitados || 0;
+                  if (isGroup && agendados > 0) {
+                    const itemStyle = SLOT_STATUS_STYLES[itemStatus];
+                    return (
+                      <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0 h-4 flex-shrink-0", itemStyle.borderClass || "", itemStyle.text || "")}>
+                        {agendados}/{maxInv}
+                      </Badge>
+                    );
+                  }
+                  return (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 flex-shrink-0 text-muted-foreground">
+                      {isGroup ? `0/${maxInv}` : "Disponible"}
+                    </Badge>
+                  );
+                })()}
               </div>
             );
           })}
