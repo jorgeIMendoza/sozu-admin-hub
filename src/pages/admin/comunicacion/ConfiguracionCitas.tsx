@@ -956,7 +956,7 @@ export default function ConfiguracionCitas() {
 
                           {/* Proyectos multi-selector */}
                           <div className="space-y-2">
-                            <Label>Proyectos vinculados</Label>
+                            <Label>Desarrollos vinculados</Label>
                             <div className="flex flex-wrap gap-1.5">
                               {proyectosPublicados.map((p: any) => {
                                 const isLinked = selectedProyectoIds.includes(p.id);
