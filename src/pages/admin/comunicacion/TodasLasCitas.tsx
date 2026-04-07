@@ -1277,6 +1277,22 @@ export default function TodasLasCitas() {
     return Array.from(set).sort();
   }, [configs]);
 
+  // Lookup owner names from personas table by email
+  const { data: ownerNamesMap = new Map<string, string>() } = useQuery({
+    queryKey: ["owner-names-by-email", owners],
+    queryFn: async () => {
+      if (owners.length === 0) return new Map<string, string>();
+      const { data } = await supabase
+        .from("personas")
+        .select("email, nombre_legal")
+        .in("email", owners);
+      const m = new Map<string, string>();
+      (data || []).forEach((p: any) => { if (p.email && p.nombre_legal) m.set(p.email, p.nombre_legal); });
+      return m;
+    },
+    enabled: owners.length > 0,
+  });
+
   const { minHour, maxHour } = useMemo(() => {
     let min = 9, max = 20;
     const relevantHorarios = ownerFilter === "all" ? horarios : horarios.filter(h => {
