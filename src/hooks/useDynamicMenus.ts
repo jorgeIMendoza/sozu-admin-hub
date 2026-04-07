@@ -106,7 +106,8 @@ import {
   '/admin/comunicacion/enviar-avisos': Send,
    '/admin/comunicacion/ejecuciones': History,
     '/admin/comunicacion/todas-las-citas': Calendar,
-    '/admin/notificaciones-config': Bell,
+     '/admin/notificaciones-config': Bell,
+     '/admin/notificaciones-log': ScrollText,
   '/admin/crm/workflow-ofertas': ClipboardList,
   '/admin/crm/dashboard-ejecutivo': BarChart3,
    // Agent Portal
