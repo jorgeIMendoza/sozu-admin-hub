@@ -1093,6 +1093,31 @@ Deno.serve(async (req) => {
     const existingEventId = oldCitas?.[0]?.google_calendar_event_id || undefined;
     const existingCitaId = oldCitas?.[0]?.id;
 
+    // If rescheduling, preserve original attendees instead of round-robin
+    if (existingEventId) {
+      try {
+        const oldEvResp = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(scheduleCalendarId)}/events/${encodeURIComponent(existingEventId)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (oldEvResp.ok) {
+          const oldEvData = await oldEvResp.json();
+          const oldAttendees: string[] = (oldEvData.attendees || [])
+            .map((a: any) => a.email as string)
+            .filter((e: string) => e && e !== scheduleCalendarId);
+          if (oldAttendees.length > 0) {
+            // Use original attendees (excluding agent/prospect which are added later)
+            scheduleCorrEnt = oldAttendees.filter(
+              (e: string) => e !== agentEmailFinal && e !== (prospecto_email || "")
+            );
+            console.log(`[schedule] Reschedule: preserving original attendees instead of round-robin: ${JSON.stringify(scheduleCorrEnt)}`);
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[schedule] Could not fetch old event for attendee preservation: ${e.message}`);
+      }
+    }
+
     // Check availability (only non-service-account events block)
     const available = await checkAvailability(token, fecha, hora_inicio, horaFin, scheduleCalendarId, existingEventId, supabase, scheduleCalendarOwner, tipoCitaId, config_id, scheduleMaxInvitados);
     if (!available) {
