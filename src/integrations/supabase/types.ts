@@ -2929,6 +2929,9 @@ export type Database = {
           nombre: string
           round_robin_enterados: boolean
           round_robin_index: number
+          ubicacion_direccion: string | null
+          ubicacion_latitud: number | null
+          ubicacion_longitud: number | null
         }
         Insert: {
           activo?: boolean
@@ -2947,6 +2950,9 @@ export type Database = {
           nombre: string
           round_robin_enterados?: boolean
           round_robin_index?: number
+          ubicacion_direccion?: string | null
+          ubicacion_latitud?: number | null
+          ubicacion_longitud?: number | null
         }
         Update: {
           activo?: boolean
@@ -2965,6 +2971,9 @@ export type Database = {
           nombre?: string
           round_robin_enterados?: boolean
           round_robin_index?: number
+          ubicacion_direccion?: string | null
+          ubicacion_latitud?: number | null
+          ubicacion_longitud?: number | null
         }
         Relationships: [
           {

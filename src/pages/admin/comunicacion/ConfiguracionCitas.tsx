@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, CalendarClock, Check, ChevronsUpDown, Pencil, Plus, Settings2, Copy, AlertTriangle, CalendarIcon, Video, X, Trash2 } from "lucide-react";
+import { Loader2, Save, CalendarClock, Check, ChevronsUpDown, Pencil, Plus, Settings2, Copy, AlertTriangle, CalendarIcon, Video, X, Trash2, MapPin } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -95,6 +95,9 @@ export default function ConfiguracionCitas() {
   const [deleteConfigTarget, setDeleteConfigTarget] = useState<{ id: number; nombre: string } | null>(null);
   const [calendarVerifying, setCalendarVerifying] = useState(false);
   const [calendarAccessStatus, setCalendarAccessStatus] = useState<"idle" | "ok" | "error">("idle");
+  const [ubicacionDireccion, setUbicacionDireccion] = useState<string>("");
+  const [ubicacionLatitud, setUbicacionLatitud] = useState<number | null>(null);
+  const [ubicacionLongitud, setUbicacionLongitud] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isSuperAdmin && profile?.email) {
@@ -293,7 +296,60 @@ export default function ConfiguracionCitas() {
     enabled: !!selectedConfigId,
   });
 
-  // Initialize from existing config
+  // Fetch location options (showrooms + project locations) for selected projects
+  const { data: locationOptions = [] } = useQuery({
+    queryKey: ["config-citas-location-options", selectedProyectoIds],
+    queryFn: async () => {
+      if (selectedProyectoIds.length === 0) return [];
+      const options: { label: string; direccion: string; latitud: number; longitud: number; type: string }[] = [];
+
+      // Fetch showrooms for selected projects
+      const { data: showrooms } = await (supabase as any)
+        .from("showrooms_proyecto")
+        .select("id, nombre, descripcion_direccion, latitud, longitud, id_proyecto")
+        .in("id_proyecto", selectedProyectoIds)
+        .eq("activo", true);
+
+      // Fetch project locations
+      const { data: projects } = await supabase
+        .from("proyectos")
+        .select("id, nombre, direccion, latitud, longitud")
+        .in("id", selectedProyectoIds);
+
+      const projectMap = new Map((projects || []).map((p: any) => [p.id, p]));
+      const projectsWithShowrooms = new Set((showrooms || []).map((s: any) => s.id_proyecto));
+
+      // For each project: if has showrooms -> show showrooms, else -> show project location
+      for (const pid of selectedProyectoIds) {
+        const proj = projectMap.get(pid);
+        if (!proj) continue;
+
+        if (projectsWithShowrooms.has(pid)) {
+          const projShowrooms = (showrooms || []).filter((s: any) => s.id_proyecto === pid);
+          for (const s of projShowrooms) {
+            options.push({
+              label: `${s.nombre || "Showroom"} — ${proj.nombre}`,
+              direccion: s.descripcion_direccion,
+              latitud: Number(s.latitud),
+              longitud: Number(s.longitud),
+              type: "showroom",
+            });
+          }
+        } else if (proj.latitud && proj.longitud && proj.direccion) {
+          options.push({
+            label: `${proj.nombre} (Proyecto)`,
+            direccion: proj.direccion,
+            latitud: Number(proj.latitud),
+            longitud: Number(proj.longitud),
+            type: "proyecto",
+          });
+        }
+      }
+      return options;
+    },
+    enabled: selectedProyectoIds.length > 0,
+  });
+
   useEffect(() => {
     const days = new Set<number>();
     const slots = new Map<number, Set<string>>();
@@ -317,6 +373,9 @@ export default function ConfiguracionCitas() {
       setCorreosEnteradoFijos((selectedConfig as any).correos_enterado_fijos || []);
       setRoundRobinEnterados((selectedConfig as any).round_robin_enterados || false);
       setDescripcionInvitacion(selectedConfig.descripcion_invitacion || "");
+      setUbicacionDireccion((selectedConfig as any).ubicacion_direccion || "");
+      setUbicacionLatitud((selectedConfig as any).ubicacion_latitud ? Number((selectedConfig as any).ubicacion_latitud) : null);
+      setUbicacionLongitud((selectedConfig as any).ubicacion_longitud ? Number((selectedConfig as any).ubicacion_longitud) : null);
       setFechaFinRecurrencia(
         (selectedConfig as any).fecha_fin_recurrencia
           ? new Date((selectedConfig as any).fecha_fin_recurrencia + "T00:00:00")
@@ -345,6 +404,9 @@ export default function ConfiguracionCitas() {
       setCorreosEnteradoFijos([]);
       setRoundRobinEnterados(false);
       setDescripcionInvitacion("");
+      setUbicacionDireccion("");
+      setUbicacionLatitud(null);
+      setUbicacionLongitud(null);
       setFechaFinRecurrencia(addMonths(new Date(), 3));
       setCalendarAccessStatus("idle");
     }
@@ -546,6 +608,9 @@ export default function ConfiguracionCitas() {
           correos_enterado_fijos: correosEnteradoFijos,
           round_robin_enterados: roundRobinEnterados,
           descripcion_invitacion: descripcionInvitacion || null,
+          ubicacion_direccion: ubicacionDireccion || null,
+          ubicacion_latitud: ubicacionLatitud,
+          ubicacion_longitud: ubicacionLongitud,
           fecha_fin_recurrencia: fechaFinRecurrencia
             ? `${fechaFinRecurrencia.getFullYear()}-${String(fechaFinRecurrencia.getMonth() + 1).padStart(2, "0")}-${String(fechaFinRecurrencia.getDate()).padStart(2, "0")}`
             : null,
@@ -914,7 +979,62 @@ export default function ConfiguracionCitas() {
                             )}
                           </div>
 
-                          {/* Correos de enterado */}
+                          {/* Ubicación */}
+                          {selectedProyectoIds.length > 0 && (
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-1.5">
+                                <MapPin className="h-4 w-4" />
+                                Ubicación de la cita
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                {locationOptions.length > 0
+                                  ? "Selecciona la ubicación donde se realizará la cita"
+                                  : "Los proyectos seleccionados no tienen showrooms ni ubicación configurada"}
+                              </p>
+                              {locationOptions.length > 0 && (
+                                <Select
+                                  value={ubicacionDireccion || "__none__"}
+                                  onValueChange={(v) => {
+                                    if (v === "__none__") {
+                                      setUbicacionDireccion("");
+                                      setUbicacionLatitud(null);
+                                      setUbicacionLongitud(null);
+                                    } else {
+                                      const opt = locationOptions.find((o) => o.direccion === v);
+                                      if (opt) {
+                                        setUbicacionDireccion(opt.direccion);
+                                        setUbicacionLatitud(opt.latitud);
+                                        setUbicacionLongitud(opt.longitud);
+                                      }
+                                    }
+                                    setHasChanges(true);
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar ubicación" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">Sin ubicación</SelectItem>
+                                    {locationOptions.map((opt, i) => (
+                                      <SelectItem key={i} value={opt.direccion}>
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{opt.label}</span>
+                                          <span className="text-xs text-muted-foreground truncate max-w-[300px]">{opt.direccion}</span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              {ubicacionDireccion && (
+                                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {ubicacionDireccion}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
                           <div className="space-y-2">
                             <Label>Enterar a los siguientes correos</Label>
                             <p className="text-xs text-muted-foreground">Se agregarán como attendees adicionales (no cuentan para el máximo de invitados)</p>
