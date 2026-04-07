@@ -1133,6 +1133,31 @@ Deno.serve(async (req) => {
       prospectoName = prospData?.nombre_legal || "";
     }
 
+    // If rescheduling, preserve original attendees instead of round-robin
+    if (existingEventId) {
+      try {
+        const oldEvResp = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(scheduleCalendarId)}/events/${encodeURIComponent(existingEventId)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (oldEvResp.ok) {
+          const oldEvData = await oldEvResp.json();
+          const oldAttendees: string[] = (oldEvData.attendees || [])
+            .map((a: any) => a.email as string)
+            .filter((e: string) => e && e !== scheduleCalendarId);
+          if (oldAttendees.length > 0) {
+            // Use original attendees (excluding agent/prospect which are added separately)
+            scheduleCorrEnt = oldAttendees.filter(
+              (e: string) => e !== agentEmailFinal && e !== prospectoEmail
+            );
+            console.log(`[schedule] Reschedule: preserving original attendees instead of round-robin: ${JSON.stringify(scheduleCorrEnt)}`);
+          }
+        }
+      } catch (e: any) {
+        console.warn(`[schedule] Could not fetch old event for attendee preservation: ${e.message}`);
+      }
+    }
+
     const isShowroomCita = !!id_persona_prospecto;
 
     // Use the config's nombre (e.g. "Capacitación Daiku") to find the recurring event
