@@ -112,6 +112,7 @@ const DashboardEjecutivo = lazyRetry(() => import("./pages/admin/crm/DashboardEj
 const ConfiguracionCitas = lazyRetry(() => import("./pages/admin/comunicacion/ConfiguracionCitas"));
 const TodasLasCitas = lazyRetry(() => import("./pages/admin/comunicacion/TodasLasCitas"));
 const NotificacionesConfig = lazyRetry(() => import("./pages/admin/NotificacionesConfig"));
+const NotificacionesLog = lazyRetry(() => import("./pages/admin/NotificacionesLog"));
 
 // Portal Inmobiliaria pages
 const InmobDashboard = lazyRetry(() => import("./pages/admin/portal-inmobiliaria/InmobDashboard"));
@@ -289,6 +290,7 @@ const App = () => (
                   <Route path="mediciones-cta" element={<MedicionesCTA />} />
                   <Route path="ab-tests" element={<ABTests />} />
                   <Route path="notificaciones-config" element={<NotificacionesConfig />} />
+                  <Route path="notificaciones-log" element={<NotificacionesLog />} />
                   {/* Portal Inmobiliaria Routes */}
                   <Route path="portal-inmobiliaria/dashboard" element={<InmobDashboard />} />
                   <Route path="portal-inmobiliaria/agentes" element={<InmobAgentes />} />

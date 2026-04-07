@@ -203,11 +203,35 @@ Deno.serve(async (req) => {
     if (!notifResponse.ok) {
       const errText = await notifResponse.text();
       console.error('Error sending notification:', errText);
+
+      // Log error
+      await supabaseAdmin.from('notificaciones_log').insert({
+        tipo_evento,
+        canal: tipo,
+        destinatarios_count: filteredUsers.length,
+        id_proyecto: id_proyecto,
+        nombre_desarrollo: nombreDesarrollo,
+        payload: notificationPayload,
+        resultado: 'error',
+        error_detalle: errText,
+      });
+
       return new Response(JSON.stringify({ error: 'Error enviando notificación', detail: errText }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Log success
+    await supabaseAdmin.from('notificaciones_log').insert({
+      tipo_evento,
+      canal: tipo,
+      destinatarios_count: filteredUsers.length,
+      id_proyecto: id_proyecto,
+      nombre_desarrollo: nombreDesarrollo,
+      payload: notificationPayload,
+      resultado: 'success',
+    });
 
     return new Response(JSON.stringify({
       success: true,
