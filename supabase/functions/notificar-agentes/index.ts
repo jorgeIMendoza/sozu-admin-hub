@@ -182,13 +182,13 @@ Deno.serve(async (req) => {
 
     console.log(`Sending notification for ${tipo_evento} to ${filteredUsers.length} users`);
 
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || supabaseServiceKey;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const notifResponse = await fetch(`${supabaseUrl}/functions/v1/enviar-notificacion`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-        'apikey': anonKey,
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'apikey': supabaseAnonKey,
       },
       body: JSON.stringify(notificationPayload),
     });
