@@ -4820,6 +4820,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notificaciones_configuracion: {
+        Row: {
+          activo: boolean
+          asunto_email: string
+          canal: string
+          created_at: string
+          descripcion: string | null
+          id: number
+          plantilla_email_detalles: string
+          plantilla_wa: string
+          requiere_acceso_proyecto: boolean
+          roles_destino: number[]
+          tipo_evento: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          asunto_email?: string
+          canal?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: number
+          plantilla_email_detalles?: string
+          plantilla_wa?: string
+          requiere_acceso_proyecto?: boolean
+          roles_destino?: number[]
+          tipo_evento: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          asunto_email?: string
+          canal?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: number
+          plantilla_email_detalles?: string
+          plantilla_wa?: string
+          requiere_acceso_proyecto?: boolean
+          roles_destino?: number[]
+          tipo_evento?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ofertas: {
         Row: {
           activo: boolean
