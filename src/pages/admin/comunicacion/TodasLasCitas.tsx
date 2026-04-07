@@ -441,7 +441,6 @@ function StackedSlotCard({ items, onSelectSlot, rsvpStatuses, ownerNamesMap }: {
                       ? (cita.nombre_invitado || cita.email_invitado || (ownerNamesMap?.get(slot.config?.id_usuario_email || "") ? `Responsable: ${ownerNamesMap.get(slot.config?.id_usuario_email || "")}` : slot.config?.id_usuario_email || ""))
                       : (ownerNamesMap?.get(slot.config?.id_usuario_email || "") ? `Responsable: ${ownerNamesMap.get(slot.config?.id_usuario_email || "")}` : slot.config?.id_usuario_email || "")}
                   </p>
-                  </p>
                 </div>
 
                 {isCita && statusInfo && (
