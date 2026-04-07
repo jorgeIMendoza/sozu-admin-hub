@@ -323,11 +323,24 @@ export default function ConfiguracionCitas() {
       const projectMap = new Map((projects || []).map((p: any) => [p.id, p]));
       const projectsWithShowrooms = new Set((showrooms || []).map((s: any) => s.id_proyecto));
 
-      // For each project: if has showrooms -> show showrooms, else -> show project location
+      // For each project: always show project location + any showrooms
       for (const pid of selectedProyectoIds) {
         const proj = projectMap.get(pid);
         if (!proj) continue;
 
+        // Always add the development location if available
+        if (proj.latitud && proj.longitud && proj.direccion) {
+          options.push({
+            label: proj.nombre,
+            proyecto: proj.nombre,
+            direccion: proj.direccion,
+            latitud: Number(proj.latitud),
+            longitud: Number(proj.longitud),
+            type: "desarrollo",
+          });
+        }
+
+        // Add showrooms if they exist
         if (projectsWithShowrooms.has(pid)) {
           const projShowrooms = (showrooms || []).filter((s: any) => s.id_proyecto === pid);
           for (const s of projShowrooms) {
@@ -340,15 +353,6 @@ export default function ConfiguracionCitas() {
               type: "showroom",
             });
           }
-        } else if (proj.latitud && proj.longitud && proj.direccion) {
-          options.push({
-            label: proj.nombre,
-            proyecto: proj.nombre,
-            direccion: proj.direccion,
-            latitud: Number(proj.latitud),
-            longitud: Number(proj.longitud),
-            type: "desarrollo",
-          });
         }
       }
       return options;
