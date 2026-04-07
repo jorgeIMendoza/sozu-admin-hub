@@ -328,7 +328,8 @@ export default function ConfiguracionCitas() {
           const projShowrooms = (showrooms || []).filter((s: any) => s.id_proyecto === pid);
           for (const s of projShowrooms) {
             options.push({
-              label: `${s.nombre || "Showroom"} — ${proj.nombre}`,
+              label: s.nombre || "Showroom",
+              proyecto: proj.nombre,
               direccion: s.descripcion_direccion,
               latitud: Number(s.latitud),
               longitud: Number(s.longitud),
