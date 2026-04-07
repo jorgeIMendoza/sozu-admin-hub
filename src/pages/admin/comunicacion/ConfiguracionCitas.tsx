@@ -301,7 +301,7 @@ export default function ConfiguracionCitas() {
     queryKey: ["config-citas-location-options", selectedProyectoIds],
     queryFn: async () => {
       if (selectedProyectoIds.length === 0) return [];
-      const options: { label: string; direccion: string; latitud: number; longitud: number; type: string }[] = [];
+      const options: { label: string; proyecto: string; direccion: string; latitud: number; longitud: number; type: string }[] = [];
 
       // Fetch showrooms for selected projects
       const { data: showrooms } = await (supabase as any)
@@ -338,11 +338,12 @@ export default function ConfiguracionCitas() {
           }
         } else if (proj.latitud && proj.longitud && proj.direccion) {
           options.push({
-            label: `${proj.nombre} (Proyecto)`,
+            label: proj.nombre,
+            proyecto: proj.nombre,
             direccion: proj.direccion,
             latitud: Number(proj.latitud),
             longitud: Number(proj.longitud),
-            type: "proyecto",
+            type: "desarrollo",
           });
         }
       }
