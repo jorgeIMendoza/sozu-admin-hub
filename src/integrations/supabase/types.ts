@@ -2883,16 +2883,25 @@ export type Database = {
           id: number
           id_configuracion_cita: number
           id_proyecto: number
+          ubicacion_direccion: string | null
+          ubicacion_latitud: number | null
+          ubicacion_longitud: number | null
         }
         Insert: {
           id?: number
           id_configuracion_cita: number
           id_proyecto: number
+          ubicacion_direccion?: string | null
+          ubicacion_latitud?: number | null
+          ubicacion_longitud?: number | null
         }
         Update: {
           id?: number
           id_configuracion_cita?: number
           id_proyecto?: number
+          ubicacion_direccion?: string | null
+          ubicacion_latitud?: number | null
+          ubicacion_longitud?: number | null
         }
         Relationships: [
           {
@@ -2929,9 +2938,6 @@ export type Database = {
           nombre: string
           round_robin_enterados: boolean
           round_robin_index: number
-          ubicacion_direccion: string | null
-          ubicacion_latitud: number | null
-          ubicacion_longitud: number | null
         }
         Insert: {
           activo?: boolean
@@ -2950,9 +2956,6 @@ export type Database = {
           nombre: string
           round_robin_enterados?: boolean
           round_robin_index?: number
-          ubicacion_direccion?: string | null
-          ubicacion_latitud?: number | null
-          ubicacion_longitud?: number | null
         }
         Update: {
           activo?: boolean
@@ -2971,9 +2974,6 @@ export type Database = {
           nombre?: string
           round_robin_enterados?: boolean
           round_robin_index?: number
-          ubicacion_direccion?: string | null
-          ubicacion_latitud?: number | null
-          ubicacion_longitud?: number | null
         }
         Relationships: [
           {
