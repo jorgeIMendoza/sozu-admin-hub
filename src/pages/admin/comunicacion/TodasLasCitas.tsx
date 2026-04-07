@@ -533,6 +533,14 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
 }) {
   const [rsvpMap, setRsvpMap] = useState<Record<string, string>>({});
   const [rsvpLoading, setRsvpLoading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const RSVP_TO_ESTATUS: Record<string, number> = {
+    accepted: 3,
+    declined: 4,
+    tentative: 2,
+    needsAction: 1,
+  };
 
   // Collect all google_calendar_event_ids and emails for this slot
   const eventIds = useMemo(() => {
@@ -562,7 +570,7 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
 
     supabase.functions.invoke("consultar-estatus-calendar", {
       body: { event_ids: uniqueEventIds, calendario_email: slot.config.calendario_email },
-    }).then(({ data, error }) => {
+    }).then(async ({ data, error }) => {
       if (error || !data?.events) {
         console.warn("Error fetching RSVP statuses:", error);
         setRsvpLoading(false);
@@ -570,8 +578,8 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
       }
 
       const newMap: Record<string, string> = {};
+      const dbUpdates: Array<{ id: number; newEstatus: number }> = [];
       console.log("[RSVP] Raw response events:", JSON.stringify(data.events));
-      console.log("[RSVP] Looking for entries:", eventIds.map(e => ({ citaId: e.citaId, eventId: e.eventId, email: e.email })));
       for (const entry of eventIds) {
         const eventData = data.events[entry.eventId];
         if (eventData?.attendees) {
@@ -580,14 +588,26 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
           );
           if (attendee) {
             newMap[`${entry.citaId}`] = attendee.responseStatus;
-            console.log(`[RSVP] Cita ${entry.citaId}: ${entry.email} -> ${attendee.responseStatus}`);
-          } else {
-            console.warn(`[RSVP] Cita ${entry.citaId}: email ${entry.email} NOT found in attendees:`, eventData.attendees.map((a: any) => a.email));
+            // Sync id_estatus_cita if it differs
+            const newEstatus = RSVP_TO_ESTATUS[attendee.responseStatus] ?? 1;
+            const currentCita = slot?.type === "cita" ? slot.cita : slot?.citas?.find(c => c.id === entry.citaId);
+            if (currentCita && newEstatus !== currentCita.id_estatus_cita) {
+              dbUpdates.push({ id: entry.citaId, newEstatus });
+            }
           }
         }
       }
       setRsvpMap(newMap);
       setRsvpLoading(false);
+
+      // Persist status changes to DB and refresh calendar
+      if (dbUpdates.length > 0) {
+        console.log("[RSVP Detail Sync] Updating estatus:", dbUpdates);
+        await Promise.all(dbUpdates.map(u =>
+          supabase.from("reservas_citas").update({ id_estatus_cita: u.newEstatus }).eq("id", u.id)
+        ));
+        queryClient.invalidateQueries({ queryKey: ["all-citas-reservas-week"] });
+      }
     }).catch(() => setRsvpLoading(false));
   }, [open, eventIds, slot?.config?.calendario_email]);
 
