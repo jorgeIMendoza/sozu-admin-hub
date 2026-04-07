@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BulkUploadPropertiesDialogProps {
   open: boolean;
@@ -129,6 +130,17 @@ export const BulkUploadPropertiesDialog = ({
         title: "Carga exitosa",
         description: result.mensaje || "El archivo se ha procesado correctamente.",
       });
+
+      // Trigger notification to agents
+      if (result.id_proyecto) {
+        supabase.functions.invoke('notificar-agentes', {
+          body: {
+            tipo_evento: 'precio_actualizado',
+            id_proyecto: result.id_proyecto,
+            datos: { nombre_desarrollo: result.nombre_desarrollo || '' },
+          },
+        }).catch(err => console.error('Error sending notification:', err));
+      }
 
       onSuccess();
       handleClose();

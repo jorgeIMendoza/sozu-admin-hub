@@ -104,6 +104,24 @@ export const NewProductPaymentSchemeDialog = ({ productId, onSchemeAdded }: NewP
         description: "El esquema de pago se ha creado exitosamente.",
       });
 
+      // Get project ID from product and trigger notification
+      supabase
+        .from('productos_servicios')
+        .select('id_proyecto')
+        .eq('id', productId)
+        .single()
+        .then(({ data: prod }) => {
+          if (prod?.id_proyecto) {
+            supabase.functions.invoke('notificar-agentes', {
+              body: {
+                tipo_evento: 'nuevo_esquema_pago',
+                id_proyecto: prod.id_proyecto,
+                datos: { nombre_esquema: values.nombre },
+              },
+            }).catch(err => console.error('Error sending notification:', err));
+          }
+        });
+
       form.reset();
       setOpen(false);
       onSchemeAdded();

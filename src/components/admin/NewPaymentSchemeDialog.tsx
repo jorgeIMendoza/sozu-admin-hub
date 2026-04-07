@@ -140,6 +140,15 @@ export const NewPaymentSchemeDialog = ({ projectId, onSchemeAdded, canCreate = t
         description: "El esquema de pago se ha creado exitosamente.",
       });
 
+      // Trigger notification
+      supabase.functions.invoke('notificar-agentes', {
+        body: {
+          tipo_evento: 'nuevo_esquema_pago',
+          id_proyecto: projectId,
+          datos: { nombre_esquema: values.nombre },
+        },
+      }).catch(err => console.error('Error sending notification:', err));
+
       form.reset();
       setTramosEnabled(false);
       setTramos([]);
