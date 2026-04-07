@@ -373,6 +373,9 @@ export default function ConfiguracionCitas() {
       setCorreosEnteradoFijos((selectedConfig as any).correos_enterado_fijos || []);
       setRoundRobinEnterados((selectedConfig as any).round_robin_enterados || false);
       setDescripcionInvitacion(selectedConfig.descripcion_invitacion || "");
+      setUbicacionDireccion((selectedConfig as any).ubicacion_direccion || "");
+      setUbicacionLatitud((selectedConfig as any).ubicacion_latitud ? Number((selectedConfig as any).ubicacion_latitud) : null);
+      setUbicacionLongitud((selectedConfig as any).ubicacion_longitud ? Number((selectedConfig as any).ubicacion_longitud) : null);
       setFechaFinRecurrencia(
         (selectedConfig as any).fecha_fin_recurrencia
           ? new Date((selectedConfig as any).fecha_fin_recurrencia + "T00:00:00")
@@ -401,6 +404,9 @@ export default function ConfiguracionCitas() {
       setCorreosEnteradoFijos([]);
       setRoundRobinEnterados(false);
       setDescripcionInvitacion("");
+      setUbicacionDireccion("");
+      setUbicacionLatitud(null);
+      setUbicacionLongitud(null);
       setFechaFinRecurrencia(addMonths(new Date(), 3));
       setCalendarAccessStatus("idle");
     }
