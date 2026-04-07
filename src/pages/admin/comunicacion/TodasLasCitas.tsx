@@ -716,23 +716,6 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
         </div>
 
         <div className="px-6 pb-6 space-y-1">
-          {config && (
-            <DetailRow icon={User} label="Dueño">
-              {config.id_usuario_email}
-            </DetailRow>
-          )}
-
-          {config?.calendario_email && (
-            <DetailRow icon={CalendarIcon} label="Calendar">
-              {config.calendario_email}
-            </DetailRow>
-          )}
-
-          {config?.descripcion_invitacion && (
-            <DetailRow icon={FileText} label="Descripción">
-              {config.descripcion_invitacion}
-            </DetailRow>
-          )}
 
           {slot.isOverride && slot.overrideFrom && (
             <DetailRow icon={ArrowRight} label="Movida desde">
@@ -838,9 +821,12 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
                 </DetailRow>
               )}
 
-              {cita.email_agente && cita.email_agente !== cita.email_invitado && (
+              {(cita.nombre_agente || cita.email_agente) && cita.email_agente !== cita.email_invitado && (
                 <DetailRow icon={Mail} label="Agente">
-                  {cita.email_agente}
+                  <div className="space-y-0.5">
+                    {cita.nombre_agente && <p className="font-medium">{cita.nombre_agente}</p>}
+                    {cita.email_agente && <p className="text-xs text-muted-foreground">{cita.email_agente}</p>}
+                  </div>
                 </DetailRow>
               )}
             </>
@@ -983,6 +969,24 @@ export default function TodasLasCitas() {
     registrarVista("/admin/comunicacion/todas-las-citas");
     track({ page: "todas_las_citas", elementId: "page_view", elementType: "page" });
   }, []);
+
+  // ─── Realtime subscription for auto-refresh ───
+  useEffect(() => {
+    const channel = supabase
+      .channel("todas-citas-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "reservas_citas" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["all-citas-reservas-week"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "configuracion_citas_usuarios" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["all-citas-configs"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "citas_horarios_overrides" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["citas-overrides"] });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [queryClient]);
 
   // ─── Queries ───
 
