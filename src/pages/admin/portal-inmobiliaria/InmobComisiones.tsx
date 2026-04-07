@@ -109,7 +109,7 @@ function ClienteCell({ clientes }: { clientes: ClienteInfo[] }) {
 }
 
 /* ───── Factura upload button for external inmobiliarias ───── */
-function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded }: { cuentaId: number; inmobEmail: string; personaId: number; onUploaded: () => void }) {
+function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded, disabled: externalDisabled }: { cuentaId: number; inmobEmail: string; personaId: number; onUploaded: () => void; disabled?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -159,7 +159,7 @@ function FacturaUploadButton({ cuentaId, inmobEmail, personaId, onUploaded }: { 
         variant="ghost"
         size="sm"
         className="h-7 gap-1 text-xs text-muted-foreground"
-        disabled={uploading}
+        disabled={uploading || externalDisabled}
         onClick={() => fileRef.current?.click()}
       >
         {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
@@ -409,6 +409,7 @@ export default function InmobComisiones() {
                               inmobEmail={inmobEmail || ""}
                               personaId={personaId!}
                               onUploaded={() => queryClient.invalidateQueries({ queryKey: ["inmob-comisiones-detail"] })}
+                              disabled={r.estatus !== "Pendiente factura"}
                             />
                           )}
                         </TableCell>
@@ -517,10 +518,18 @@ export default function InmobComisiones() {
                 </div>
               </div>
 
-              {selectedComision.facturaUrl && (
+              {selectedComision.facturaUrl ? (
                 <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => { setPdfUrl(selectedComision.facturaUrl); setSelectedComision(null); }}>
                   <FileText className="h-4 w-4" /> Ver factura
                 </Button>
+              ) : !isSozu && (
+                <FacturaUploadButton
+                  cuentaId={selectedComision.cuentaId}
+                  inmobEmail={inmobEmail || ""}
+                  personaId={personaId!}
+                  onUploaded={() => { queryClient.invalidateQueries({ queryKey: ["inmob-comisiones-detail"] }); setSelectedComision(null); }}
+                  disabled={selectedComision.estatus !== "Pendiente factura"}
+                />
               )}
 
               {selectedComision.estatus === "Pagada" && selectedComision.comprobantePagoUrl && (
