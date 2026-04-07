@@ -1017,14 +1017,36 @@ export default function ConfiguracionCitas() {
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="__none__">Sin ubicación</SelectItem>
-                                    {locationOptions.map((opt, i) => (
-                                      <SelectItem key={i} value={opt.direccion}>
-                                        <div className="flex flex-col">
-                                          <span className="font-medium">{opt.label}</span>
-                                          <span className="text-xs text-muted-foreground truncate max-w-[300px]">{opt.direccion}</span>
+                                    {/* Group options by proyecto */}
+                                    {(() => {
+                                      const grouped = new Map<string, typeof locationOptions>();
+                                      locationOptions.forEach((opt) => {
+                                        if (!grouped.has(opt.proyecto)) grouped.set(opt.proyecto, []);
+                                        grouped.get(opt.proyecto)!.push(opt);
+                                      });
+                                      return Array.from(grouped.entries()).map(([proyecto, opts]) => (
+                                        <div key={proyecto}>
+                                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">{proyecto}</div>
+                                          {opts.map((opt, i) => (
+                                            <SelectItem key={`${proyecto}-${i}`} value={opt.direccion}>
+                                              <div className="flex items-center gap-2">
+                                                {opt.type === "showroom" ? (
+                                                  <Store className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                ) : (
+                                                  <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                )}
+                                                <div className="flex flex-col">
+                                                  <span className="font-medium">
+                                                    {opt.type === "showroom" ? opt.label : `Desarrollo ${opt.label}`}
+                                                  </span>
+                                                  <span className="text-xs text-muted-foreground truncate max-w-[300px]">{opt.direccion}</span>
+                                                </div>
+                                              </div>
+                                            </SelectItem>
+                                          ))}
                                         </div>
-                                      </SelectItem>
-                                    ))}
+                                      ));
+                                    })()}
                                   </SelectContent>
                                 </Select>
                               )}
