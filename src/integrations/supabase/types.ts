@@ -4865,6 +4865,53 @@ export type Database = {
         }
         Relationships: []
       }
+      notificaciones_log: {
+        Row: {
+          canal: string
+          created_at: string
+          destinatarios_count: number
+          error_detalle: string | null
+          id: number
+          id_proyecto: number | null
+          nombre_desarrollo: string | null
+          payload: Json | null
+          resultado: string
+          tipo_evento: string
+        }
+        Insert: {
+          canal: string
+          created_at?: string
+          destinatarios_count?: number
+          error_detalle?: string | null
+          id?: never
+          id_proyecto?: number | null
+          nombre_desarrollo?: string | null
+          payload?: Json | null
+          resultado?: string
+          tipo_evento: string
+        }
+        Update: {
+          canal?: string
+          created_at?: string
+          destinatarios_count?: number
+          error_detalle?: string | null
+          id?: never
+          id_proyecto?: number | null
+          nombre_desarrollo?: string | null
+          payload?: Json | null
+          resultado?: string
+          tipo_evento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notificaciones_log_id_proyecto_fkey"
+            columns: ["id_proyecto"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ofertas: {
         Row: {
           activo: boolean
