@@ -335,12 +335,22 @@ const NotificacionesConfig = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={editItem.requiere_acceso_proyecto}
-                  onCheckedChange={(checked) => setEditItem({ ...editItem, requiere_acceso_proyecto: !!checked })}
-                />
-                <Label>Requiere acceso al proyecto</Label>
+              <div className="border-t pt-4 mt-2">
+                <Label className="text-sm font-semibold mb-1 block">Filtro de proyecto</Label>
+                <div className="flex items-start gap-2 bg-muted/50 rounded-lg p-3">
+                  <Checkbox
+                    id="requiere_acceso"
+                    checked={editItem.requiere_acceso_proyecto}
+                    onCheckedChange={(checked) => setEditItem({ ...editItem, requiere_acceso_proyecto: !!checked })}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <Label htmlFor="requiere_acceso" className="font-medium cursor-pointer">Requiere acceso al proyecto</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Si está activo, solo se notifica a usuarios que tengan acceso al proyecto específico en "Proyectos Acceso". Los Super Admins siempre reciben sin importar esta opción.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>
