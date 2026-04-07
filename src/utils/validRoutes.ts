@@ -96,6 +96,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/portal-cliente/propiedades',
   '/admin/portal-cliente/pagos',
   '/admin/portal-cliente/perfil',
+  '/admin/notificaciones-config',
 ]);
 
 export function isValidRoute(route: string): boolean {

@@ -47,7 +47,7 @@ const NotificacionesConfig = () => {
   const fetchData = async () => {
     setIsLoading(true);
     const [configRes, rolesRes] = await Promise.all([
-      supabase.from('notificaciones_configuracion').select('*').order('id'),
+      (supabase as any).from('notificaciones_configuracion').select('*').order('id'),
       supabase.from('roles').select('id, nombre').eq('activo', true).order('id'),
     ]);
 
@@ -59,7 +59,7 @@ const NotificacionesConfig = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleToggleActivo = async (item: NotificacionConfig) => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('notificaciones_configuracion')
       .update({ activo: !item.activo })
       .eq('id', item.id);
@@ -75,7 +75,7 @@ const NotificacionesConfig = () => {
     if (!editItem) return;
     setSaving(true);
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('notificaciones_configuracion')
       .update({
         canal: editItem.canal,
