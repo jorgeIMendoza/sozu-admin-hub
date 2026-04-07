@@ -1082,6 +1082,10 @@ Deno.serve(async (req) => {
       oldCitaQuery = oldCitaQuery.eq("id_persona_prospecto", id_persona_prospecto).in("id_tipo_cita", [2, 5]);
     } else {
       oldCitaQuery = oldCitaQuery.eq("id_persona", id_persona);
+      // For capacitación citas, also filter by config_id to allow multiple simultaneous citas across different configs
+      if (config_id) {
+        oldCitaQuery = oldCitaQuery.eq("id_configuracion_cita", config_id);
+      }
     }
     
     const { data: oldCitas } = await oldCitaQuery;

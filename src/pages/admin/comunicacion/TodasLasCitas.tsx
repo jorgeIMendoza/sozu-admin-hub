@@ -339,10 +339,11 @@ function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }
   return "disponible";
 }
 
-function StackedSlotCard({ items, onSelectSlot, rsvpStatuses }: {
+function StackedSlotCard({ items, onSelectSlot, rsvpStatuses, ownerNamesMap }: {
   items: { slot: CalendarSlot; status: CalendarStatus }[];
   onSelectSlot: (slot: CalendarSlot) => void;
   rsvpStatuses?: Map<number, string>;
+  ownerNamesMap?: Map<string, string>;
 }) {
   if (items.length <= 1) return null;
 
@@ -436,7 +437,9 @@ function StackedSlotCard({ items, onSelectSlot, rsvpStatuses }: {
                     {slot.config?.nombre || (isCita ? "Cita" : "Disponible")}
                   </p>
                   <p className="text-[10px] text-muted-foreground truncate">
-                    {isCita && cita ? (cita.nombre_invitado || cita.email_invitado || slot.config?.id_usuario_email || "") : (slot.config?.id_usuario_email || "")}
+                    {isCita && cita
+                      ? (cita.nombre_invitado || cita.email_invitado || (ownerNamesMap?.get(slot.config?.id_usuario_email || "") ? `Responsable: ${ownerNamesMap.get(slot.config?.id_usuario_email || "")}` : slot.config?.id_usuario_email || ""))
+                      : (ownerNamesMap?.get(slot.config?.id_usuario_email || "") ? `Responsable: ${ownerNamesMap.get(slot.config?.id_usuario_email || "")}` : slot.config?.id_usuario_email || "")}
                   </p>
                 </div>
 
@@ -1277,6 +1280,22 @@ export default function TodasLasCitas() {
     return Array.from(set).sort();
   }, [configs]);
 
+  // Lookup owner names from personas table by email
+  const { data: ownerNamesMap = new Map<string, string>() } = useQuery({
+    queryKey: ["owner-names-by-email", owners],
+    queryFn: async () => {
+      if (owners.length === 0) return new Map<string, string>();
+      const { data } = await supabase
+        .from("personas")
+        .select("email, nombre_legal")
+        .in("email", owners);
+      const m = new Map<string, string>();
+      (data || []).forEach((p: any) => { if (p.email && p.nombre_legal) m.set(p.email, p.nombre_legal); });
+      return m;
+    },
+    enabled: owners.length > 0,
+  });
+
   const { minHour, maxHour } = useMemo(() => {
     let min = 9, max = 20;
     const relevantHorarios = ownerFilter === "all" ? horarios : horarios.filter(h => {
@@ -1752,6 +1771,7 @@ export default function TodasLasCitas() {
                                 items={allItems.map(item => ({ slot: item.slot, status: item.status }))}
                                 onSelectSlot={(slot) => setSelectedSlot(slot)}
                                 rsvpStatuses={rsvpStatuses}
+                                ownerNamesMap={ownerNamesMap}
                               />
                             </div>
                           );
