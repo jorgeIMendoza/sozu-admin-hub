@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -26,6 +26,34 @@ const STATUS_MAP: Record<number, { label: string; variant: "default" | "secondar
   3: { label: "Confirmada", variant: "default", color: "text-green-600" },
   4: { label: "NO asistirá", variant: "destructive", color: "text-red-600" },
 };
+
+const RSVP_TO_ESTATUS: Record<string, number> = {
+  accepted: 3,
+  declined: 4,
+  tentative: 2,
+  needsAction: 1,
+};
+
+type SlotVisualStatus = "no_asistira" | "movida" | "confirmada" | "agendada" | "disponible";
+
+function getEstatusFromRsvp(responseStatus?: string | null): number | null {
+  if (!responseStatus) return null;
+  return RSVP_TO_ESTATUS[responseStatus] ?? null;
+}
+
+function getEffectiveCitaEstatus(cita: Pick<Cita, "id_estatus_cita"> | null | undefined, responseStatus?: string | null): number {
+  return getEstatusFromRsvp(responseStatus) ?? cita?.id_estatus_cita ?? 0;
+}
+
+function getCitaVisualStatus(cita: Cita, responseStatus?: string | null, isOverride?: boolean): SlotVisualStatus {
+  const effectiveEstatus = getEffectiveCitaEstatus(cita, responseStatus);
+  if (effectiveEstatus === 4) return "no_asistira";
+  if (isOverride) return "movida";
+  if (effectiveEstatus === 3) return "confirmada";
+
+  const hasInvitado = !!(cita.email_invitado || cita.nombre_invitado);
+  return hasInvitado ? "agendada" : "disponible";
+}
 
 interface ConfigCita {
   id: number;
@@ -137,9 +165,10 @@ function DetailRow({ icon: Icon, label, children, className }: {
 }
 
 // ─── Slot Card (Redesigned) ───
-function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
+function SlotCard({ slot, calendarStatus, onClick, onDragStart, rsvpStatuses }: {
   slot: CalendarSlot; calendarStatus: CalendarStatus; onClick: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+  rsvpStatuses?: Map<number, string>;
 }) {
   if (slot.type === "empty" || slot.type === "group") {
     const isGroup = (slot.maxInvitados || 0) > 1;
@@ -147,6 +176,8 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
     const hasBookings = isGroup && agendados > 0;
     const isFull = isGroup && agendados >= (slot.maxInvitados || 0);
     const occupancyPercent = isGroup ? Math.round((agendados / (slot.maxInvitados || 1)) * 100) : 0;
+    const groupStatus = slot.type === "group" ? getSlotItemStatus({ slot, status: calendarStatus }, rsvpStatuses) : "disponible";
+    const groupStyle = SLOT_STATUS_STYLES[groupStatus];
 
     return (
       <div
@@ -156,17 +187,15 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
         className={cn(
           "absolute inset-x-1 inset-y-0.5 rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight cursor-grab active:cursor-grabbing transition-all group overflow-hidden",
           slot.isOverride && "ring-2 ring-orange-400 ring-offset-1",
-          isFull
-            ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:shadow-md"
-            : hasBookings
-              ? "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700 hover:shadow-md"
+            hasBookings
+              ? cn(groupStyle.bg, groupStyle.border, "hover:shadow-md")
               : "border-dashed border-muted-foreground/25 bg-muted/10 hover:border-primary/40 hover:bg-primary/5"
         )}
       >
         <div className="flex items-center gap-1.5 truncate">
           <GripVertical className="h-3 w-3 text-muted-foreground/40 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
           {hasBookings ? (
-            <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", isFull ? "bg-green-500" : "bg-blue-500")} />
+            <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0", groupStyle.dot)} />
           ) : (
             <div className="w-2 h-2 rounded-full bg-muted-foreground/30 flex-shrink-0" />
           )}
@@ -183,7 +212,7 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
         {isGroup ? (
           <div className="mt-1 space-y-1">
             <div className="flex items-center justify-between text-[10px]">
-              <span className={cn("font-medium", isFull ? "text-green-700 dark:text-green-400" : hasBookings ? "text-blue-700 dark:text-blue-400" : "text-muted-foreground")}>
+              <span className={cn("font-medium", hasBookings ? groupStyle.text : "text-muted-foreground")}>
                 {agendados}/{slot.maxInvitados}
               </span>
               {isFull && <span className="text-green-600 dark:text-green-400 font-semibold">Completa</span>}
@@ -192,8 +221,9 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
               {slot.citas && slot.citas.length > 0 ? (
                 <div className="flex h-full" style={{ width: `${occupancyPercent}%` }}>
                   {slot.citas.map((c, i) => {
-                    const statusColor = c.id_estatus_cita === 3 ? "bg-green-500"
-                      : c.id_estatus_cita === 4 ? "bg-red-500"
+                    const effectiveEstatus = getEffectiveCitaEstatus(c, rsvpStatuses?.get(c.id));
+                    const statusColor = effectiveEstatus === 3 ? "bg-green-500"
+                      : effectiveEstatus === 4 ? "bg-red-500"
                       : "bg-blue-500";
                     return <div key={i} className={cn("h-full", statusColor)} style={{ width: `${100 / slot.citas!.length}%` }} />;
                   })}
@@ -217,13 +247,15 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 
   // ─ Cita individual card ─
   const cita = slot.cita!;
-  const st = STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" };
   const hasInvitados = !!(cita.email_invitado || cita.nombre_invitado);
+  const effectiveEstatus = getEffectiveCitaEstatus(cita, rsvpStatuses?.get(cita.id));
   const isCancelledCalendar = cita.estatus === "cancelada_calendar" || calendarStatus === "missing";
 
   const statusColors = isCancelledCalendar
     ? "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-700 hover:shadow-md"
-    : cita.id_estatus_cita === 3
+    : effectiveEstatus === 4
+      ? "bg-red-50 border-red-300 dark:bg-red-950/30 dark:border-red-700 hover:shadow-md"
+    : effectiveEstatus === 3
       ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700 hover:shadow-md"
       : hasInvitados
         ? "bg-blue-50 border-blue-300 dark:bg-blue-950/30 dark:border-blue-700 hover:shadow-md"
@@ -242,7 +274,8 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
           <AlertTriangle className="h-3 w-3 flex-shrink-0 text-destructive" />
         ) : (
           <div className={cn("w-2.5 h-2.5 rounded-full flex-shrink-0",
-            cita.id_estatus_cita === 3 ? "bg-green-500" :
+            effectiveEstatus === 4 ? "bg-red-500" :
+            effectiveEstatus === 3 ? "bg-green-500" :
             hasInvitados ? "bg-blue-500" : "bg-muted-foreground"
           )} />
         )}
@@ -262,29 +295,24 @@ function SlotCard({ slot, calendarStatus, onClick, onDragStart }: {
 }
 
 // ─── Stacked Slot Card ───
-function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }): "no_asistira" | "movida" | "confirmada" | "agendada" | "disponible" {
+function getSlotItemStatus(item: { slot: CalendarSlot; status: CalendarStatus }, rsvpStatuses?: Map<number, string>): SlotVisualStatus {
   const slot = item.slot;
   // Individual cita
   if (slot.type === "cita" && slot.cita) {
-    if (slot.cita.id_estatus_cita === 4) return "no_asistira";
-    if (slot.isOverride) return "movida";
-    if (slot.cita.id_estatus_cita === 3) return "confirmada";
-    const hasInv = !!(slot.cita.email_invitado || slot.cita.nombre_invitado);
-    if (hasInv) return "agendada";
-    return "disponible";
+    return getCitaVisualStatus(slot.cita, rsvpStatuses?.get(slot.cita.id), slot.isOverride);
   }
   // Group or empty slot
   if (slot.isOverride) return "movida";
   if (slot.type === "group" && slot.citas && slot.citas.length > 0) {
     // Check dominant status of booked citas
-    if (slot.citas.some(c => c.id_estatus_cita === 4)) return "no_asistira";
-    if (slot.citas.some(c => c.id_estatus_cita === 3)) return "confirmada";
+    if (slot.citas.some(c => getEffectiveCitaEstatus(c, rsvpStatuses?.get(c.id)) === 4)) return "no_asistira";
+    if (slot.citas.some(c => getEffectiveCitaEstatus(c, rsvpStatuses?.get(c.id)) === 3)) return "confirmada";
     return "agendada";
   }
   return "disponible";
 }
 
-const SLOT_STATUS_STYLES: Record<string, { border: string; bg: string; dot: string; text: string }> = {
+const SLOT_STATUS_STYLES: Record<SlotVisualStatus, { border: string; bg: string; dot: string; text: string }> = {
   no_asistira: { border: "border-red-300 dark:border-red-700", bg: "bg-red-50 dark:bg-red-950/30", dot: "bg-red-500", text: "text-red-700 dark:text-red-400" },
   movida: { border: "border-orange-300 dark:border-orange-700", bg: "bg-orange-50 dark:bg-orange-950/30", dot: "bg-orange-500", text: "text-orange-700 dark:text-orange-400" },
   confirmada: { border: "border-green-300 dark:border-green-700", bg: "bg-green-50 dark:bg-green-950/30", dot: "bg-green-500", text: "text-green-700 dark:text-green-400" },
@@ -294,14 +322,16 @@ const SLOT_STATUS_STYLES: Record<string, { border: string; bg: string; dot: stri
 
 const STATUS_HIERARCHY = ["no_asistira", "movida", "confirmada", "agendada", "disponible"] as const;
 
-function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }[]): string {
-  const counts: Record<string, number> = {};
+function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }[], rsvpStatuses?: Map<number, string>): SlotVisualStatus {
+  const counts: Partial<Record<SlotVisualStatus, number>> = {};
   items.forEach(item => {
-    const s = getSlotItemStatus(item);
+    const s = getSlotItemStatus(item, rsvpStatuses);
     counts[s] = (counts[s] || 0) + 1;
   });
-  const maxCount = Math.max(...Object.values(counts));
-  const tied = Object.keys(counts).filter(k => counts[k] === maxCount);
+  const populatedCounts = Object.values(counts);
+  if (populatedCounts.length === 0) return "disponible";
+  const maxCount = Math.max(...populatedCounts);
+  const tied = (Object.keys(counts) as SlotVisualStatus[]).filter(k => counts[k] === maxCount);
   if (tied.length === 1) return tied[0];
   for (const h of STATUS_HIERARCHY) {
     if (tied.includes(h)) return h;
@@ -309,13 +339,14 @@ function getDominantStatus(items: { slot: CalendarSlot; status: CalendarStatus }
   return "disponible";
 }
 
-function StackedSlotCard({ items, onSelectSlot }: {
+function StackedSlotCard({ items, onSelectSlot, rsvpStatuses }: {
   items: { slot: CalendarSlot; status: CalendarStatus }[];
   onSelectSlot: (slot: CalendarSlot) => void;
+  rsvpStatuses?: Map<number, string>;
 }) {
   if (items.length <= 1) return null;
 
-  const dominant = getDominantStatus(items);
+  const dominant = getDominantStatus(items, rsvpStatuses);
   const style = SLOT_STATUS_STYLES[dominant];
 
   return (
@@ -336,7 +367,7 @@ function StackedSlotCard({ items, onSelectSlot }: {
 
           <div className="mt-1 space-y-0.5">
             {items.slice(0, 2).map((item, i) => {
-              const itemStatus = getSlotItemStatus(item);
+              const itemStatus = getSlotItemStatus(item, rsvpStatuses);
               const itemStyle = SLOT_STATUS_STYLES[itemStatus];
               return (
                 <div key={i} className="flex items-center gap-1 text-[9px] text-muted-foreground truncate">
@@ -361,8 +392,9 @@ function StackedSlotCard({ items, onSelectSlot }: {
             const slot = item.slot;
             const isCita = slot.type === "cita";
             const cita = slot.cita;
-            const statusInfo = cita ? STATUS_MAP[cita.id_estatus_cita ?? 0] : null;
-            const itemStatus = getSlotItemStatus(item);
+            const effectiveEstatus = cita ? getEffectiveCitaEstatus(cita, rsvpStatuses?.get(cita.id)) : 0;
+            const statusInfo = cita ? (STATUS_MAP[effectiveEstatus] || { label: "?", variant: "outline" as const, color: "" }) : null;
+            const itemStatus = getSlotItemStatus(item, rsvpStatuses);
             const itemStyle = SLOT_STATUS_STYLES[itemStatus];
 
             return (
@@ -381,10 +413,14 @@ function StackedSlotCard({ items, onSelectSlot }: {
                 {isCita && cita ? (
                   <div className={cn(
                     "flex items-center justify-center w-7 h-7 rounded-full text-[10px] font-bold flex-shrink-0",
-                    itemStatus === "confirmada"
+                    itemStatus === "no_asistira"
+                      ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                      : itemStatus === "confirmada"
                       ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
                       : itemStatus === "agendada"
                         ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                        : itemStatus === "movida"
+                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
                         : "bg-muted text-muted-foreground"
                   )}>
                     {getInitials(cita.nombre_invitado)}
@@ -535,13 +571,6 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const queryClient = useQueryClient();
 
-  const RSVP_TO_ESTATUS: Record<string, number> = {
-    accepted: 3,
-    declined: 4,
-    tentative: 2,
-    needsAction: 1,
-  };
-
   // Collect all google_calendar_event_ids and emails for this slot
   const eventIds = useMemo(() => {
     if (!slot) return [];
@@ -614,14 +643,18 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
   if (!slot) return null;
   const config = slot.config;
   const cita = slot.cita;
-  const st = cita ? (STATUS_MAP[cita.id_estatus_cita ?? 0] || { label: "?", variant: "outline" as const, color: "" }) : null;
-  const isCancelledCalendar = cita && (cita.estatus === "cancelada_calendar" || calendarStatus === "missing");
 
   // Helper to get RSVP status for a cita
   const getCitaRsvp = (c: Cita) => {
     const rsvp = rsvpMap[`${c.id}`];
     return rsvp || null;
   };
+
+  const effectiveEstatus = cita ? getEffectiveCitaEstatus(cita, getCitaRsvp(cita)) : null;
+  const st = effectiveEstatus !== null
+    ? (STATUS_MAP[effectiveEstatus] || { label: "?", variant: "outline" as const, color: "" })
+    : null;
+  const isCancelledCalendar = cita && (cita.estatus === "cancelada_calendar" || calendarStatus === "missing");
 
   const getRsvpBadge = (c: Cita) => {
     const rsvp = getCitaRsvp(c);
@@ -648,10 +681,10 @@ function SlotDetailDialog({ slot, calendarStatus, open, onClose }: {
       <DialogContent className="max-w-md p-0 overflow-hidden">
         <div className={cn(
           "px-6 pt-6 pb-4",
-          isCancelledCalendar
+          isCancelledCalendar || effectiveEstatus === 4
             ? "bg-red-50 dark:bg-red-950/20"
             : cita
-              ? cita.id_estatus_cita === 3
+              ? effectiveEstatus === 3
                 ? "bg-green-50 dark:bg-green-950/20"
                 : "bg-blue-50 dark:bg-blue-950/20"
               : "bg-muted/30"
@@ -937,6 +970,7 @@ export default function TodasLasCitas() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [ownerFilter, setOwnerFilter] = useState("all");
   const [calendarStatuses, setCalendarStatuses] = useState<Map<number, CalendarStatus>>(new Map());
+  const [rsvpStatuses, setRsvpStatuses] = useState<Map<number, string>>(new Map());
   const [selectedSlot, setSelectedSlot] = useState<CalendarSlot | null>(null);
 
   // Drag & drop state
@@ -1049,18 +1083,18 @@ export default function TodasLasCitas() {
   });
 
   // ─── RSVP Sync: update id_estatus_cita from Google Calendar on load ───
-  const rsvpSyncedRef = useRef<string>("");
   useEffect(() => {
-    if (citas.length === 0 || configs.length === 0) return;
+    if (citas.length === 0 || configs.length === 0) {
+      setRsvpStatuses(new Map());
+      return;
+    }
 
     // Build list of citas that have a google_calendar_event_id
     const citasWithEvent = citas.filter(c => c.google_calendar_event_id && c.email_invitado);
-    if (citasWithEvent.length === 0) return;
-
-    // Deduplicate by week to avoid re-syncing
-    const syncKey = citasWithEvent.map(c => `${c.id}:${c.google_calendar_event_id}`).sort().join(",");
-    if (rsvpSyncedRef.current === syncKey) return;
-    rsvpSyncedRef.current = syncKey;
+    if (citasWithEvent.length === 0) {
+      setRsvpStatuses(new Map());
+      return;
+    }
 
     // Group by calendario_email
     const byCalendar = new Map<string, typeof citasWithEvent>();
@@ -1072,14 +1106,9 @@ export default function TodasLasCitas() {
       byCalendar.get(calEmail)!.push(c);
     });
 
-    const RSVP_TO_ESTATUS: Record<string, number> = {
-      accepted: 3,   // Asistirá
-      declined: 4,   // NO asistirá
-      tentative: 2,  // Quizá
-      needsAction: 1 // Agendada
-    };
-
     const syncAll = async () => {
+      let cancelled = false;
+      const nextRsvpStatuses = new Map<number, string>();
       let anyUpdated = false;
       for (const [calendarioEmail, citasGroup] of byCalendar) {
         const eventIds = [...new Set(citasGroup.map(c => c.google_calendar_event_id!))];
@@ -1100,6 +1129,7 @@ export default function TodasLasCitas() {
               (a: any) => a.email.toLowerCase() === c.email_invitado!.toLowerCase()
             );
             if (!attendee) continue;
+            nextRsvpStatuses.set(c.id, attendee.responseStatus);
             const newEstatus = RSVP_TO_ESTATUS[attendee.responseStatus] ?? 1;
             if (newEstatus !== c.id_estatus_cita) {
               updates.push({ id: c.id, newEstatus });
@@ -1108,20 +1138,92 @@ export default function TodasLasCitas() {
 
           if (updates.length > 0) {
             console.log("[RSVP Sync] Updating estatus:", updates);
-            await Promise.all(updates.map(u =>
+            const results = await Promise.all(updates.map(u =>
               supabase.from("reservas_citas").update({ id_estatus_cita: u.newEstatus }).eq("id", u.id)
             ));
-            anyUpdated = true;
+            const failedUpdates = results.filter(result => result.error);
+            if (failedUpdates.length > 0) {
+              console.error("[RSVP Sync] Error updating estatus:", failedUpdates.map(result => result.error));
+            } else {
+              anyUpdated = true;
+            }
           }
         } catch (err) {
           console.error("[RSVP Sync] Error:", err);
         }
       }
+      if (cancelled) return;
+      setRsvpStatuses(nextRsvpStatuses);
+      if (anyUpdated) {
+        queryClient.invalidateQueries({ queryKey: ["all-citas-reservas-week"] });
+      }
+      return () => {
+        cancelled = true;
+      };
+    };
+    let isCancelled = false;
+
+    const runSync = async () => {
+      const nextRsvpStatuses = new Map<number, string>();
+      let anyUpdated = false;
+
+      for (const [calendarioEmail, citasGroup] of byCalendar) {
+        const eventIds = [...new Set(citasGroup.map(c => c.google_calendar_event_id!))];
+        try {
+          const { data, error } = await supabase.functions.invoke("consultar-estatus-calendar", {
+            body: { event_ids: eventIds, calendario_email: calendarioEmail },
+          });
+          if (error || !data?.events) {
+            console.warn("[RSVP Sync] Error:", error);
+            continue;
+          }
+
+          const updates: Array<{ id: number; newEstatus: number }> = [];
+          for (const c of citasGroup) {
+            const eventData = data.events[c.google_calendar_event_id!];
+            if (!eventData?.attendees) continue;
+            const attendee = eventData.attendees.find(
+              (a: any) => a.email.toLowerCase() === c.email_invitado!.toLowerCase()
+            );
+            if (!attendee) continue;
+
+            nextRsvpStatuses.set(c.id, attendee.responseStatus);
+            const newEstatus = RSVP_TO_ESTATUS[attendee.responseStatus] ?? 1;
+            if (newEstatus !== c.id_estatus_cita) {
+              updates.push({ id: c.id, newEstatus });
+            }
+          }
+
+          if (updates.length > 0) {
+            console.log("[RSVP Sync] Updating estatus:", updates);
+            const results = await Promise.all(updates.map(u =>
+              supabase.from("reservas_citas").update({ id_estatus_cita: u.newEstatus }).eq("id", u.id)
+            ));
+            const failedUpdates = results.filter(result => result.error);
+            if (failedUpdates.length > 0) {
+              console.error("[RSVP Sync] Error updating estatus:", failedUpdates.map(result => result.error));
+            } else {
+              anyUpdated = true;
+            }
+          }
+        } catch (err) {
+          console.error("[RSVP Sync] Error:", err);
+        }
+      }
+
+      if (isCancelled) return;
+      setRsvpStatuses(nextRsvpStatuses);
+
       if (anyUpdated) {
         queryClient.invalidateQueries({ queryKey: ["all-citas-reservas-week"] });
       }
     };
-    syncAll();
+
+    runSync();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [citas, configs, queryClient]);
 
 
@@ -1645,6 +1747,7 @@ export default function TodasLasCitas() {
                               <StackedSlotCard
                                 items={allItems.map(item => ({ slot: item.slot, status: item.status }))}
                                 onSelectSlot={(slot) => setSelectedSlot(slot)}
+                                rsvpStatuses={rsvpStatuses}
                               />
                             </div>
                           );
@@ -1667,6 +1770,7 @@ export default function TodasLasCitas() {
                               calendarStatus={item.status}
                               onClick={() => setSelectedSlot(item.slot)}
                               onDragStart={(e) => handleDragStart(e, item.slot, dayKey, hour)}
+                              rsvpStatuses={rsvpStatuses}
                             />
                           </div>
                         ));
