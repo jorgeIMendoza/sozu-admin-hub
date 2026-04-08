@@ -160,9 +160,20 @@ const queryClient = new QueryClient({
   },
 });
 
-const isRegistroSubdomain = window.location.hostname === 'registro.sozu.com';
-const isInmobiliariasSubdomain = window.location.hostname === 'inmobiliarias.sozu.com';
-const isAgentesSubdomain = window.location.hostname === 'agentes.sozu.com';
+const hostname = window.location.hostname;
+const isRegistroSubdomain = hostname === 'registro.sozu.com';
+const isInmobiliariasSubdomain = hostname === 'inmobiliarias.sozu.com';
+const isAgentesSubdomain = hostname === 'agentes.sozu.com';
+const isClientesSubdomain = hostname === 'clientes.sozu.com';
+
+// Determine portal context from subdomain for login page branding
+const getPortalContext = (): 'agentes' | 'inmobiliarias' | 'clientes' | null => {
+  if (isAgentesSubdomain) return 'agentes';
+  if (isInmobiliariasSubdomain) return 'inmobiliarias';
+  if (isClientesSubdomain) return 'clientes';
+  return null;
+};
+const portalContext = getPortalContext();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
