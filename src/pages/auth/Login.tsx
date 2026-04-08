@@ -62,8 +62,15 @@ export default function Login({ portalContext }: { portalContext?: 'agentes' | '
   
   const inactivityLogout = searchParams.get('reason') === 'inactivity';
   const passwordUpdated = searchParams.get('reason') === 'password-updated';
+  const getDefaultRedirect = () => {
+    if (portalContext === 'agentes') return '/admin/agent/inicio';
+    if (portalContext === 'inmobiliarias') return '/admin/portal-inmobiliaria/dashboard';
+    if (portalContext === 'clientes') return '/admin/portal-cliente/inicio';
+    return '/admin';
+  };
+
   if (user) {
-    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin';
+    const from = (location.state as { from?: { pathname: string } })?.from?.pathname || getDefaultRedirect();
     navigate(from, { replace: true });
     return null;
   }
@@ -170,9 +177,13 @@ export default function Login({ portalContext }: { portalContext?: 'agentes' | '
         }
       }
 
-      // Single portal or no multi-role: redirect based on current rol_id
-      if (isClienteRole) {
+      // Single portal or no multi-role: redirect based on context or rol_id
+      if (isClienteRole || portalContext === 'clientes') {
         navigate('/admin/portal-cliente/inicio', { replace: true });
+      } else if (portalContext === 'agentes') {
+        navigate('/admin/agent/inicio', { replace: true });
+      } else if (portalContext === 'inmobiliarias') {
+        navigate('/admin/portal-inmobiliaria/dashboard', { replace: true });
       } else {
         navigate('/admin', { replace: true });
       }
