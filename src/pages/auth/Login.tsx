@@ -272,6 +272,17 @@ export default function Login({ portalContext }: { portalContext?: 'agentes' | '
         <h1 className="text-2xl font-black text-center text-[hsl(0_0%_5%)] mb-1.5" style={{ letterSpacing: '-0.02em' }}>
           Iniciar Sesión
         </h1>
+        {portalContext && PORTAL_LABELS[portalContext] && (
+          <div className="flex justify-center mb-2">
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-white"
+              style={{ background: PORTAL_LABELS[portalContext].color }}
+            >
+              <Building2 className="h-3 w-3" />
+              {PORTAL_LABELS[portalContext].label}
+            </span>
+          </div>
+        )}
         <p className="text-sm text-center mb-7" style={{ color: 'hsl(0 0% 45%)' }}>
           Ingresa tus credenciales para acceder al sistema
         </p>
