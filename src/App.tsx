@@ -201,6 +201,26 @@ const App = () => (
                   <Route path="/auth/change-password" element={<ChangePassword />} />
                   <Route path="/auth/confirmacion-email" element={<ConfirmacionEmail />} />
                   <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/admin/*" element={
+                    <ProtectedRoute>
+                      <PermissionRoute>
+                        <AdminLayout />
+                      </PermissionRoute>
+                    </ProtectedRoute>
+                  }>
+                    <Route index element={<Navigate to="/admin/agent/inicio" replace />} />
+                    <Route path="agent/inicio" element={<AgentInicio />} />
+                    <Route path="agent/inventario" element={<AgentInventario />} />
+                    <Route path="agent/pipeline" element={<AgentPipeline />} />
+                    <Route path="agent/comisiones" element={<AgentComisiones />} />
+                    <Route path="agent/prospectos" element={<AgentProspectos />} />
+                    <Route path="agent/perfil" element={<AgentPerfil />} />
+                    <Route path="agent/inventario/unidades" element={<AgentUnidadesProyecto />} />
+                    <Route path="agent/proyecto/:id" element={<AgentProyectoDetalle />} />
+                    <Route path="agent/inventario/proyecto/:id" element={<AgentProyectoDetalle />} />
+                    <Route path="*" element={<Navigate to="/admin/agent/inicio" replace />} />
+                  </Route>
+                  <Route path="/" element={<AgentesLanding />} />
                   <Route path="*" element={<AgentesLanding />} />
                 </Routes>
               ) : isInmobiliariasSubdomain ? (
@@ -212,13 +232,25 @@ const App = () => (
                   <Route path="/auth/confirmacion-email" element={<ConfirmacionEmail />} />
                   <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                   <Route path="/" element={<Navigate to="/login" replace />} />
-                  <Route path="/admin/*" element={
+                  <Route path="/admin" element={
                     <ProtectedRoute>
                       <PermissionRoute>
                         <AdminLayout />
                       </PermissionRoute>
                     </ProtectedRoute>
-                  } />
+                  }>
+                    <Route index element={<Navigate to="/admin/portal-inmobiliaria/dashboard" replace />} />
+                    <Route path="portal-inmobiliaria/dashboard" element={<InmobDashboard />} />
+                    <Route path="portal-inmobiliaria/agentes" element={<InmobAgentes />} />
+                    <Route path="portal-inmobiliaria/agentes/:email" element={<InmobAgentProfile />} />
+                    <Route path="portal-inmobiliaria/pipeline" element={<InmobPipeline />} />
+                    <Route path="portal-inmobiliaria/prospectos" element={<InmobProspectos />} />
+                    <Route path="portal-inmobiliaria/citas" element={<InmobCitas />} />
+                    <Route path="portal-inmobiliaria/comisiones" element={<InmobComisiones />} />
+                    <Route path="portal-inmobiliaria/reportes" element={<InmobReportes />} />
+                    <Route path="portal-inmobiliaria/configuracion" element={<InmobConfiguracion />} />
+                    <Route path="*" element={<Navigate to="/admin/portal-inmobiliaria/dashboard" replace />} />
+                  </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
               ) : isClientesSubdomain ? (
@@ -229,13 +261,25 @@ const App = () => (
                   <Route path="/auth/confirmacion-email" element={<ConfirmacionEmail />} />
                   <Route path="/auth/forgot-password" element={<ForgotPassword />} />
                   <Route path="/" element={<Navigate to="/login" replace />} />
-                  <Route path="/admin/*" element={
+                  <Route path="/admin" element={
                     <ProtectedRoute>
                       <PermissionRoute>
                         <AdminLayout />
                       </PermissionRoute>
                     </ProtectedRoute>
-                  } />
+                  }>
+                    <Route index element={<Navigate to="/admin/portal-cliente/inicio" replace />} />
+                    <Route path="portal-cliente/inicio" element={<ClienteInicio />} />
+                    <Route path="portal-cliente/historial-pagos" element={<ClienteHistorialPagos />} />
+                    <Route path="portal-cliente/pagos" element={<ClienteHistorialPagos />} />
+                    <Route path="portal-cliente/propiedades" element={<ClientePropiedades />} />
+                    <Route path="portal-cliente/propiedad/:cuentaId" element={<ClientePropiedadDetalle />} />
+                    <Route path="portal-cliente/propiedad/:cuentaId/detalles-tecnicos" element={<ClienteDetallesTecnicos />} />
+                    <Route path="portal-cliente/perfil" element={<ClientePerfil />} />
+                    <Route path="portal-cliente/mantenimiento-pago/:cuentaId" element={<ClienteMantenimientoPago />} />
+                    <Route path="portal-cliente/propiedad-pago/:cuentaId" element={<ClientePropiedadPago />} />
+                    <Route path="*" element={<Navigate to="/admin/portal-cliente/inicio" replace />} />
+                  </Route>
                   <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
               ) : (
