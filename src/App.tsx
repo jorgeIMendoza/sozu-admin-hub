@@ -146,6 +146,7 @@ const ClientePropiedadPago = lazyRetry(() => import("./pages/admin/portal-client
 const ClienteDetallesTecnicos = lazyRetry(() => import("./pages/admin/portal-cliente/ClienteDetallesTecnicos"));
 
 const Registro = lazyRetry(() => import("./pages/public/Registro"));
+const RegistroInmobiliaria = lazyRetry(() => import("./pages/public/RegistroInmobiliaria"));
 const AgentesLanding = lazyRetry(() => import("./pages/public/AgentesLanding"));
 
 const queryClient = new QueryClient({
