@@ -1,20 +1,20 @@
 
 
-## Plan: Ejecutar migración real de `proyectos.url_firma_recibos`
+## Plan: Renombrar EVOLUTION_WA_TOKEN a EVOLUTION_WA_COBRANZA_TOKEN
 
-Invocar la Edge Function `migrar-archivos-storage` con `dry_run: false` para migrar los 3 archivos de firma de recibos al bucket `legacy-uploads` en Supabase Storage y actualizar las URLs en la base de datos.
+### Cambios en código
 
-### Acción
+**1. `supabase/functions/notificar-agentes/index.ts`** — 3 referencias:
+- Línea 188: `Deno.env.get('EVOLUTION_WA_TOKEN')` → `Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN')`
+- Línea 202: log message → `'EVOLUTION_WA_COBRANZA_TOKEN included...'`
+- Línea 204: warn message → `'EVOLUTION_WA_COBRANZA_TOKEN not configured...'`
 
-Llamar a la función con:
-```json
-{
-  "tabla": "proyectos",
-  "columna": "url_firma_recibos",
-  "carpeta": "proyectos",
-  "dry_run": false
-}
-```
+**2. `supabase/functions/enviar-notificacion/index.ts`** — 1 comentario:
+- Línea 26: comentario `EVOLUTION_WA_TOKEN` → `EVOLUTION_WA_COBRANZA_TOKEN`
 
-Esto descargará los 3 archivos desde `api.sozu.com`, los subirá a `legacy-uploads/proyectos/` y actualizará las URLs en la tabla `proyectos`.
+**3. Desplegar** ambas Edge Functions.
+
+### Acción manual requerida
+
+Deberás renombrar el secreto en el Vault de Supabase: eliminar `EVOLUTION_WA_TOKEN` y crear `EVOLUTION_WA_COBRANZA_TOKEN` con el mismo valor.
 
