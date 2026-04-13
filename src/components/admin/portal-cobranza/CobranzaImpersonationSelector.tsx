@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { ChevronsUpDown, Check, UserCog, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export function CobranzaImpersonationSelector() {
@@ -63,12 +64,15 @@ export function CobranzaImpersonationSelector() {
       if (allowedRoles.length === 0) return [];
       const { data, error } = await (supabase as any)
         .from("usuarios")
-        .select("email, rol_id, personas!inner(id, nombre_legal, nombre_comercial), roles!inner(nombre)")
+        .select("email, rol_id, id_persona, personas:personas!usuarios_id_persona_fkey(id, nombre_legal, nombre_comercial), roles:roles!inner(nombre)")
         .eq("activo", true)
         .in("rol_id", allowedRoles)
         .order("email");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching cobranza users:", error);
+        throw error;
+      }
       return (data || [])
         .map((u: any) => ({
           email: u.email,
@@ -124,9 +128,12 @@ export function CobranzaImpersonationSelector() {
                         impersonatedEmail === u.email ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm truncate">{u.nombre}</span>
-                      <span className="text-[10px] text-muted-foreground truncate">{u.email} · {u.rol}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm truncate">{u.nombre}</span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">{u.rol}</Badge>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground truncate">{u.email}</span>
                     </div>
                   </CommandItem>
                 ))}
