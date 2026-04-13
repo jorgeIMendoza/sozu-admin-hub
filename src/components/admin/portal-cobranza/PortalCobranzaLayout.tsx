@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Inbox, FileText, CreditCard, FileCheck,
@@ -6,6 +6,8 @@ import {
   HardHat, BarChart3, Settings, ArrowLeft, LogOut, LucideIcon,
   ChevronDown, ChevronRight,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCobranzaImpersonation } from "@/contexts/CobranzaImpersonationContext";
@@ -72,13 +74,27 @@ export const PortalCobranzaLayout = () => {
   const isSuperAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
+  const { data: personaName } = useQuery({
+    queryKey: ["cobranza-persona-name", profile?.id_persona],
+    queryFn: async () => {
+      if (!profile?.id_persona) return null;
+      const { data } = await (supabase as any)
+        .from("personas")
+        .select("nombre_comercial, nombre_legal")
+        .eq("id", profile.id_persona)
+        .single();
+      return data?.nombre_comercial || data?.nombre_legal || null;
+    },
+    enabled: !!profile?.id_persona,
+  });
+
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
   const currentSection = Object.entries(SECTION_LABELS).find(([path]) => isActive(path))?.[1] || "Cobranza 360";
 
   const activeUserName = isImpersonating
     ? impersonatedName || impersonatedEmail || profile?.nombre || profile?.email || "Usuario"
-    : profile?.nombre || profile?.email || "Usuario";
+    : personaName || profile?.nombre || profile?.email || "Usuario";
 
   const userInitials = activeUserName
     .split(" ")
