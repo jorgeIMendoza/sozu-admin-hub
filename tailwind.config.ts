@@ -22,6 +22,7 @@ export default {
       },
       colors: {
         border: "hsl(var(--border))",
+        "border-light": "hsl(var(--border-light, 220 14% 96%))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
@@ -31,10 +32,14 @@ export default {
           foreground: "hsl(var(--primary-foreground))",
           soft: "hsl(var(--primary-soft))",
           hover: "hsl(var(--primary-hover))",
+          dark: "hsl(var(--primary-dark, 158 64% 32%))",
+          light: "hsl(var(--primary-light, 138 76% 93%))",
+          muted: "hsl(var(--primary-muted, 138 76% 97%))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          bg: "hsl(var(--success-bg, 138 76% 93%))",
         },
         admin: {
           sidebar: "hsl(var(--admin-sidebar))",
@@ -52,6 +57,15 @@ export default {
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
+          bg: "hsl(var(--warning-bg, 48 96% 89%))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger, 0 84% 60%))",
+          bg: "hsl(var(--danger-bg, 0 93% 94%))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info, 217 91% 60%))",
+          bg: "hsl(var(--info-bg, 214 95% 93%))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -70,6 +84,14 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        priority: {
+          green: "hsl(var(--priority-green, 142 71% 45%))",
+          yellow: "hsl(var(--priority-yellow, 38 92% 50%))",
+          red: "hsl(var(--priority-red, 0 84% 60%))",
+          purple: "hsl(var(--priority-purple, 270 50% 45%))",
+          blue: "hsl(var(--priority-blue, 217 91% 60%))",
+          gray: "hsl(var(--priority-gray, 218 11% 65%))",
         },
         navy: {
           DEFAULT: "hsl(var(--navy, 0 0% 8%))",
