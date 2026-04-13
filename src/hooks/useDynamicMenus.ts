@@ -111,25 +111,40 @@ import {
   '/admin/crm/workflow-ofertas': ClipboardList,
   '/admin/crm/dashboard-ejecutivo': BarChart3,
    // Agent Portal
-   '/admin/agent/inicio': LayoutDashboard,
-   '/admin/agent/inventario': Building,
-   '/admin/agent/prospectos': Users,
-   '/admin/agent/pipeline': Activity,
-   '/admin/agent/comisiones': Banknote,
-   '/admin/agent/perfil': User,
-   // Portal Inmobiliaria
-   '/admin/portal-inmobiliaria/dashboard': LayoutDashboard,
-   '/admin/portal-inmobiliaria/agentes': Users,
-   '/admin/portal-inmobiliaria/pipeline': Activity,
-   '/admin/portal-inmobiliaria/prospectos': UserSearch,
-   '/admin/portal-inmobiliaria/citas': Calendar,
-   '/admin/portal-inmobiliaria/comisiones': Banknote,
-   '/admin/portal-inmobiliaria/reportes': BarChart3,
-   '/admin/portal-inmobiliaria/configuracion': Cog,
-   // Portal Cliente
-   '/admin/portal-cliente/inicio': LayoutDashboard,
-   '/admin/portal-cliente/propiedades': Building,
-   '/admin/portal-cliente/perfil': User,
+    '/admin/agent/inicio': LayoutDashboard,
+    '/admin/agent/inventario': Building,
+    '/admin/agent/prospectos': Users,
+    '/admin/agent/pipeline': Activity,
+    '/admin/agent/comisiones': Banknote,
+    '/admin/agent/perfil': User,
+    // Portal Inmobiliaria
+    '/admin/portal-inmobiliaria/dashboard': LayoutDashboard,
+    '/admin/portal-inmobiliaria/agentes': Users,
+    '/admin/portal-inmobiliaria/pipeline': Activity,
+    '/admin/portal-inmobiliaria/prospectos': UserSearch,
+    '/admin/portal-inmobiliaria/citas': Calendar,
+    '/admin/portal-inmobiliaria/comisiones': Banknote,
+    '/admin/portal-inmobiliaria/reportes': BarChart3,
+    '/admin/portal-inmobiliaria/configuracion': Cog,
+    // Portal Cliente
+    '/admin/portal-cliente/inicio': LayoutDashboard,
+    '/admin/portal-cliente/propiedades': Building,
+    '/admin/portal-cliente/perfil': User,
+    // Portal Cobranza
+    '/admin/portal-cobranza/dashboard': LayoutDashboard,
+    '/admin/portal-cobranza/bandeja': ClipboardList,
+    '/admin/portal-cobranza/atencion': Users,
+    '/admin/portal-cobranza/pagos': CreditCard,
+    '/admin/portal-cobranza/ceps': FileText,
+    '/admin/portal-cobranza/conciliaciones': Activity,
+    '/admin/portal-cobranza/promesas': Banknote,
+    '/admin/portal-cobranza/comunicacion/avisos': Mail,
+    '/admin/portal-cobranza/comunicacion/enviar': Send,
+    '/admin/portal-cobranza/comunicacion/ejecuciones': History,
+    '/admin/portal-cobranza/comunicacion/plantillas': FileText,
+    '/admin/portal-cobranza/inputs-obra': Wrench,
+    '/admin/portal-cobranza/reportes': BarChart3,
+    '/admin/portal-cobranza/configuracion': Cog,
  };
  
  // Mapeo de iconos por menu_id para los grupos
@@ -149,10 +164,11 @@ import {
     13: Activity,        // Configuraciones/Logs
     14: Mail,            // Comunicación
     15: Briefcase,        // CRM
-     16: User,              // Portal Agente
-      17: Building2,          // Portal Inmobiliaria
-      18: User,                // Portal Cliente
-   };
+      16: User,              // Portal Agente
+       17: Building2,          // Portal Inmobiliaria
+       18: User,                // Portal Cliente
+       19: Receipt,             // Portal Cobranza
+    };
  
 export interface DynamicMenuItem {
     title: string;
@@ -188,7 +204,7 @@ const USUARIO_A_EMAIL = 'jorge.mendoza@sozu.com';
 const LOGS_MENU_ID = 13; // Menu de Configuraciones/Logs
 const INMOBILIARIAS_PORTAL_MENU_ID = 12; // Menu de Inmobiliarias (portal)
 const DASHBOARD_MENU_ID = 1;
-const PORTAL_MENU_IDS = new Set([16, 17, 18]); // Portal Agente, Inmobiliaria, Cliente
+const PORTAL_MENU_IDS = new Set([16, 17, 18, 19]); // Portal Agente, Inmobiliaria, Cliente, Cobranza
  
  export function useDynamicMenus() {
    const { profile, isLoading: isAuthLoading, user, permissionVersion } = useAuth();
