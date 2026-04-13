@@ -825,3 +825,94 @@ All colors MUST be HSL.
   background-color: hsl(243 47% 25%);
   color: hsl(226 76% 80%);
 }
+
+/* ══════════════════════════════════════════════════
+   Portal Cobranza Design Tokens & Component Classes
+   ══════════════════════════════════════════════════ */
+:root {
+  --success-bg: 138 76% 93%;
+  --warning-bg: 48 96% 89%;
+  --danger: 0 84% 60%;
+  --danger-bg: 0 93% 94%;
+  --info: 217 91% 60%;
+  --info-bg: 214 95% 93%;
+  --priority-green: 142 71% 45%;
+  --priority-yellow: 38 92% 50%;
+  --priority-red: 0 84% 60%;
+  --priority-purple: 270 50% 45%;
+  --priority-blue: 217 91% 60%;
+  --priority-gray: 218 11% 65%;
+  --primary-dark: 158 64% 32%;
+  --primary-light: 138 76% 93%;
+  --primary-muted: 138 76% 97%;
+  --border-light: 220 14% 96%;
+  --text-primary: 220 15% 7%;
+  --text-secondary: 220 9% 46%;
+}
+
+@layer components {
+  .sozu-kpi-card {
+    @apply bg-card rounded-xl border border-border p-6 transition-shadow duration-150;
+  }
+  .sozu-kpi-card:hover {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  }
+  .sozu-table-row {
+    @apply border-b border-border transition-colors duration-100 cursor-pointer;
+  }
+  .sozu-table-row:hover {
+    background: hsl(var(--primary-muted));
+  }
+  .sozu-thead {
+    @apply sticky top-0 z-[5];
+    background: hsl(var(--background));
+  }
+  .sozu-thead th {
+    @apply text-left text-[11px] font-semibold uppercase tracking-wider;
+    color: hsl(var(--text-secondary));
+    padding: 14px 16px;
+    line-height: 1.6;
+    min-height: 44px;
+    vertical-align: middle;
+    white-space: nowrap;
+    border-bottom: 2px solid hsl(var(--border));
+  }
+  .sozu-section-title {
+    @apply text-sm font-semibold text-foreground tracking-tight;
+  }
+  .sozu-page-title {
+    @apply text-xl font-semibold text-foreground tracking-tight;
+  }
+  .sozu-chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium leading-tight;
+  }
+  .sozu-filter-select {
+    @apply h-[38px] text-sm bg-card border border-border rounded-lg px-3 text-foreground outline-none transition-all duration-150;
+  }
+  .sozu-filter-select:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.12);
+  }
+  .sozu-btn-primary {
+    @apply h-[38px] px-4 rounded-lg text-sm font-medium text-white transition-colors duration-150;
+    background: hsl(var(--primary));
+  }
+  .sozu-btn-primary:hover {
+    background: hsl(var(--primary-dark));
+  }
+  .sozu-btn-secondary {
+    @apply h-[38px] px-4 rounded-lg text-sm font-medium border border-border text-foreground transition-colors duration-150;
+    background: hsl(var(--card));
+  }
+  .sozu-btn-secondary:hover {
+    background: hsl(var(--muted));
+  }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s ease-out;
+}
