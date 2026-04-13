@@ -64,7 +64,7 @@ export function CobranzaImpersonationSelector() {
       if (allowedRoles.length === 0) return [];
       const { data, error } = await (supabase as any)
         .from("usuarios")
-        .select("email, rol_id, id_persona, personas:personas!usuarios_id_persona_fkey(id, nombre_legal, nombre_comercial), roles:roles!inner(nombre)")
+        .select("email, nombre, rol_id, id_persona, personas:personas!usuarios_id_persona_fkey(id, nombre_legal, nombre_comercial), roles:roles!inner(nombre)")
         .eq("activo", true)
         .in("rol_id", allowedRoles)
         .order("email");
@@ -77,7 +77,7 @@ export function CobranzaImpersonationSelector() {
         .map((u: any) => ({
           email: u.email,
           personaId: u.personas?.id,
-          nombre: u.personas?.nombre_comercial || u.personas?.nombre_legal || u.email,
+          nombre: u.personas?.nombre_comercial || u.personas?.nombre_legal || u.nombre || u.email,
           rol: u.roles?.nombre || "Sin rol",
         }))
         .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
