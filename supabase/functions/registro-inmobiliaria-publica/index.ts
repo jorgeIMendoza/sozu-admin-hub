@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if representante legal email already exists in usuarios
-    const repLegalEmailLower = representante_legal.email.toLowerCase();
+    // repLegalEmailLower already declared above
     const { data: existingRepUser } = await supabase
       .from('usuarios')
       .select('email')
