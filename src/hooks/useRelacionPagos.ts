@@ -68,7 +68,7 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
         p_offset: (filters.page - 1) * filters.pageSize,
       });
       if (error) throw error;
-      return data as { total: number; pagos: PagoRecord[] };
+      return data as unknown as { total: number; pagos: PagoRecord[] };
     },
     staleTime: 30_000,
   });
