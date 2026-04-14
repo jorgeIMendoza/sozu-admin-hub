@@ -7910,6 +7910,10 @@ export type Database = {
         }[]
       }
       get_current_user_role: { Args: never; Returns: number }
+      get_dashboard_cobranza_kpis: {
+        Args: { p_proyecto_id?: number }
+        Returns: Json
+      }
       get_inventario_disponible: {
         Args: { p_accessible_project_ids?: number[] }
         Returns: Json

@@ -1,19 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/components/admin/portal-cobranza/StatusBadges';
-import { mockKPIs, mockFinancialMetrics, mockAccounts, mockWeeklyFlow, mockLegalEntities, executives } from '@/data/cobranza/mockData';
-import { mockObraProjects, mockObraWeekly, mockCashFlowProjection, getObraStatus, obraStatusConfig } from '@/data/cobranza/obraData';
 import { navigateWithFilters } from '@/lib/navigationFilters';
+import { useCobranzaDashboard, useProyectosCobranza } from '@/hooks/useCobranzaDashboard';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import {
   TrendingUp, AlertTriangle, CheckCircle2, DollarSign, Calendar,
   Target, ArrowUpRight, BarChart3, Building2, Shield, Zap, HardHat,
-  Clock, Activity,
+  Clock, Activity, Loader2,
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, ReferenceLine } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { cn } from '@/lib/utils';
 
-const kpi = mockKPIs;
-const fin = mockFinancialMetrics;
 const periods = ['Este mes', 'Mes pasado', 'Últimos 3 meses', 'Año actual'];
 
 type DashTab = 'resumen' | 'flujo' | 'riesgo' | 'cobranza' | 'operacion';
@@ -33,44 +32,89 @@ export default function CobranzaDashboard() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState('Este mes');
   const [activeTab, setActiveTab] = useState<DashTab>('resumen');
+  const [selectedProyecto, setSelectedProyecto] = useState<number | null>(null);
 
-  const cepsPending = 3;
-  const penalizados = mockAccounts.filter(a => a.overdueInstallments >= 3).length;
-  const docIncomplete = mockAccounts.filter(a => !a.documentationComplete).length;
-  const fueraSLA = 2;
-  const pldAlerts = mockAccounts.filter(a => a.pldStatus !== 'validado' && a.pldStatus !== 'liberado_pld').length;
-  const legalCases = mockAccounts.filter(a => a.legalStatus !== 'sin_accion').length;
-  const plus90 = penalizados;
+  const { data: kpis, isLoading, error } = useCobranzaDashboard(selectedProyecto);
+  const { data: proyectos } = useProyectosCobranza();
 
-  const riskLevel = penalizados >= 4 ? 'Crítico' : penalizados >= 2 ? 'Alto riesgo' : pldAlerts > 0 ? 'Controlado con riesgo' : 'Controlado';
-  const riskColor = penalizados >= 4 ? 'text-priority-purple' : penalizados >= 2 ? 'text-danger' : pldAlerts > 0 ? 'text-warning' : 'text-success';
+  const mesActual = format(new Date(), "MMMM yyyy", { locale: es });
 
-  const priorityActions = [
-    { label: `Recuperar ${formatCurrency(fin.overdueBalance)} vencidos`, icon: DollarSign, color: 'text-danger', onClick: () => drill(navigate, '/bandeja', { preset: 'critical' }) },
-    { label: `Atacar ${plus90} clientes críticos +90d`, icon: AlertTriangle, color: 'text-priority-purple', onClick: () => drill(navigate, '/bandeja', { preset: 'prelegal' }) },
-    { label: `Cerrar ${formatCurrency(fin.scheduledMonth - fin.collectedMonth)} para meta`, icon: Target, color: 'text-warning', onClick: () => drill(navigate, '/pagos') },
-    { label: `Resolver ${cepsPending} CEPs pendientes`, icon: CheckCircle2, color: 'text-info', onClick: () => drill(navigate, '/ceps') },
-    { label: `Cerrar ${fueraSLA} casos fuera de SLA`, icon: Clock, color: 'text-danger', onClick: () => drill(navigate, '/atencion') },
-  ];
+  // Merge cobrado + programado mensual for chart
+  const chartData = useMemo(() => {
+    if (!kpis?.cobrado_mensual) return [];
+    const programadoMap = new Map(
+      (kpis.programado_mensual ?? []).map(p => [p.mes, p.programado])
+    );
+    return kpis.cobrado_mensual.map(c => ({
+      month: c.mes,
+      cobrado: c.cobrado,
+      programado: programadoMap.get(c.mes) ?? 0,
+    }));
+  }, [kpis?.cobrado_mensual, kpis?.programado_mensual]);
+
+  // Morosidad helpers
+  const getMorosidad = (grupo: string) =>
+    kpis?.morosidad?.find(m => m.grupo === grupo)?.cuentas ?? 0;
+
+  const cuentas1 = getMorosidad('1_vencida');
+  const cuentas2 = getMorosidad('2_vencidas');
+  const cuentas3Plus = getMorosidad('3_plus');
+  const totalMorosas = cuentas1 + cuentas2 + cuentas3Plus;
+
+  const recoveryRate = kpis?.recovery_rate ?? 0;
+  const cumplimiento = kpis && kpis.programado_mes > 0
+    ? Math.round((kpis.cobrado_mes / kpis.programado_mes) * 100)
+    : 0;
+  const porCobrarMes = (kpis?.programado_mes ?? 0) - (kpis?.cobrado_mes ?? 0);
+
+  const riskLevel = cuentas3Plus >= 100 ? 'Crítico' : cuentas3Plus >= 50 ? 'Alto riesgo' : totalMorosas > 200 ? 'Controlado con riesgo' : 'Controlado';
+  const riskColor = cuentas3Plus >= 100 ? 'text-priority-purple' : cuentas3Plus >= 50 ? 'text-danger' : totalMorosas > 200 ? 'text-warning' : 'text-success';
+
+  const priorityActions = kpis ? [
+    { label: `Recuperar ${formatCurrency(kpis.vencido_total)} vencidos`, icon: DollarSign, color: 'text-danger', onClick: () => drill(navigate, '/bandeja', { preset: 'critical' }) },
+    { label: `Atacar ${cuentas3Plus} cuentas críticas 3+`, icon: AlertTriangle, color: 'text-priority-purple', onClick: () => drill(navigate, '/bandeja', { preset: 'prelegal' }) },
+    { label: `Cerrar ${formatCurrency(Math.max(porCobrarMes, 0))} para meta del mes`, icon: Target, color: 'text-warning', onClick: () => drill(navigate, '/pagos') },
+    { label: `${cuentas2} cuentas con 2 parcialidades vencidas`, icon: Shield, color: 'text-info', onClick: () => drill(navigate, '/bandeja') },
+  ] : [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground text-sm">Cargando dashboard...</span>
+      </div>
+    );
+  }
+
+  if (error || !kpis) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <AlertTriangle className="w-6 h-6 text-danger" />
+        <span className="ml-2 text-danger text-sm">Error al cargar datos: {(error as Error)?.message}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="sozu-page-title">Control Tower</h1>
-          <p className="text-[13px] text-muted-foreground mt-0.5">Centro de inteligencia de cobranza · Abril 2026</p>
+          <p className="text-[13px] text-muted-foreground mt-0.5">Centro de inteligencia de cobranza · {mesActual}</p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="sozu-filter-select">
-            <option>Todas las entidades</option>
-            {mockLegalEntities.map(le => <option key={le.id}>{le.name}</option>)}
-          </select>
           <select value={period} onChange={e => setPeriod(e.target.value)} className="sozu-filter-select">
             {periods.map(p => <option key={p}>{p}</option>)}
           </select>
-          <select className="sozu-filter-select">
-            <option>Todos los proyectos</option>
-            <option>Daiku</option><option>Bottura</option><option>Margot</option><option>Monócolo</option>
+          <select
+            value={selectedProyecto ?? ''}
+            onChange={e => setSelectedProyecto(e.target.value ? Number(e.target.value) : null)}
+            className="sozu-filter-select"
+          >
+            <option value="">Todos los proyectos</option>
+            {(proyectos ?? []).map(p => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
           </select>
         </div>
       </div>
@@ -88,12 +132,12 @@ export default function CobranzaDashboard() {
       {activeTab === 'resumen' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <FinKPICard label="Programado Mes" value={formatCurrency(fin.scheduledMonth)} icon={Calendar} sub="Meta del periodo" />
-            <FinKPICard label="Cobrado del Mes" value={formatCurrency(fin.collectedMonth)} icon={DollarSign} trend="+12.3%" trendUp />
-            <FinKPICard label="% Cumplimiento" value={`${fin.collectedVsTarget}%`} icon={Target} trend={fin.collectedVsTarget >= 90 ? 'En meta' : 'Bajo meta'} trendUp={fin.collectedVsTarget >= 90} />
-            <FinKPICard label="Por Cobrar Mes" value={formatCurrency(fin.toCollectMonth)} icon={BarChart3} sub="Pendiente periodo" />
-            <FinKPICard label="Saldo Vencido" value={formatCurrency(fin.overdueBalance)} icon={AlertTriangle} variant="danger" onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
-            <FinKPICard label="Recovery Rate" value={`${fin.recoveryRate}%`} icon={TrendingUp} sub="Periodo actual" />
+            <FinKPICard label="Programado Mes" value={formatCurrency(kpis.programado_mes)} icon={Calendar} sub="Meta del periodo" />
+            <FinKPICard label="Cobrado del Mes" value={formatCurrency(kpis.cobrado_mes)} icon={DollarSign} />
+            <FinKPICard label="% Cumplimiento" value={`${cumplimiento}%`} icon={Target} trend={cumplimiento >= 90 ? 'En meta' : 'Bajo meta'} trendUp={cumplimiento >= 90} />
+            <FinKPICard label="Por Cobrar Mes" value={formatCurrency(Math.max(porCobrarMes, 0))} icon={BarChart3} sub="Pendiente periodo" />
+            <FinKPICard label="Saldo Vencido" value={formatCurrency(kpis.vencido_total)} icon={AlertTriangle} variant="danger" onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
+            <FinKPICard label="Recovery Rate" value={`${recoveryRate}%`} icon={TrendingUp} sub="Periodo actual" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -102,14 +146,12 @@ export default function CobranzaDashboard() {
                 <AlertTriangle className="w-4 h-4 text-danger" strokeWidth={1.75} /> Alertas Clave
               </h2>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                <AlertRow label="Cartera vencida total" value={formatCurrency(fin.overdueBalance)} danger onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
-                <AlertRow label="Clientes +90 días" value={String(plus90)} danger={plus90 > 0} onClick={() => drill(navigate, '/bandeja', { preset: 'prelegal' })} />
-                <AlertRow label="Alertas PLD" value={String(pldAlerts)} danger={pldAlerts > 0} />
-                <AlertRow label="Doc. crítica faltante" value={String(docIncomplete)} danger={docIncomplete > 0} />
-                <AlertRow label="Promesas vencidas" value={String(kpi.brokenPromises)} danger={kpi.brokenPromises > 0} onClick={() => drill(navigate, '/promesas', { estatus: 'vencida' })} />
-                <AlertRow label="En prelegal" value={String(legalCases)} danger={legalCases > 0} />
-                <AlertRow label="CEPs pendientes" value={String(cepsPending)} danger={cepsPending > 0} onClick={() => drill(navigate, '/ceps')} />
-                <AlertRow label="Fuera SLA" value={String(fueraSLA)} danger={fueraSLA > 0} />
+                <AlertRow label="Cartera vencida total" value={formatCurrency(kpis.vencido_total)} danger onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
+                <AlertRow label="Cuentas 3+ parc." value={String(cuentas3Plus)} danger={cuentas3Plus > 0} onClick={() => drill(navigate, '/bandeja', { preset: 'prelegal' })} />
+                <AlertRow label="Cuentas 2 parc." value={String(cuentas2)} danger={cuentas2 > 0} />
+                <AlertRow label="Cuentas 1 parc." value={String(cuentas1)} danger={false} />
+                <AlertRow label="Pendiente futuro" value={formatCurrency(kpis.pendiente_total)} />
+                <AlertRow label="Cobrado histórico" value={formatCurrency(kpis.cobrado_total)} />
               </div>
               <div className="mt-3 pt-3 border-t border-border flex items-center gap-2">
                 <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Status general:</span>
@@ -134,71 +176,35 @@ export default function CobranzaDashboard() {
             </div>
           </div>
 
-          <div className="sozu-kpi-card">
-            <h2 className="sozu-section-title mb-4 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-primary" strokeWidth={1.75} /> Cobrado vs Meta por Mes
-            </h2>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={fin.collectedByMonth}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(220,13%,91%)' }} />
-                <Line type="monotone" dataKey="collected" stroke="hsl(142,71%,45%)" strokeWidth={2} dot={{ r: 3 }} name="Cobrado" />
-                <Line type="monotone" dataKey="target" stroke="hsl(220,9%,46%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Meta" />
-                <Line type="monotone" dataKey="overdue" stroke="hsl(0,84%,60%)" strokeWidth={1.5} dot={false} name="Vencido" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          {chartData.length > 0 && (
+            <div className="sozu-kpi-card">
+              <h2 className="sozu-section-title mb-4 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" strokeWidth={1.75} /> Cobrado vs Programado por Mes
+              </h2>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
+                  <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(220,13%,91%)' }} />
+                  <Line type="monotone" dataKey="cobrado" stroke="hsl(142,71%,45%)" strokeWidth={2} dot={{ r: 3 }} name="Cobrado" />
+                  <Line type="monotone" dataKey="programado" stroke="hsl(220,9%,46%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Programado" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'flujo' && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <FinKPICard label="Cobrado Semana" value={formatCurrency(1250000)} icon={DollarSign} sub="Última semana" />
-            <FinKPICard label="Proyectado Semana" value={formatCurrency(1300000)} icon={Calendar} sub="Semana actual" />
-            <FinKPICard label="Prov. Obra Semana" value={formatCurrency(1050000)} icon={HardHat} sub="Provisión requerida" />
-            <FinKPICard label="Déficit Acumulado" value={formatCurrency(mockWeeklyFlow.reduce((s, w) => s + w.deficit, 0))} icon={AlertTriangle} variant="danger" />
-            <FinKPICard label="Semanas Críticas" value={`${mockWeeklyFlow.filter(w => w.status === 'critico' || w.status === 'alto').length}`} icon={Shield} variant="danger" />
-            <FinKPICard label="Proyectos Activos" value={String(mockObraProjects.length)} icon={Building2} sub="En ejecución" />
-          </div>
-          <div className="sozu-kpi-card">
-            <h2 className="sozu-section-title mb-4">Flujo Semanal: Cobranza vs Provisión de Obra</h2>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={mockWeeklyFlow}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" />
-                <XAxis dataKey="range" tick={{ fontSize: 9, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v / 1000000).toFixed(1)}M`} />
-                <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                <Area type="monotone" dataKey="collected" fill="hsl(142,71%,45%,0.15)" stroke="hsl(142,71%,45%)" strokeWidth={2} name="Cobrado" />
-                <Area type="monotone" dataKey="projected" fill="hsl(217,91%,60%,0.08)" stroke="hsl(217,91%,60%)" strokeWidth={1.5} strokeDasharray="4 4" name="Proyectado" />
-                <ReferenceLine y={0} stroke="hsl(220,13%,91%)" />
-                <Line type="monotone" dataKey="obraProvision" stroke="hsl(0,84%,60%)" strokeWidth={1.5} dot={false} name="Provisión Obra" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="sozu-kpi-card">
-            <h2 className="sozu-section-title mb-3">Proyectos de Obra</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {mockObraProjects.map(p => {
-                const st = getObraStatus(p.avanceFisico, p.avanceFinanciero);
-                const c = obraStatusConfig[st];
-                return (
-                  <div key={p.id} className="p-4 rounded-lg border border-border bg-background">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[14px] font-semibold text-foreground">{p.project}</span>
-                      <span className={cn('sozu-chip', c.bg, c.text)}>{c.label}</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-[12px]">
-                      <div><span className="text-muted-foreground">Físico</span><p className="font-semibold text-foreground">{p.avanceFisico}%</p></div>
-                      <div><span className="text-muted-foreground">Financiero</span><p className="font-semibold text-foreground">{p.avanceFinanciero}%</p></div>
-                      <div><span className="text-muted-foreground">Provisión/sem</span><p className="font-semibold text-foreground">{formatCurrency(p.provisionSemanal)}</p></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="sozu-kpi-card !p-8 text-center">
+            <HardHat className="w-10 h-10 text-muted-foreground mx-auto mb-3" strokeWidth={1.25} />
+            <h3 className="text-[15px] font-semibold text-foreground mb-1">Flujo y Obra</h3>
+            <p className="text-[13px] text-muted-foreground max-w-md mx-auto">
+              Los datos de provisión de obra y flujo semanal aún no están disponibles en la base de datos.
+              Esta sección se activará cuando se integren las tablas de avance físico y financiero.
+            </p>
           </div>
         </div>
       )}
@@ -206,74 +212,77 @@ export default function CobranzaDashboard() {
       {activeTab === 'riesgo' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <FinKPICard label="1 Parc. Vencida" value={String(kpi.accounts1Overdue)} icon={AlertTriangle} sub="Preventivo" />
-            <FinKPICard label="2 Parc. Vencidas" value={String(kpi.accounts2Overdue)} icon={AlertTriangle} variant="danger" />
-            <FinKPICard label="3+ Parc. / Prelegal" value={String(kpi.accounts3PlusOverdue)} icon={Shield} variant="danger" />
-            <FinKPICard label="Alertas PLD" value={String(pldAlerts)} icon={Shield} variant={pldAlerts > 0 ? 'danger' : undefined} />
+            <FinKPICard label="1 Parc. Vencida" value={String(cuentas1)} icon={AlertTriangle} sub="Preventivo" />
+            <FinKPICard label="2 Parc. Vencidas" value={String(cuentas2)} icon={AlertTriangle} variant="danger" />
+            <FinKPICard label="3+ Parc. / Prelegal" value={String(cuentas3Plus)} icon={Shield} variant="danger" />
+            <FinKPICard label="Total Morosas" value={String(totalMorosas)} icon={Shield} variant={totalMorosas > 200 ? 'danger' : undefined} />
           </div>
-          <div className="sozu-kpi-card">
-            <h2 className="sozu-section-title mb-3">Aging de Cartera</h2>
-            <div className="space-y-2">
-              {kpi.agingData.map(a => (
-                <div key={a.range} className="flex items-center gap-4">
-                  <span className="text-[13px] text-muted-foreground w-24">{a.range}</span>
-                  <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-danger rounded-full" style={{ width: `${(a.amount / kpi.overduePortfolio) * 100}%` }} />
+          {kpis.aging && kpis.aging.length > 0 && (
+            <div className="sozu-kpi-card">
+              <h2 className="sozu-section-title mb-3">Aging de Cartera</h2>
+              <div className="space-y-2">
+                {kpis.aging.map(a => (
+                  <div key={a.rango} className="flex items-center gap-4">
+                    <span className="text-[13px] text-muted-foreground w-24">{a.rango} días</span>
+                    <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-danger rounded-full"
+                        style={{ width: `${kpis.vencido_total > 0 ? (a.monto / kpis.vencido_total) * 100 : 0}%` }}
+                      />
+                    </div>
+                    <span className="text-[13px] font-semibold text-foreground w-28 text-right">{formatCurrency(a.monto)}</span>
+                    <span className="text-[12px] text-muted-foreground w-20 text-right">{a.cantidad} parc.</span>
                   </div>
-                  <span className="text-[13px] font-semibold text-foreground w-28 text-right">{formatCurrency(a.amount)}</span>
-                  <span className="text-[12px] text-muted-foreground w-16 text-right">{a.count} ctas</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {activeTab === 'cobranza' && (
         <div className="space-y-5">
-          <div className="sozu-kpi-card !p-0 overflow-hidden">
-            <div className="px-5 py-3 border-b border-border"><h2 className="sozu-section-title">Cobranza por Proyecto</h2></div>
-            <table className="w-full text-sm">
-              <thead className="sozu-thead"><tr><th>Proyecto</th><th className="text-right">Cobrado</th><th className="text-right">Por Cobrar</th><th className="text-right">Vencido</th><th className="text-center">%</th></tr></thead>
-              <tbody>
-                {fin.collectedByProject.map(p => (
-                  <tr key={p.project} className="sozu-table-row h-[52px]">
-                    <td className="px-4 text-[13px] font-medium text-foreground">{p.project}</td>
-                    <td className="px-4 text-right text-[13px] text-success font-semibold tabular-nums">{formatCurrency(p.collected)}</td>
-                    <td className="px-4 text-right text-[13px] text-foreground tabular-nums">{formatCurrency(p.toCollect)}</td>
-                    <td className="px-4 text-right text-[13px] text-danger font-semibold tabular-nums">{formatCurrency(p.overdue)}</td>
-                    <td className="px-4 text-center text-[13px] font-semibold text-foreground tabular-nums">{Math.round((p.collected / (p.collected + p.toCollect)) * 100)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {kpis.por_proyecto && kpis.por_proyecto.length > 0 ? (
+            <div className="sozu-kpi-card !p-0 overflow-hidden">
+              <div className="px-5 py-3 border-b border-border"><h2 className="sozu-section-title">Cobranza por Proyecto</h2></div>
+              <table className="w-full text-sm">
+                <thead className="sozu-thead">
+                  <tr><th>Proyecto</th><th className="text-right">Cobrado</th><th className="text-right">Pendiente</th><th className="text-right">Vencido</th><th className="text-center">%</th></tr>
+                </thead>
+                <tbody>
+                  {kpis.por_proyecto.map(p => {
+                    const total = p.cobrado + p.pendiente + p.vencido;
+                    const pct = total > 0 ? Math.round((p.cobrado / total) * 100) : 0;
+                    return (
+                      <tr key={p.proyecto_id} className="sozu-table-row h-[52px]">
+                        <td className="px-4 text-[13px] font-medium text-foreground">{p.proyecto}</td>
+                        <td className="px-4 text-right text-[13px] text-success font-semibold tabular-nums">{formatCurrency(p.cobrado)}</td>
+                        <td className="px-4 text-right text-[13px] text-foreground tabular-nums">{formatCurrency(p.pendiente)}</td>
+                        <td className="px-4 text-right text-[13px] text-danger font-semibold tabular-nums">{formatCurrency(p.vencido)}</td>
+                        <td className="px-4 text-center text-[13px] font-semibold text-foreground tabular-nums">{pct}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="sozu-kpi-card !p-8 text-center">
+              <p className="text-muted-foreground text-sm">No hay datos de proyectos disponibles.</p>
+            </div>
+          )}
         </div>
       )}
 
       {activeTab === 'operacion' && (
         <div className="space-y-5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <FinKPICard label="Casos Abiertos" value={String(8)} icon={Activity} />
-            <FinKPICard label="Fuera de SLA" value={String(fueraSLA)} icon={Clock} variant="danger" />
-            <FinKPICard label="CEPs Pendientes" value={String(cepsPending)} icon={CheckCircle2} />
-            <FinKPICard label="Doc. Incompleta" value={String(docIncomplete)} icon={AlertTriangle} />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {executives.map(exec => {
-              const accts = mockAccounts.filter(a => a.assignedExecutive === exec);
-              const overdue = accts.filter(a => a.overdueInstallments > 0).length;
-              return (
-                <div key={exec} className="sozu-kpi-card !p-4">
-                  <h3 className="text-[14px] font-semibold text-foreground mb-2">{exec}</h3>
-                  <div className="grid grid-cols-3 gap-3 text-[12px]">
-                    <div><span className="text-muted-foreground">Total cuentas</span><p className="text-lg font-semibold text-foreground">{accts.length}</p></div>
-                    <div><span className="text-muted-foreground">Con vencimiento</span><p className="text-lg font-semibold text-danger">{overdue}</p></div>
-                    <div><span className="text-muted-foreground">Al corriente</span><p className="text-lg font-semibold text-success">{accts.length - overdue}</p></div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="sozu-kpi-card !p-8 text-center">
+            <Activity className="w-10 h-10 text-muted-foreground mx-auto mb-3" strokeWidth={1.25} />
+            <h3 className="text-[15px] font-semibold text-foreground mb-1">Operación y SLA</h3>
+            <p className="text-[13px] text-muted-foreground max-w-md mx-auto">
+              No hay datos de ejecutivos asignados, SLA ni bitácora disponibles aún.
+              Esta sección se activará cuando se integren las tablas correspondientes.
+            </p>
           </div>
         </div>
       )}
