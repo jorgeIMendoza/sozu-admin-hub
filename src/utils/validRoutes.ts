@@ -111,8 +111,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/portal-cobranza/comunicacion/ejecuciones',
   '/admin/portal-cobranza/comunicacion/plantillas',
   '/admin/portal-cobranza/inputs-obra',
-  '/admin/portal-cobranza/reportes/inventarios',
-  '/admin/portal-cobranza/reportes/finanzas',
+  '/admin/portal-cobranza/reportes',
   '/admin/portal-cobranza/configuracion',
 ]);
 
