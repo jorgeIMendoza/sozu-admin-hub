@@ -1,51 +1,66 @@
 
 
-## Plan: Agregar campos de Representante Legal al formulario de registro
+## Plan: Migrar Dashboard de Cobranza a datos reales
 
-### Problema
-El formulario actual solo captura datos de la inmobiliaria (nombre, email, teléfono) y envía los mismos valores para el representante legal. Esto causa el error de `personas_email_key` cuando ambos emails son iguales, y además el representante legal se crea con el nombre de la empresa en vez del nombre de una persona física.
+### Resumen
+Reemplazar los datos mock del Dashboard por queries reales a Supabase. Los datos existen y son abundantes: ~1,400 cuentas activas, ~$127M en cartera vencida, ~$1,142M cobrados históricamente, 3 proyectos activos.
 
-### Cambios
+### Datos disponibles confirmados en BD
+| KPI | Valor real |
+|---|---|
+| Cobrado total | $1,142M |
+| Vencido total | $127.7M |
+| Pendiente futuro | $336.5M |
+| Cobrado mes actual | $2.2M |
+| Programado mes | $17.1M |
+| Parcialidades vencidas | 1,711 |
+| Cuentas con 1 vencida | 364 |
+| Cuentas con 2 vencidas | 83 |
+| Cuentas con 3+ vencidas | 184 |
+| Aging +90 días | $102.7M (985 parcialidades) |
+| Proyectos | Margot, Bottura, Daiku |
+| Pagos últimos 12 meses | Datos mensuales disponibles |
 
-**Archivo: `src/pages/public/RegistroInmobiliaria.tsx`**
+### Datos NO disponibles (se omiten o muestran "—")
+- Ejecutivos asignados (no hay campo) → Tab "Operación" mostrará estado vacío
+- Documentación/PLD/Legal → Se ocultan del dashboard
+- Provisión de obra → Tab "Flujo y Obra" permanece con datos ilustrativos o vacío
+- Promesas de pago → No hay tabla específica
 
-1. Agregar campos al estado del formulario:
-   - `nombre_representante` (texto, obligatorio)
-   - `email_representante` (email, obligatorio)
-   - `telefono_representante` (10 dígitos, obligatorio)
-   - `clave_pais_telefono_representante` (selector MX/US)
+### Pasos de implementación
 
-2. Agregar sección "Representante Legal" en el formulario, justo después del campo "Nombre Comercial", con:
-   - Input "Nombre completo del Representante Legal"
-   - Input "Email del Representante Legal"
-   - Selector de país + Input "Teléfono del Representante Legal"
+**1. Crear hook `useCobranzaDashboard`** (`src/hooks/useCobranzaDashboard.ts`)
+- Query 1: KPIs globales (programado mes, cobrado mes, vencido total, pendiente)
+- Query 2: Cobrado vs meta por mes (últimos 12 meses desde `pagos`)
+- Query 3: Cobranza por proyecto (cobrado, por cobrar, vencido por proyecto)
+- Query 4: Aging de cartera (1-30, 31-60, 61-90, +90 días)
+- Query 5: Cuentas por parcialidades vencidas (1, 2, 3+)
+- Query 6: Lista de proyectos y entidades para filtros
+- Todas las queries usan `supabase.rpc()` o queries directas con JOINs
+- Soporta filtros por proyecto y periodo
 
-3. Validaciones:
-   - Todos los campos del representante son obligatorios
-   - El email del representante **no puede ser igual** al email de la inmobiliaria (validación client-side con mensaje claro)
-   - Teléfono de 10 dígitos
+**2. Crear RPC `get_dashboard_cobranza_kpis`** (migración SQL)
+- Una sola función que retorna todos los KPIs en un JSON para reducir roundtrips
+- Parámetros: `p_proyecto_id`, `p_fecha_inicio`, `p_fecha_fin`
+- Retorna: programado, cobrado, por cobrar, vencido, aging, cuentas por morosidad, cobranza por proyecto, cobrado mensual
 
-4. Actualizar el `mutationFn` para enviar los datos del representante por separado:
-   ```typescript
-   representante_legal: {
-     nombre_legal: formData.nombre_representante,
-     email: formData.email_representante,
-     telefono: formData.telefono_representante,
-     clave_pais_telefono: formData.clave_pais_telefono_representante,
-   }
-   ```
+**3. Modificar `CobranzaDashboard.tsx`**
+- Reemplazar imports de `mockKPIs`, `mockFinancialMetrics`, `mockAccounts`, etc.
+- Usar el hook con estados de loading/error
+- Tab **Resumen**: KPIs reales, alertas reales, gráfica de cobrado vs mes
+- Tab **Riesgo y Cartera**: Aging real, cuentas por morosidad real
+- Tab **Cobranza por Proyecto**: Tabla con datos reales de Margot/Bottura/Daiku
+- Tab **Flujo y Obra**: Mostrar mensaje "Datos de obra no disponibles" o mantener estructura vacía
+- Tab **Operación**: Mostrar "Sin ejecutivos asignados" en lugar de mock
+- Filtros de proyecto y entidad cargan dinámicamente
 
-**Archivo: `supabase/functions/registro-inmobiliaria-publica/index.ts`**
+**4. Ajustes menores**
+- Actualizar el subtítulo de fecha dinámica ("Abril 2026" → mes actual)
+- Recovery rate calculado como (cobrado_mes / programado_mes * 100)
+- Acciones prioritarias usan conteos reales
 
-5. Agregar validación server-side para que el email del representante legal no sea igual al de la inmobiliaria (línea ~70):
-   ```typescript
-   if (inmobiliariaEmailLower === repLegalEmailLower) {
-     return error: "El email del representante legal no puede ser el mismo que el de la inmobiliaria"
-   }
-   ```
-
-6. También validar el email del representante legal contra la tabla `personas` (actualmente solo se valida el email de la inmobiliaria en líneas 80-96), para evitar duplicados con personas existentes.
-
-### Diseño visual
-Se mantiene el mismo estilo del formulario actual (clases `login-input`, `login-btn-primary`, etc.). La sección de representante legal tendrá un separador sutil y un título "Representante Legal" para diferenciarla visualmente.
+### Archivos a crear/modificar
+- **Crear**: `src/hooks/useCobranzaDashboard.ts`
+- **Crear**: Migración SQL para RPC `get_dashboard_cobranza_kpis`
+- **Modificar**: `src/pages/admin/portal-cobranza/CobranzaDashboard.tsx`
 
