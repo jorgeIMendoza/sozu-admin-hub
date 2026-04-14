@@ -1,51 +1,72 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { mockCEPRecords, cepStatusLabels, type CEPStatus } from '@/data/cobranza/mockDataExtended';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useRelacionPagos, type PagoRecord } from '@/hooks/useRelacionPagos';
 import { formatCurrency, formatDate } from '@/components/cobranza/StatusBadges';
 import { ActiveFilterBanner } from '@/components/cobranza/ActiveFilterBanner';
-import { Search, X, FileCheck, Upload, Eye, UserCheck, Clock, AlertTriangle, CheckCircle2, FileX } from 'lucide-react';
+import {
+  Search, X, FileCheck, Upload, Eye, UserCheck, Clock, AlertTriangle,
+  CheckCircle2, FileX, Loader2, DollarSign, ChevronLeft, ChevronRight,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useNavigate } from 'react-router-dom';
 
-const cepStatusConfig: Record<CEPStatus, { bg: string; text: string }> = {
-  pendiente_busqueda: { bg: 'bg-warning-bg', text: 'text-warning' },
-  en_investigacion: { bg: 'bg-info-bg', text: 'text-info' },
-  validado: { bg: 'bg-success-bg', text: 'text-success' },
-  no_aplica: { bg: 'bg-muted', text: 'text-muted-foreground' },
-  requiere_evidencia: { bg: 'bg-warning-bg', text: 'text-warning' },
-};
+const PAGE_SIZE = 100;
+
+const PROYECTOS = [
+  { id: 2, nombre: 'Bottura' },
+  { id: 1453, nombre: 'Daiku' },
+  { id: 1743, nombre: 'Margot' },
+];
+
+const METODOS_PAGO = [
+  'STP', 'Transferencia bancaria', 'Cheque', 'Efectivo',
+  'Tarjeta de crédito', 'Tarjeta de débito', 'STP-manual', 'Cesión de derechos',
+];
 
 export default function CEPsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [statusFilter, setStatusFilter] = useState<CEPStatus | 'all'>(() => (searchParams.get('estatus') as CEPStatus) || 'all');
+  const [projectFilter, setProjectFilter] = useState<number | null>(() => {
+    const p = searchParams.get('proyecto');
+    return p ? parseInt(p) : null;
+  });
+  const [metodoPagoFilter, setMetodoPagoFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCEP, setSelectedCEP] = useState<typeof mockCEPRecords[0] | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedCEP, setSelectedCEP] = useState<PagoRecord | null>(null);
+
+  // Always filter for payments WITHOUT CEP
+  const { pagos, total, isLoading, error } = useRelacionPagos({
+    proyectoId: projectFilter,
+    metodoPago: metodoPagoFilter,
+    search: searchQuery,
+    hasCep: false,
+    page,
+    pageSize: PAGE_SIZE,
+  });
 
   const clearAllFilters = useCallback(() => {
-    setStatusFilter('all');
+    setProjectFilter(null);
+    setMetodoPagoFilter(null);
     setSearchQuery('');
+    setPage(1);
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
-  const filtered = useMemo(() => {
-    let records = [...mockCEPRecords];
-    if (statusFilter !== 'all') records = records.filter(r => r.status === statusFilter);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      records = records.filter(r => r.clientName.toLowerCase().includes(q) || r.reference.toLowerCase().includes(q));
-    }
-    return records;
-  }, [statusFilter, searchQuery]);
+  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || searchQuery;
+  const totalAmount = useMemo(() => pagos.reduce((s, r) => s + Number(r.monto), 0), [pagos]);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const stats = {
-    pendientes: mockCEPRecords.filter(r => r.status === 'pendiente_busqueda').length,
-    investigacion: mockCEPRecords.filter(r => r.status === 'en_investigacion').length,
-    validados: mockCEPRecords.filter(r => r.status === 'validado').length,
-    requiereEvidencia: mockCEPRecords.filter(r => r.status === 'requiere_evidencia').length,
-  };
-
-  const hasFilters = statusFilter !== 'all' || searchQuery;
+  // Group by proyecto for quick stats
+  const byProyecto = useMemo(() => {
+    const map: Record<string, { count: number; amount: number }> = {};
+    pagos.forEach(r => {
+      const key = r.proyecto || 'Sin proyecto';
+      if (!map[key]) map[key] = { count: 0, amount: 0 };
+      map[key].count++;
+      map[key].amount += Number(r.monto);
+    });
+    return map;
+  }, [pagos]);
 
   return (
     <div className="flex h-full -m-5">
@@ -54,23 +75,30 @@ export default function CEPsPage() {
           <div>
             <h1 className="sozu-page-title">CEPs Pendientes</h1>
             <div className="flex items-center gap-3 mt-0.5 text-[13px]">
-              <span className="text-muted-foreground">{mockCEPRecords.length} registros</span>
-              <span className="text-warning font-medium">{stats.pendientes} pendientes</span>
-              <span className="text-info font-medium">{stats.investigacion} en investigación</span>
-              <span className="text-success">{stats.validados} validados</span>
-              <span className="text-warning">{stats.requiereEvidencia} requiere evidencia</span>
+              <span className="text-warning font-medium">{total.toLocaleString()} pagos sin CEP</span>
+              {pagos.length > 0 && (
+                <span className="text-muted-foreground">Página: {formatCurrency(totalAmount)}</span>
+              )}
+              {Object.entries(byProyecto).map(([proy, d]) => (
+                <span key={proy} className="text-muted-foreground">{proy}: {d.count}</span>
+              ))}
             </div>
           </div>
           <ActiveFilterBanner onClear={clearAllFilters} />
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
-              <input type="text" placeholder="Buscar cliente o referencia..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+              <input type="text" placeholder="Nombre, CLABE o clave rastreo..." value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                 className="w-full h-[38px] pl-9 pr-3 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all duration-150" />
             </div>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} className="sozu-filter-select">
-              <option value="all">Estatus</option>
-              {Object.entries(cepStatusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            <select value={projectFilter ?? 'all'} onChange={e => { setProjectFilter(e.target.value === 'all' ? null : parseInt(e.target.value)); setPage(1); }} className="sozu-filter-select">
+              <option value="all">Proyecto</option>
+              {PROYECTOS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </select>
+            <select value={metodoPagoFilter ?? 'all'} onChange={e => { setMetodoPagoFilter(e.target.value === 'all' ? null : e.target.value); setPage(1); }} className="sozu-filter-select">
+              <option value="all">Método de pago</option>
+              {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             {hasFilters && (
               <button onClick={clearAllFilters}
@@ -82,51 +110,86 @@ export default function CEPsPage() {
         </div>
 
         <div className="flex-1 overflow-auto">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-16">
+              <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mx-auto" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-16">
+              <AlertTriangle className="w-6 h-6 text-danger mx-auto mb-2" />
+              <p className="text-sm text-danger">{error}</p>
+            </div>
+          ) : pagos.length === 0 ? (
             <div className="text-center py-16">
               <FileCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" strokeWidth={1.5} />
-              <p className="text-sm text-muted-foreground mb-1">No se encontraron CEPs con estos filtros</p>
-              <button onClick={clearAllFilters} className="text-[13px] text-primary hover:underline">Limpiar filtros</button>
+              <p className="text-sm text-muted-foreground mb-1">No se encontraron CEPs pendientes</p>
+              {hasFilters && <button onClick={clearAllFilters} className="text-[13px] text-primary hover:underline">Limpiar filtros</button>}
             </div>
           ) : (
-          <table className="w-full text-sm">
-            <thead className="sozu-thead">
-              <tr>
-                <th>Fecha Pago</th>
-                <th>Cliente</th>
-                <th>Proyecto</th>
-                <th className="text-right">Monto</th>
-                <th>Referencia</th>
-                <th className="text-center">Banxico</th>
-                <th>Asignado</th>
-                <th className="text-center">Estatus</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r => {
-                const sc = cepStatusConfig[r.status];
-                return (
-                  <tr key={r.id} className={cn('sozu-table-row h-[52px]', selectedCEP?.id === r.id && 'bg-primary-muted')} onClick={() => setSelectedCEP(r)}>
-                    <td className="px-4 text-[13px] text-muted-foreground tabular-nums">{formatDate(r.paymentDate)}</td>
-                    <td className="px-4">
-                      <p className="text-[13px] font-medium text-foreground">{r.clientName}</p>
-                      <p className="text-[11px] text-muted-foreground font-mono">{r.accountId}</p>
-                    </td>
-                    <td className="px-4 text-[13px] text-foreground">{r.projectName}</td>
-                    <td className="px-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(r.amount)}</td>
-                    <td className="px-4 font-mono text-[11px] text-muted-foreground">{r.reference || '—'}</td>
-                    <td className="px-4 text-center">
-                      {r.requiresBanxico
-                        ? <AlertTriangle className="w-4 h-4 text-warning mx-auto" strokeWidth={1.75} />
-                        : <span className="text-[11px] text-muted-foreground">—</span>}
-                    </td>
-                    <td className="px-4 text-[13px] text-muted-foreground">{r.assignee}</td>
-                    <td className="px-4 text-center"><span className={cn('sozu-chip', sc.bg, sc.text)}>{cepStatusLabels[r.status]}</span></td>
+            <>
+              <table className="w-full text-sm">
+                <thead className="sozu-thead">
+                  <tr>
+                    <th>Fecha Pago</th>
+                    <th>Cliente</th>
+                    <th>Proyecto</th>
+                    <th>Método</th>
+                    <th className="text-right">Monto</th>
+                    <th>Clave rastreo</th>
+                    <th>CLABE</th>
+                    <th className="text-center">Aplicado</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {pagos.map(r => (
+                    <tr key={r.pago_id} className={cn('sozu-table-row h-[52px] cursor-pointer', selectedCEP?.pago_id === r.pago_id && 'bg-primary-muted')}
+                      onClick={() => setSelectedCEP(r)}>
+                      <td className="px-4 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">{formatDate(r.fecha_pago)}</td>
+                      <td className="px-4">
+                        <p className="text-[13px] font-medium text-foreground truncate max-w-[180px]">{r.cliente || 'Sin identificar'}</p>
+                        {r.num_propiedad && <p className="text-[11px] text-muted-foreground">Prop. {r.num_propiedad}</p>}
+                      </td>
+                      <td className="px-4 text-[13px] text-foreground">{r.proyecto || '—'}</td>
+                      <td className="px-4">
+                        <span className={cn('sozu-chip text-[10px]',
+                          r.metodo_pago === 'STP' ? 'bg-info/10 text-info' :
+                          r.metodo_pago === 'Transferencia bancaria' ? 'bg-primary/10 text-primary' :
+                          'bg-muted text-muted-foreground'
+                        )}>{r.metodo_pago || '—'}</span>
+                      </td>
+                      <td className="px-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(Number(r.monto))}</td>
+                      <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[160px]">{r.clave_rastreo || '—'}</td>
+                      <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">{r.clabe_stp || '—'}</td>
+                      <td className="px-4 text-center">
+                        {r.num_aplicaciones > 0
+                          ? <span className="sozu-chip bg-success-bg text-success text-[10px]">{r.num_aplicaciones}</span>
+                          : <span className="text-[11px] text-muted-foreground">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <p className="text-[12px] text-muted-foreground">
+                    Mostrando {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} de {total.toLocaleString()}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                      className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30 transition-colors">
+                      <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
+                    </button>
+                    <span className="text-[12px] text-muted-foreground px-2">Pág. {page} / {totalPages}</span>
+                    <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+                      className="p-1.5 rounded-md hover:bg-muted disabled:opacity-30 transition-colors">
+                      <ChevronRight className="w-4 h-4" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -135,42 +198,36 @@ export default function CEPsPage() {
       {selectedCEP && (
         <div className="w-[380px] shrink-0 bg-card border-l border-border flex flex-col animate-slide-in-right">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-            <h3 className="text-[14px] font-semibold text-foreground">Detalle CEP</h3>
+            <h3 className="text-[14px] font-semibold text-foreground">Detalle CEP Pendiente</h3>
             <button onClick={() => setSelectedCEP(null)} className="p-1.5 rounded-md hover:bg-muted transition-colors"><X className="w-4 h-4" strokeWidth={1.75} /></button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            <span className={cn('sozu-chip', cepStatusConfig[selectedCEP.status].bg, cepStatusConfig[selectedCEP.status].text)}>
-              {cepStatusLabels[selectedCEP.status]}
-            </span>
+            <span className="sozu-chip bg-warning-bg text-warning">Sin CEP</span>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-              <InfoItem label="Cliente" value={selectedCEP.clientName} />
-              <InfoItem label="Proyecto" value={selectedCEP.projectName} />
-              <InfoItem label="Cuenta" value={selectedCEP.accountId} />
-              <InfoItem label="Monto" value={formatCurrency(selectedCEP.amount)} />
-              <InfoItem label="Referencia" value={selectedCEP.reference || '—'} />
-              <InfoItem label="Fecha Pago" value={formatDate(selectedCEP.paymentDate)} />
-              <InfoItem label="Asignado" value={selectedCEP.assignee} />
-              <InfoItem label="Actualizado" value={formatDate(selectedCEP.lastUpdated)} />
+              <InfoItem label="Cliente" value={selectedCEP.cliente || 'Sin identificar'} />
+              <InfoItem label="Proyecto" value={selectedCEP.proyecto || '—'} />
+              <InfoItem label="Cuenta" value={String(selectedCEP.id_cuenta_cobranza)} />
+              <InfoItem label="Monto" value={formatCurrency(Number(selectedCEP.monto))} />
+              <InfoItem label="Clave rastreo" value={selectedCEP.clave_rastreo || '—'} />
+              <InfoItem label="Fecha Pago" value={formatDate(selectedCEP.fecha_pago)} />
+              <InfoItem label="Método" value={selectedCEP.metodo_pago || '—'} />
+              <InfoItem label="CLABE" value={selectedCEP.clabe_stp || '—'} />
+              <InfoItem label="Propiedad" value={selectedCEP.num_propiedad || '—'} />
+              <InfoItem label="Aplicaciones" value={selectedCEP.num_aplicaciones > 0 ? `${selectedCEP.num_aplicaciones} (${formatCurrency(Number(selectedCEP.monto_aplicado))})` : 'Sin aplicar'} />
             </div>
-            {selectedCEP.requiresBanxico && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-warning-bg text-warning text-[12px] font-medium">
-                <AlertTriangle className="w-3.5 h-3.5" strokeWidth={1.75} />
-                Requiere búsqueda en Banxico
+            {selectedCEP.descripcion && (
+              <div>
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Descripción</p>
+                <p className="text-[13px] text-muted-foreground">{selectedCEP.descripcion}</p>
               </div>
             )}
-            <div>
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Observaciones</p>
-              <p className="text-[13px] text-muted-foreground">{selectedCEP.observations}</p>
-            </div>
             <div className="pt-1 space-y-2">
               <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Acciones</p>
               <div className="grid grid-cols-2 gap-1.5">
                 <ActionBtn icon={Upload} label="Adjuntar CEP" />
                 <ActionBtn icon={FileCheck} label="Marcar validado" variant="success" />
-                <ActionBtn icon={UserCheck} label="Reasignar" />
-                <ActionBtn icon={Eye} label="Ver expediente" onClick={() => navigate(`/cuenta/${selectedCEP.accountId}`)} />
-                <ActionBtn icon={FileX} label="No localizado" variant="destructive" />
-                <ActionBtn icon={Clock} label="En investigación" />
+                <ActionBtn icon={Eye} label="Ver expediente" onClick={() => navigate(`/cuenta/${selectedCEP.id_cuenta_cobranza}`)} />
+                <ActionBtn icon={FileX} label="No aplica" variant="destructive" />
               </div>
             </div>
           </div>
@@ -181,7 +238,7 @@ export default function CEPsPage() {
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-[13px] font-medium text-foreground">{value}</p></div>;
+  return <div><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-[13px] font-medium text-foreground break-all">{value}</p></div>;
 }
 
 function ActionBtn({ icon: Icon, label, variant, onClick }: { icon: React.ElementType; label: string; variant?: string; onClick?: () => void }) {
