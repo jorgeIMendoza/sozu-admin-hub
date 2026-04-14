@@ -159,7 +159,8 @@ const CobranzaEnviarAvisos = lazyRetry(() => import("./pages/admin/portal-cobran
 const CobranzaEjecuciones = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaEjecuciones"));
 const CobranzaPlantillas = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaPlantillas"));
 const CobranzaInputsObra = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaInputsObra"));
-const CobranzaReportes = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaReportes"));
+const CobranzaReportesInventarios = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaReportesInventarios"));
+const CobranzaReportesFinanzas = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaReportesFinanzas"));
 const CobranzaConfiguracion = lazyRetry(() => import("./pages/admin/portal-cobranza/CobranzaConfiguracion"));
 
 const Registro = lazyRetry(() => import("./pages/public/Registro"));
@@ -450,7 +451,8 @@ const App = () => (
                   <Route path="portal-cobranza/comunicacion/ejecuciones" element={<CobranzaEjecuciones />} />
                   <Route path="portal-cobranza/comunicacion/plantillas" element={<CobranzaPlantillas />} />
                   <Route path="portal-cobranza/inputs-obra" element={<CobranzaInputsObra />} />
-                  <Route path="portal-cobranza/reportes" element={<CobranzaReportes />} />
+                  <Route path="portal-cobranza/reportes/inventarios" element={<CobranzaReportesInventarios />} />
+                  <Route path="portal-cobranza/reportes/finanzas" element={<CobranzaReportesFinanzas />} />
                   <Route path="portal-cobranza/configuracion" element={<CobranzaConfiguracion />} />
                 </Route>
                 
