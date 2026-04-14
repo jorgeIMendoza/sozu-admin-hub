@@ -216,9 +216,13 @@ export const AdminSidebar = ({ isOpen, onClose, currentPath }: AdminSidebarProps
                         to={item.href}
                         className={cn(
                           "flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors font-medium border",
-                          currentPath.startsWith(item.href.split('/').slice(0, -1).join('/'))
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-accent/60 border-border hover:bg-accent hover:border-primary/40 text-foreground"
+                          item.isRestrictedPortal
+                            ? currentPath.startsWith(item.href.split('/').slice(0, -1).join('/'))
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-400 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                            : currentPath.startsWith(item.href.split('/').slice(0, -1).join('/'))
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-accent/60 border-border hover:bg-accent hover:border-primary/40 text-foreground"
                         )}
                         onClick={onClose}
                       >
