@@ -120,6 +120,7 @@ export default function CobranzaDashboard() {
     ? Math.round((kpis.cobrado_mes / kpis.programado_mes) * 100)
     : 0;
   const porCobrarMes = (kpis?.programado_mes ?? 0) - (kpis?.cobrado_mes ?? 0);
+  const porCobrarMesSinCe = (kpis?.programado_mes_sin_ce ?? 0) - (kpis?.cobrado_mes ?? 0);
 
   const riskLevel = cuentas3Plus >= 100 ? 'Crítico' : cuentas3Plus >= 50 ? 'Alto riesgo' : totalMorosas > 200 ? 'Controlado con riesgo' : 'Controlado';
   const riskColor = cuentas3Plus >= 100 ? 'text-priority-purple' : cuentas3Plus >= 50 ? 'text-danger' : totalMorosas > 200 ? 'text-warning' : 'text-success';
@@ -183,11 +184,11 @@ export default function CobranzaDashboard() {
       {activeTab === 'resumen' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <FinKPICard label={`Programado — ${period}`} value={formatCurrency(kpis.programado_mes)} icon={Calendar} sub={periodLabel} />
+            <FinKPICard label={`Programado — ${period}`} value={formatCurrency(kpis.programado_mes_sin_ce)} icon={Calendar} sub="Sin contraentrega" secondaryValue={formatCurrency(kpis.programado_mes)} secondarySub="Con contraentrega" />
             <FinKPICard label={`Cobrado — ${period}`} value={formatCurrency(kpis.cobrado_mes)} icon={DollarSign} sub={periodLabel} />
             <FinKPICard label="% Cumplimiento" value={`${cumplimiento}%`} icon={Target} trend={cumplimiento >= 90 ? 'En meta' : 'Bajo meta'} trendUp={cumplimiento >= 90} />
-            <FinKPICard label={`Por Cobrar — ${period}`} value={formatCurrency(Math.max(porCobrarMes, 0))} icon={BarChart3} sub={periodLabel} />
-            <FinKPICard label="Saldo Vencido" value={formatCurrency(kpis.vencido_total)} icon={AlertTriangle} variant="danger" onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
+            <FinKPICard label={`Por Cobrar — ${period}`} value={formatCurrency(Math.max(porCobrarMesSinCe, 0))} icon={BarChart3} sub="Sin contraentrega" secondaryValue={formatCurrency(Math.max(porCobrarMes, 0))} secondarySub="Con contraentrega" />
+            <FinKPICard label="Saldo Vencido" value={formatCurrency(kpis.vencido_total_sin_ce)} icon={AlertTriangle} variant="danger" sub="Sin contraentrega" secondaryValue={formatCurrency(kpis.vencido_total)} secondarySub="Con contraentrega" onClick={() => drill(navigate, '/bandeja', { preset: 'critical' })} />
             <FinKPICard label="Recovery Rate" value={`${recoveryRate}%`} icon={TrendingUp} sub={periodLabel} />
           </div>
 
@@ -341,9 +342,10 @@ export default function CobranzaDashboard() {
   );
 }
 
-function FinKPICard({ label, value, icon: Icon, sub, trend, trendUp, variant, onClick }: {
+function FinKPICard({ label, value, icon: Icon, sub, trend, trendUp, variant, onClick, secondaryValue, secondarySub }: {
   label: string; value: string; icon: React.ElementType; sub?: string; trend?: string;
   trendUp?: boolean; variant?: 'danger'; onClick?: () => void;
+  secondaryValue?: string; secondarySub?: string;
 }) {
   return (
     <div className={cn('sozu-kpi-card !p-4', onClick && 'cursor-pointer hover:border-primary/30')} onClick={onClick}>
@@ -354,6 +356,12 @@ function FinKPICard({ label, value, icon: Icon, sub, trend, trendUp, variant, on
       <p className={cn('text-lg font-semibold tabular-nums', variant === 'danger' ? 'text-danger' : 'text-foreground')}>{value}</p>
       {trend && <span className={cn('text-[11px] font-medium', trendUp ? 'text-success' : 'text-danger')}>{trend}</span>}
       {sub && !trend && <span className="text-[10px] text-muted-foreground">{sub}</span>}
+      {secondaryValue && (
+        <div className="mt-1.5 pt-1.5 border-t border-border/50">
+          <p className={cn('text-[13px] tabular-nums text-muted-foreground')}>{secondaryValue}</p>
+          {secondarySub && <span className="text-[9px] text-muted-foreground/70">{secondarySub}</span>}
+        </div>
+      )}
     </div>
   );
 }

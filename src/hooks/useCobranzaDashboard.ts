@@ -6,9 +6,11 @@ import { useCobranzaImpersonation } from '@/contexts/CobranzaImpersonationContex
 export interface DashboardKPIs {
   cobrado_total: number;
   vencido_total: number;
+  vencido_total_sin_ce: number;
   pendiente_total: number;
   cobrado_mes: number;
   programado_mes: number;
+  programado_mes_sin_ce: number;
   recovery_rate: number;
   aging: { rango: string; monto: number; cantidad: number }[] | null;
   morosidad: { grupo: string; cuentas: number }[] | null;
