@@ -119,8 +119,8 @@ export default function CobranzaDashboard() {
   const cumplimiento = kpis && kpis.programado_mes > 0
     ? Math.round((kpis.cobrado_mes / kpis.programado_mes) * 100)
     : 0;
-  const porCobrarMes = (kpis?.programado_mes ?? 0) - (kpis?.cobrado_mes ?? 0);
-  const porCobrarMesSinCe = (kpis?.programado_mes_sin_ce ?? 0) - (kpis?.cobrado_mes ?? 0);
+  const porCobrarMes = kpis?.por_cobrar_mes ?? 0;
+  const porCobrarMesSinCe = kpis?.por_cobrar_mes_sin_ce ?? 0;
 
   const riskLevel = cuentas3Plus >= 100 ? 'Crítico' : cuentas3Plus >= 50 ? 'Alto riesgo' : totalMorosas > 200 ? 'Controlado con riesgo' : 'Controlado';
   const riskColor = cuentas3Plus >= 100 ? 'text-priority-purple' : cuentas3Plus >= 50 ? 'text-danger' : totalMorosas > 200 ? 'text-warning' : 'text-success';
