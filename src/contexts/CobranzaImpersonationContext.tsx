@@ -4,7 +4,8 @@ interface CobranzaImpersonationContextType {
   impersonatedEmail: string | null;
   impersonatedName: string | null;
   impersonatedPersonaId: number | null;
-  setImpersonated: (email: string, name: string, personaId: number) => void;
+  impersonatedRoleId: number | null;
+  setImpersonated: (email: string, name: string, personaId: number | null, roleId: number | null) => void;
   clearImpersonation: () => void;
   isImpersonating: boolean;
 }
@@ -13,7 +14,8 @@ const CobranzaImpersonationContext = createContext<CobranzaImpersonationContextT
   impersonatedEmail: null,
   impersonatedName: null,
   impersonatedPersonaId: null,
-  setImpersonated: () => {},
+  impersonatedRoleId: null,
+  setImpersonated: (_email: string, _name: string, _personaId: number | null, _roleId: number | null) => {},
   clearImpersonation: () => {},
   isImpersonating: false,
 });
@@ -22,17 +24,20 @@ export function CobranzaImpersonationProvider({ children }: { children: ReactNod
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [personaId, setPersonaId] = useState<number | null>(null);
+  const [roleId, setRoleId] = useState<number | null>(null);
 
-  const setImpersonated = (e: string, n: string, pid: number) => {
+  const setImpersonated = (e: string, n: string, pid: number | null, rid: number | null) => {
     setEmail(e);
     setName(n);
     setPersonaId(pid);
+    setRoleId(rid);
   };
 
   const clearImpersonation = () => {
     setEmail(null);
     setName(null);
     setPersonaId(null);
+    setRoleId(null);
   };
 
   return (
@@ -41,6 +46,7 @@ export function CobranzaImpersonationProvider({ children }: { children: ReactNod
         impersonatedEmail: email,
         impersonatedName: name,
         impersonatedPersonaId: personaId,
+        impersonatedRoleId: roleId,
         setImpersonated,
         clearImpersonation,
         isImpersonating: !!email,

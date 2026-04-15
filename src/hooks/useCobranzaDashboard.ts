@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCobranzaImpersonation } from '@/contexts/CobranzaImpersonationContext';
 
 export interface DashboardKPIs {
   cobrado_total: number;
@@ -36,16 +37,18 @@ export function useCobranzaDashboard(proyectoId?: number | null) {
  */
 export function useProyectosCobranza() {
   const { user, profile } = useAuth();
-  const email = user?.email;
-  const isSuperOrAdmin = profile?.rol_id === 1 || profile?.rol_id === 2;
+  const { impersonatedEmail, impersonatedRoleId, isImpersonating } = useCobranzaImpersonation();
+  const effectiveEmail = isImpersonating ? impersonatedEmail : user?.email;
+  const effectiveRoleId = isImpersonating ? impersonatedRoleId : profile?.rol_id;
+  const hasFullProjectAccess = effectiveRoleId === 1 || effectiveRoleId === 2;
 
   return useQuery({
-    queryKey: ['cobranza-proyectos-filtro', email, isSuperOrAdmin],
+    queryKey: ['cobranza-proyectos-filtro', effectiveEmail, effectiveRoleId, isImpersonating],
     queryFn: async () => {
-      if (!email) return [];
+      if (!effectiveEmail && !hasFullProjectAccess) return [];
 
-      if (isSuperOrAdmin) {
-        // Super Admin / Admin see all active projects
+      if (hasFullProjectAccess) {
+        // Effective Super Admin / Admin see all active projects
         const { data, error } = await supabase
           .from('proyectos')
           .select('id, nombre')
@@ -59,7 +62,7 @@ export function useProyectosCobranza() {
       const { data: accesos, error: accError } = await supabase
         .from('proyectos_acceso')
         .select('proyecto_id, proyectos!proyectos_acceso_proyecto_id_fkey(id, nombre)')
-        .eq('usuario_id', email)
+        .eq('usuario_id', effectiveEmail)
         .eq('activo', true) as any;
 
       if (accError) throw accError;
@@ -70,7 +73,7 @@ export function useProyectosCobranza() {
         .map((a: any) => ({ id: a.proyectos.id, nombre: a.proyectos.nombre }))
         .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
     },
-    enabled: !!email,
+    enabled: hasFullProjectAccess || !!effectiveEmail,
     staleTime: 30 * 60 * 1000,
   });
 }

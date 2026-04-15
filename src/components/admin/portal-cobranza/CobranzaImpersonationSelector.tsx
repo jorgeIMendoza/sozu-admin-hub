@@ -78,6 +78,7 @@ export function CobranzaImpersonationSelector() {
           email: u.email,
           personaId: u.personas?.id,
           nombre: u.personas?.nombre_comercial || u.personas?.nombre_legal || u.nombre || u.email,
+            rolId: u.rol_id,
           rol: u.roles?.nombre || "Sin rol",
         }))
         .sort((a: any, b: any) => a.nombre.localeCompare(b.nombre));
@@ -118,7 +119,7 @@ export function CobranzaImpersonationSelector() {
                     key={u.email}
                     value={`${u.nombre} ${u.email}`}
                     onSelect={() => {
-                      setImpersonated(u.email, u.nombre, u.personaId);
+                       setImpersonated(u.email, u.nombre, u.personaId ?? null, u.rolId ?? null);
                       setOpen(false);
                     }}
                   >

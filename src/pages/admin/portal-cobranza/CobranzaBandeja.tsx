@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { CobranzaProjectFilter } from '@/components/admin/portal-cobranza/CobranzaProjectFilter';
 import { useBandejaOperativa, type BandejaCuenta } from '@/hooks/useBandejaOperativa';
 import { useProyectosCobranza } from '@/hooks/useCobranzaDashboard';
 import { formatCurrency } from '@/components/admin/portal-cobranza/StatusBadges';
@@ -58,6 +59,12 @@ export default function BandejaOperativaPage() {
   });
   const { data: proyectos } = useProyectosCobranza();
 
+  useEffect(() => {
+    if (projectFilter !== null && proyectos && !proyectos.some((project) => project.id === projectFilter)) {
+      setProjectFilter(null);
+    }
+  }, [projectFilter, proyectos]);
+
   // Client-side priority filter
   const filtered = useMemo(() => {
     if (!cuentas) return [];
@@ -114,14 +121,12 @@ export default function BandejaOperativaPage() {
             <input type="text" placeholder="Nombre del cliente, CLABE..." value={searchQuery} onChange={e => handleSearch(e.target.value)}
               className="w-full h-[38px] pl-9 pr-3 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all duration-150" />
           </div>
-          <select
-            value={projectFilter ?? ''}
-            onChange={e => setProjectFilter(e.target.value ? Number(e.target.value) : null)}
-            className="sozu-filter-select"
-          >
-            <option value="">Todos los proyectos</option>
-            {(proyectos ?? []).map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <CobranzaProjectFilter
+            projects={proyectos ?? []}
+            value={projectFilter}
+            onChange={setProjectFilter}
+            className="w-[240px]"
+          />
           <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value as PriorityLevel | 'all')} className="sozu-filter-select">
             <option value="all">Prioridad</option>
             <option value="purple">3+ / Prelegal</option>

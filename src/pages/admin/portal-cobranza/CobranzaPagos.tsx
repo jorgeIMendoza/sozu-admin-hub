@@ -1,5 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { CobranzaProjectFilter } from '@/components/admin/portal-cobranza/CobranzaProjectFilter';
 import { useRelacionPagos, type PagoRecord } from '@/hooks/useRelacionPagos';
 import { useProyectosCobranza } from '@/hooks/useCobranzaDashboard';
 import { formatCurrency, formatDate } from '@/components/cobranza/StatusBadges';
@@ -20,7 +21,7 @@ const METODOS_PAGO = [
 export default function RelacionPagosPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: PROYECTOS = [] } = useProyectosCobranza();
+  const { data: proyectos } = useProyectosCobranza();
   const [projectFilter, setProjectFilter] = useState<number | null>(() => {
     const p = searchParams.get('proyecto');
     return p ? parseInt(p) : null;
@@ -59,6 +60,13 @@ export default function RelacionPagosPage() {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
+  useEffect(() => {
+    if (projectFilter !== null && proyectos && !proyectos.some((project) => project.id === projectFilter)) {
+      setProjectFilter(null);
+      setPage(1);
+    }
+  }, [projectFilter, proyectos]);
+
   return (
     <div className="space-y-5 animate-fade-in -m-5">
       <div className="sticky top-0 z-10 bg-background border-b border-border px-5 py-3 space-y-3">
@@ -87,10 +95,16 @@ export default function RelacionPagosPage() {
               onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full h-[38px] pl-9 pr-3 text-sm bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all duration-150" />
           </div>
-          <select value={projectFilter ?? 'all'} onChange={e => { setProjectFilter(e.target.value === 'all' ? null : parseInt(e.target.value)); setPage(1); }} className="sozu-filter-select">
-            <option value="all">Proyecto</option>
-            {PROYECTOS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
+          <CobranzaProjectFilter
+            projects={proyectos ?? []}
+            value={projectFilter}
+            onChange={(value) => {
+              setProjectFilter(value);
+              setPage(1);
+            }}
+            allLabel="Proyecto"
+            className="w-[240px]"
+          />
           <select value={metodoPagoFilter ?? 'all'} onChange={e => { setMetodoPagoFilter(e.target.value === 'all' ? null : e.target.value); setPage(1); }} className="sozu-filter-select">
             <option value="all">Método de pago</option>
             {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}

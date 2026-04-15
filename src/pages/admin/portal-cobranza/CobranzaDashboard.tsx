@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/components/admin/portal-cobranza/StatusBadges';
+import { CobranzaProjectFilter } from '@/components/admin/portal-cobranza/CobranzaProjectFilter';
 import { navigateWithFilters } from '@/lib/navigationFilters';
 import { useCobranzaDashboard, useProyectosCobranza } from '@/hooks/useCobranzaDashboard';
 import { format } from 'date-fns';
@@ -44,6 +45,12 @@ export default function CobranzaDashboard() {
     if (!proyectos) return null;
     return new Set(proyectos.map((p: any) => p.id as number));
   }, [proyectos]);
+
+  useEffect(() => {
+    if (selectedProyecto !== null && accessibleIds && !accessibleIds.has(selectedProyecto)) {
+      setSelectedProyecto(null);
+    }
+  }, [selectedProyecto, accessibleIds]);
 
   // Filter por_proyecto to only show accessible projects
   const filteredPorProyecto = useMemo(() => {
@@ -119,16 +126,13 @@ export default function CobranzaDashboard() {
           <select value={period} onChange={e => setPeriod(e.target.value)} className="sozu-filter-select">
             {periods.map(p => <option key={p}>{p}</option>)}
           </select>
-          <select
-            value={selectedProyecto ?? ''}
-            onChange={e => setSelectedProyecto(e.target.value ? Number(e.target.value) : null)}
-            className="sozu-filter-select"
-          >
-            <option value="">Todos los proyectos</option>
-            {(proyectos ?? []).map(p => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </select>
+          <CobranzaProjectFilter
+            projects={proyectos ?? []}
+            value={selectedProyecto}
+            onChange={setSelectedProyecto}
+            className="w-[300px]"
+            popoverAlign="end"
+          />
         </div>
       </div>
 
