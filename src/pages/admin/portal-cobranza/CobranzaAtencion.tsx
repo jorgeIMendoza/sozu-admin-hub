@@ -15,7 +15,7 @@ import { getBitacoraEntries, addBitacoraEntry, categoryLabels, type BitacoraEntr
 import { getAvisosForCase, getAvisosForAccount, getAvisosWithErrors, sendStatusConfig, sendStatusLabels, avisoCategoryLabels, errorTypeLabels, suggestedActionLabels, type AvisoRecord } from '@/data/cobranza/avisosData';
 import { BitacoraEntryModal } from '@/components/cobranza/BitacoraEntryModal';
 import { SendAvisoModal } from '@/components/cobranza/SendAvisoModal';
-import { formatDate } from '@/components/cobranza/StatusBadges';
+import { formatDate, formatCurrency } from '@/components/cobranza/StatusBadges';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -368,9 +368,9 @@ export default function InboxPage() {
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <span className="sozu-chip bg-muted text-muted-foreground">{clientAccountRoleLabels[role]}</span>
-                          <span>Vencido: ${account.overdueAmount.toLocaleString()}</span>
+                          <span>Vencido: {formatCurrency(account.overdueAmount)}</span>
                           <span>·</span>
-                          <span>Saldo: ${account.balance.toLocaleString()}</span>
+                          <span>Saldo: {formatCurrency(account.balance)}</span>
                         </div>
                       </button>
                     ))}
@@ -567,12 +567,12 @@ export default function InboxPage() {
                         <div>
                           <p className="text-muted-foreground">Vencido</p>
                           <p className={cn('font-medium', account.overdueAmount > 0 ? 'text-danger' : 'text-success')}>
-                            ${account.overdueAmount.toLocaleString()}
+                            {formatCurrency(account.overdueAmount)}
                           </p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">Saldo</p>
-                          <p className="text-foreground font-medium">${account.balance.toLocaleString()}</p>
+                          <p className="text-foreground font-medium">{formatCurrency(account.balance)}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
