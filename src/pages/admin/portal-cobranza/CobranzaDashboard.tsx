@@ -39,6 +39,19 @@ export default function CobranzaDashboard() {
 
   const mesActual = format(new Date(), "MMMM yyyy", { locale: es });
 
+  // Set of accessible project IDs (null = unrestricted)
+  const accessibleIds = useMemo(() => {
+    if (!proyectos) return null;
+    return new Set(proyectos.map((p: any) => p.id as number));
+  }, [proyectos]);
+
+  // Filter por_proyecto to only show accessible projects
+  const filteredPorProyecto = useMemo(() => {
+    if (!kpis?.por_proyecto) return [];
+    if (!accessibleIds) return kpis.por_proyecto;
+    return kpis.por_proyecto.filter(p => accessibleIds.has(p.proyecto_id));
+  }, [kpis?.por_proyecto, accessibleIds]);
+
   // Merge cobrado + programado mensual for chart
   const chartData = useMemo(() => {
     if (!kpis?.cobrado_mensual) return [];
@@ -242,7 +255,7 @@ export default function CobranzaDashboard() {
 
       {activeTab === 'cobranza' && (
         <div className="space-y-5">
-          {kpis.por_proyecto && kpis.por_proyecto.length > 0 ? (
+          {filteredPorProyecto.length > 0 ? (
             <div className="sozu-kpi-card !p-0 overflow-hidden">
               <div className="px-5 py-3 border-b border-border"><h2 className="sozu-section-title">Cobranza por Proyecto</h2></div>
               <table className="w-full text-sm">
@@ -250,7 +263,7 @@ export default function CobranzaDashboard() {
                   <tr><th>Proyecto</th><th className="text-right">Cobrado</th><th className="text-right">Pendiente</th><th className="text-right">Vencido</th><th className="text-center">%</th></tr>
                 </thead>
                 <tbody>
-                  {kpis.por_proyecto.map(p => {
+                  {filteredPorProyecto.map(p => {
                     const total = p.cobrado + p.pendiente + p.vencido;
                     const pct = total > 0 ? Math.round((p.cobrado / total) * 100) : 0;
                     return (
