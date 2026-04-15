@@ -274,24 +274,19 @@ export default function CobranzaDashboard() {
               <h2 className="sozu-section-title mb-3">Antigüedad de Cartera</h2>
               <div className="space-y-3">
                 {kpis.aging.map(a => (
-                  <div key={a.rango} className="space-y-1">
-                    <div className="flex items-center gap-4">
-                      <span className="text-[13px] text-muted-foreground w-24">{a.rango} días</span>
-                      <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-danger rounded-full"
-                          style={{ width: `${kpis.vencido_total_sin_ce > 0 ? (a.monto_sin_ce / kpis.vencido_total_sin_ce) * 100 : 0}%` }}
-                        />
-                      </div>
-                      <span className="text-[13px] font-semibold text-foreground w-28 text-right">{formatCurrency(a.monto_sin_ce)}</span>
-                      <span className="text-[12px] text-muted-foreground w-20 text-right">{a.cantidad} parc.</span>
+                  <div key={a.rango} className="flex items-center gap-4">
+                    <span className="text-[13px] text-muted-foreground w-24">{a.rango} días</span>
+                    <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-danger rounded-full"
+                        style={{ width: `${kpis.vencido_total_sin_ce > 0 ? (a.monto_sin_ce / kpis.vencido_total_sin_ce) * 100 : 0}%` }}
+                      />
                     </div>
-                    <div className="flex items-center gap-4 pl-0">
-                      <span className="text-[11px] text-muted-foreground/60 w-24 italic">c/ CE</span>
-                      <div className="flex-1" />
-                      <span className="text-[11px] text-muted-foreground/60 w-28 text-right italic">{formatCurrency(a.monto)}</span>
-                      <span className="w-20" />
+                    <div className="w-32 text-right" title={`Con contraentrega: ${formatCurrency(a.monto)}`}>
+                      <span className="text-[13px] font-semibold text-foreground">{formatCurrency(a.monto_sin_ce)}</span>
+                      <div className="text-[10px] text-muted-foreground/60 italic cursor-help">Con CE: {formatCurrency(a.monto)}</div>
                     </div>
+                    <span className="text-[12px] text-muted-foreground w-20 text-right">{a.cantidad} parc.</span>
                   </div>
                 ))}
               </div>
