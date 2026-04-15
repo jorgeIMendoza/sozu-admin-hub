@@ -20,6 +20,7 @@ const METODOS_PAGO = [
 export default function CEPsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { data: PROYECTOS = [] } = useProyectosCobranza();
   const [projectFilter, setProjectFilter] = useState<number | null>(() => {
     const p = searchParams.get('proyecto');
     return p ? parseInt(p) : null;
