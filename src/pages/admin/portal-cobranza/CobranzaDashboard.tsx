@@ -263,7 +263,7 @@ export default function CobranzaDashboard() {
                   <tr><th>Proyecto</th><th className="text-right">Cobrado</th><th className="text-right">Pendiente</th><th className="text-right">Vencido</th><th className="text-center">%</th></tr>
                 </thead>
                 <tbody>
-                  {kpis.por_proyecto.map(p => {
+                  {filteredPorProyecto.map(p => {
                     const total = p.cobrado + p.pendiente + p.vencido;
                     const pct = total > 0 ? Math.round((p.cobrado / total) * 100) : 0;
                     return (
