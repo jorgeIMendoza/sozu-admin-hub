@@ -309,7 +309,7 @@ export default function CobranzaDashboard() {
                   <col className="w-[12%]" />
                 </colgroup>
                 <thead className="sozu-thead">
-                  <tr><th className="px-4 text-left">Proyecto</th><th className="px-4 text-right">Cobrado</th><th className="px-4 text-right">Pendiente</th><th className="px-4 text-right">Vencido</th><th className="px-4 text-center">%</th></tr>
+                  <tr><th className="px-4 text-left">Proyecto</th><th className="px-4 text-center">Cobrado</th><th className="px-4 text-center">Pendiente</th><th className="px-4 text-center">Vencido</th><th className="px-4 text-center">%</th></tr>
                 </thead>
                 <tbody>
                   {filteredPorProyecto.map(p => {
@@ -318,9 +318,9 @@ export default function CobranzaDashboard() {
                     return (
                       <tr key={p.proyecto_id} className="sozu-table-row h-[52px]">
                         <td className="px-4 text-[13px] font-medium text-foreground">{p.proyecto}</td>
-                        <td className="px-4 text-right text-[13px] text-success font-semibold tabular-nums">{formatCurrency(p.cobrado)}</td>
-                        <td className="px-4 text-right text-[13px] text-foreground tabular-nums">{formatCurrency(p.pendiente)}</td>
-                        <td className="px-4 text-right text-[13px] text-danger font-semibold tabular-nums">{formatCurrency(p.vencido)}</td>
+                        <td className="px-4 text-center text-[13px] text-success font-semibold tabular-nums">{formatCurrency(p.cobrado)}</td>
+                        <td className="px-4 text-center text-[13px] text-foreground tabular-nums">{formatCurrency(p.pendiente)}</td>
+                        <td className="px-4 text-center text-[13px] text-danger font-semibold tabular-nums">{formatCurrency(p.vencido)}</td>
                         <td className="px-4 text-center text-[13px] font-semibold text-foreground tabular-nums">{pct}%</td>
                       </tr>
                     );
