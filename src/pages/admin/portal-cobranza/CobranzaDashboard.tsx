@@ -255,7 +255,7 @@ export default function CobranzaDashboard() {
 
       {activeTab === 'cobranza' && (
         <div className="space-y-5">
-          {kpis.por_proyecto && kpis.por_proyecto.length > 0 ? (
+          {filteredPorProyecto.length > 0 ? (
             <div className="sozu-kpi-card !p-0 overflow-hidden">
               <div className="px-5 py-3 border-b border-border"><h2 className="sozu-section-title">Cobranza por Proyecto</h2></div>
               <table className="w-full text-sm">
