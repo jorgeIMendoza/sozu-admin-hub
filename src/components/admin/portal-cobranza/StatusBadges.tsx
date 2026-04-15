@@ -59,7 +59,7 @@ export function ChannelBadge({ channel }: { channel: CommunicationChannel }) {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount).replace('$', '\\$');
+  return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 }
 
 export function formatDate(date: string | null | undefined): string {
