@@ -6,8 +6,8 @@ import { format, parseISO, differenceInDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   ArrowLeft, User, Building2, CreditCard, Calendar, FileCheck,
-  AlertTriangle, Clock, CheckCircle2, Mail, Phone, Hash, MapPin,
-  Loader2, DollarSign, TrendingUp, Users,
+  AlertTriangle, Clock, CheckCircle2, Mail, Phone, Hash,
+  Loader2, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
