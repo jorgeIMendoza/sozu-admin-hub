@@ -97,7 +97,7 @@ export default function PromesasPage() {
                 <th>Cliente</th>
                 <th>Proyecto</th>
                 <th>Fecha Promesa</th>
-                <th className="text-right">Monto</th>
+                <th className="text-center">Monto</th>
                 <th>Canal</th>
                 <th>Registró</th>
                 <th className="text-center">Estatus</th>
@@ -113,7 +113,7 @@ export default function PromesasPage() {
                   <td className="px-4 text-[13px] font-medium text-foreground">{p.account.client.name}</td>
                   <td className="px-4 text-[13px] text-muted-foreground">{p.account.project.name}</td>
                   <td className="px-4 text-[13px] text-foreground tabular-nums">{formatDate(p.promiseDate)}</td>
-                  <td className="px-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(p.amount)}</td>
+                  <td className="px-4 text-center text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(p.amount)}</td>
                   <td className="px-4 text-[13px] text-muted-foreground capitalize">{p.channel.replace('_', ' ')}</td>
                   <td className="px-4 text-[13px] text-muted-foreground">{p.registeredBy}</td>
                   <td className="px-4 text-center"><PromiseStatusBadge status={p.status} /></td>

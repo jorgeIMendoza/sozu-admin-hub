@@ -349,13 +349,13 @@ export default function CobranzaDashboard() {
                   <tr>
                     <th className="text-center w-[50px]">Sem.</th>
                     <th>Periodo</th>
-                    <th className="text-right">Cobr. Proyectada</th>
-                    <th className="text-right">Cobr. Real</th>
-                    <th className="text-right">Diferencia</th>
-                    <th className="text-right">Prov. Obra</th>
-                    <th className="text-right">Requerido</th>
-                    <th className="text-right">Déficit</th>
-                    <th className="text-right">Déf. Acum.</th>
+                    <th className="text-center">Cobr. Proyectada</th>
+                    <th className="text-center">Cobr. Real</th>
+                    <th className="text-center">Diferencia</th>
+                    <th className="text-center">Prov. Obra</th>
+                    <th className="text-center">Requerido</th>
+                    <th className="text-center">Déficit</th>
+                    <th className="text-center">Déf. Acum.</th>
                     <th className="text-center">Estatus</th>
                   </tr>
                 </thead>
@@ -392,14 +392,14 @@ export default function CobranzaDashboard() {
                 <thead className="sozu-thead">
                   <tr>
                     <th>Proyecto</th>
-                    <th className="text-right">Presupuesto</th>
-                    <th className="text-right">Erogado</th>
-                    <th className="text-right">Por Erogar</th>
+                    <th className="text-center">Presupuesto</th>
+                    <th className="text-center">Erogado</th>
+                    <th className="text-center">Por Erogar</th>
                     <th className="text-center">Av. Físico</th>
                     <th className="text-center">Av. Financ.</th>
-                    <th className="text-right">Cobrado</th>
-                    <th className="text-right">Vencido</th>
-                    <th className="text-right">Flujo Req.</th>
+                    <th className="text-center">Cobrado</th>
+                    <th className="text-center">Vencido</th>
+                    <th className="text-center">Flujo Req.</th>
                     <th className="text-center">Estatus</th>
                   </tr>
                 </thead>
@@ -546,10 +546,10 @@ export default function CobranzaDashboard() {
                   <thead className="sozu-thead">
                     <tr>
                       <th>Proyecto</th>
-                      <th className="text-right">Cobrado</th>
-                      <th className="text-right">Por Cobrar</th>
-                      <th className="text-right">Vencido</th>
-                      <th className="text-right">Sin CEP</th>
+                      <th className="text-center">Cobrado</th>
+                      <th className="text-center">Por Cobrar</th>
+                      <th className="text-center">Vencido</th>
+                      <th className="text-center">Sin CEP</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -557,10 +557,10 @@ export default function CobranzaDashboard() {
                       <tr key={p.proyecto_id} className="border-b border-border-light hover:bg-primary-muted/50 cursor-pointer h-[44px]"
                         onClick={() => drill(navigate, '/bandeja', { proyecto: p.proyecto })}>
                         <td className="px-4 text-[13px] font-medium text-foreground">{p.proyecto}</td>
-                        <td className="px-4 text-right text-[13px] text-success font-medium tabular-nums">{formatCurrency(p.cobrado)}</td>
-                        <td className="px-4 text-right text-[13px] text-foreground tabular-nums">{formatCurrency(p.pendiente)}</td>
-                        <td className="px-4 text-right text-[13px] text-danger font-medium tabular-nums">{formatCurrency(p.vencido)}</td>
-                        <td className="px-4 text-right text-[13px] text-warning tabular-nums">—</td>
+                        <td className="px-4 text-center text-[13px] text-success font-medium tabular-nums">{formatCurrency(p.cobrado)}</td>
+                        <td className="px-4 text-center text-[13px] text-foreground tabular-nums">{formatCurrency(p.pendiente)}</td>
+                        <td className="px-4 text-center text-[13px] text-danger font-medium tabular-nums">{formatCurrency(p.vencido)}</td>
+                        <td className="px-4 text-center text-[13px] text-warning tabular-nums">—</td>
                       </tr>
                     )) : (
                       <tr className="h-[64px]">
@@ -584,10 +584,10 @@ export default function CobranzaDashboard() {
                   <thead className="sozu-thead">
                     <tr>
                       <th>Entidad Legal</th>
-                      <th className="text-right">Cobrado</th>
-                      <th className="text-right">Por Cobrar</th>
-                      <th className="text-right">Vencido</th>
-                      <th className="text-right">Sin CEP</th>
+                      <th className="text-center">Cobrado</th>
+                      <th className="text-center">Por Cobrar</th>
+                      <th className="text-center">Vencido</th>
+                      <th className="text-center">Sin CEP</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -614,9 +614,9 @@ export default function CobranzaDashboard() {
                 <thead className="sozu-thead">
                   <tr>
                     <th>Tipo</th>
-                    <th className="text-right">Cobrado</th>
-                    <th className="text-right">Por Cobrar</th>
-                    <th className="text-right">Vencido</th>
+                    <th className="text-center">Cobrado</th>
+                    <th className="text-center">Por Cobrar</th>
+                    <th className="text-center">Vencido</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -657,10 +657,10 @@ export default function CobranzaDashboard() {
                   <thead className="sozu-thead">
                     <tr>
                       <th>Periodo</th>
-                      <th className="text-right">Meta</th>
-                      <th className="text-right">Cobrado</th>
-                      <th className="text-right">Pendiente</th>
-                      <th className="text-right">% Cumpl.</th>
+                      <th className="text-center">Meta</th>
+                      <th className="text-center">Cobrado</th>
+                      <th className="text-center">Pendiente</th>
+                      <th className="text-center">% Cumpl.</th>
                     </tr>
                   </thead>
                   <tbody>

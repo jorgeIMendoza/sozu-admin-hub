@@ -144,7 +144,7 @@ export default function CEPsPage() {
                     <th>Cliente</th>
                     <th>Proyecto</th>
                     <th>Método</th>
-                    <th className="text-right">Monto</th>
+                    <th className="text-center">Monto</th>
                     <th>Clave rastreo</th>
                     <th>CLABE</th>
                     <th className="text-center">Aplicado</th>
@@ -167,7 +167,7 @@ export default function CEPsPage() {
                           'bg-muted text-muted-foreground'
                         )}>{r.metodo_pago || '—'}</span>
                       </td>
-                      <td className="px-4 text-right text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(Number(r.monto))}</td>
+                      <td className="px-4 text-center text-[13px] font-semibold text-foreground tabular-nums">{formatCurrency(Number(r.monto))}</td>
                       <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[160px]">{r.clave_rastreo || '—'}</td>
                       <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">{r.clabe_stp || '—'}</td>
                       <td className="px-4 text-center">
