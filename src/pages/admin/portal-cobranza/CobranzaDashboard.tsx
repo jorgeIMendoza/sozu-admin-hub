@@ -92,7 +92,7 @@ export default function CobranzaDashboard() {
     if (!bandejaCuentas) return [];
     return bandejaCuentas
       .filter(c => c.prioridad === 'purple')
-      .sort((a, b) => (b.monto_vencido ?? 0) - (a.monto_vencido ?? 0))
+      .sort((a, b) => (b.parcialidades_vencidas ?? 0) - (a.parcialidades_vencidas ?? 0))
       .slice(0, 20);
   }, [bandejaCuentas]);
 
