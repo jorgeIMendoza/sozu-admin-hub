@@ -4237,9 +4237,14 @@ export default function DetalleCuentaCobranza() {
                             <span className="text-xs text-muted-foreground">
                               {porcentaje}% - {acuerdo.fecha_pago ? formatDate(acuerdo.fecha_pago) : 'Sin fecha'}
                             </span>
-                            <Badge variant={acuerdo.pago_completado ? "default" : "secondary"} className="text-xs">
-                              {acuerdo.pago_completado ? "Pagado" : totalAplicado > 0 ? "Parcial" : "Pendiente"}
-                            </Badge>
+                            {(() => {
+                              const estaPagado = totalAplicado >= acuerdo.monto - 0.01;
+                              return (
+                                <Badge variant={estaPagado ? "default" : "secondary"} className="text-xs">
+                                  {estaPagado ? "Pagado" : totalAplicado > 0 ? "Parcial" : "Pendiente"}
+                                </Badge>
+                              );
+                            })()}
                           </div>
                            <div className="flex items-center gap-2">
                             <span className="text-sm text-muted-foreground">
