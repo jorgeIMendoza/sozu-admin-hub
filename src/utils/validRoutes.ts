@@ -113,6 +113,7 @@ export const VALID_ADMIN_ROUTES = new Set([
   '/admin/portal-cobranza/inputs-obra',
   '/admin/portal-cobranza/reportes',
   '/admin/portal-cobranza/configuracion',
+  '/admin/portal-cobranza/expediente/:id',
 ]);
 
 export function isValidRoute(route: string): boolean {

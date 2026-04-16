@@ -7937,6 +7937,7 @@ export type Database = {
             }
             Returns: Json
           }
+      get_expediente_cobranza: { Args: { p_cuenta_id: number }; Returns: Json }
       get_inventario_disponible: {
         Args: { p_accessible_project_ids?: number[] }
         Returns: Json
