@@ -167,9 +167,9 @@ export default function BandejaOperativaPage() {
                 <th className="w-[110px]">Prioridad</th>
                 <th>Cliente</th>
                 <th>Proyecto / Unidad</th>
-                <th className="text-right">Precio</th>
-                <th className="text-right">Vencido</th>
-                <th className="text-right">Saldo Pendiente</th>
+                <th className="text-center">Precio</th>
+                <th className="text-center">Vencido</th>
+                <th className="text-center">Saldo Pendiente</th>
                 <th className="text-center w-[60px]">Parc.</th>
                 <th>Próx. Venc.</th>
                 <th>CLABE</th>
@@ -193,15 +193,15 @@ export default function BandejaOperativaPage() {
                       {[cuenta.edificio, cuenta.numero_propiedad].filter(Boolean).join(' · ') || '—'}
                     </p>
                   </td>
-                  <td className="px-3 text-right text-[13px] text-foreground tabular-nums">
+                  <td className="px-3 text-center text-[13px] text-foreground tabular-nums">
                     {cuenta.precio_final ? formatCurrency(cuenta.precio_final) : '—'}
                   </td>
-                  <td className="px-3 text-right">
+                  <td className="px-3 text-center">
                     {cuenta.monto_vencido > 0
                       ? <span className="text-[13px] font-semibold text-danger tabular-nums">{formatCurrency(cuenta.monto_vencido)}</span>
                       : <span className="text-muted-foreground">—</span>}
                   </td>
-                  <td className="px-3 text-right text-[13px] text-foreground tabular-nums">
+                  <td className="px-3 text-center text-[13px] text-foreground tabular-nums">
                     {cuenta.saldo_pendiente > 0 ? formatCurrency(cuenta.saldo_pendiente) : '—'}
                   </td>
                   <td className="px-3 text-center">
