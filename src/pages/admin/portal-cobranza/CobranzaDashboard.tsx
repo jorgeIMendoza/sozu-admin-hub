@@ -511,7 +511,7 @@ export default function CobranzaDashboard() {
                       <tr
                         key={c.cuenta_id}
                         className="sozu-table-row h-[52px] cursor-pointer"
-                        onClick={() => navigate(`/admin/cuentas-cobranza/${c.cuenta_id}`)}
+                        onClick={() => navigate(`/admin/cuentas-cobranza/${c.cuenta_id}/detalle`)}
                       >
                         <td className="px-5 text-[13px] font-mono text-primary">CC-{String(c.cuenta_id).padStart(6, '0')}</td>
                         <td className="px-3 text-[13px] text-foreground truncate max-w-[220px]">{c.cliente_nombre || 'Sin cliente'}</td>
