@@ -8150,6 +8150,10 @@ export type Database = {
         | { Args: { user_id: string }; Returns: boolean }
       mark_email_confirmed: { Args: never; Returns: undefined }
       mark_password_changed: { Args: never; Returns: undefined }
+      regenerar_clabes_faltantes: {
+        Args: { p_id_entidad?: number; p_id_proyecto?: number }
+        Returns: number
+      }
       sync_conyuge_compradores: {
         Args: { p_id_persona: number }
         Returns: {
