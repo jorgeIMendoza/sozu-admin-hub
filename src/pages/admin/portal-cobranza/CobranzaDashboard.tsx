@@ -4,6 +4,7 @@ import { formatCurrency } from '@/components/admin/portal-cobranza/StatusBadges'
 import { CobranzaProjectFilter } from '@/components/admin/portal-cobranza/CobranzaProjectFilter';
 import { navigateWithFilters } from '@/lib/navigationFilters';
 import { useCobranzaDashboard, useProyectosCobranza } from '@/hooks/useCobranzaDashboard';
+import { useBandejaOperativa } from '@/hooks/useBandejaOperativa';
 import { useEntidadesDuenos } from '@/hooks/useEntidadesDuenos';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -425,7 +426,7 @@ export default function CobranzaDashboard() {
             {/* Aging Chart */}
             {kpis.aging && kpis.aging.length > 0 && (
               <div className="sozu-kpi-card">
-                <h2 className="sozu-section-title mb-4">Aging de Cartera</h2>
+                <h2 className="sozu-section-title mb-4">Antigüedad de Cartera</h2>
                 <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={kpis.aging.map(a => ({ range: `${a.rango} días`, amount: a.monto_sin_ce, amountCE: a.monto }))} barSize={32}>
                     <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} />
