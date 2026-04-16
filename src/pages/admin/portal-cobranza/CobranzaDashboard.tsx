@@ -118,13 +118,17 @@ export default function CobranzaDashboard() {
   const chartData = useMemo(() => {
     if (!kpis?.cobrado_mensual) return [];
     const programadoMap = new Map(
-      (kpis.programado_mensual ?? []).map(p => [p.mes, p.programado])
+      (kpis.programado_mensual ?? []).map(p => [p.mes, { total: p.programado, sinCe: p.programado_sin_ce }])
     );
-    return kpis.cobrado_mensual.map(c => ({
-      month: c.mes,
-      cobrado: c.cobrado,
-      programado: programadoMap.get(c.mes) ?? 0,
-    }));
+    return kpis.cobrado_mensual.map(c => {
+      const prog = programadoMap.get(c.mes);
+      return {
+        month: c.mes,
+        cobrado: c.cobrado,
+        programado: prog?.total ?? 0,
+        programado_sin_ce: prog?.sinCe ?? 0,
+      };
+    });
   }, [kpis?.cobrado_mensual, kpis?.programado_mensual]);
 
   const getMorosidad = (grupo: string) =>
@@ -278,7 +282,8 @@ export default function CobranzaDashboard() {
                   <YAxis tick={{ fontSize: 10, fill: 'hsl(220,9%,46%)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`} />
                   <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid hsl(220,13%,91%)' }} />
                   <Line type="monotone" dataKey="cobrado" stroke="hsl(142,71%,45%)" strokeWidth={2} dot={{ r: 3 }} name="Cobrado" />
-                  <Line type="monotone" dataKey="programado" stroke="hsl(220,9%,46%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Programado" />
+                  <Line type="monotone" dataKey="programado" stroke="hsl(220,9%,46%)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Programado (con contraentrega)" />
+                  <Line type="monotone" dataKey="programado_sin_ce" stroke="hsl(38,92%,50%)" strokeWidth={1.5} strokeDasharray="2 4" dot={false} name="Programado (sin contraentrega)" />
                 </LineChart>
               </ResponsiveContainer>
             </div>

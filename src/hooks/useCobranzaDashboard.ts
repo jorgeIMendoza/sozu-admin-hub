@@ -18,7 +18,7 @@ export interface DashboardKPIs {
   morosidad: { grupo: string; cuentas: number }[] | null;
   por_proyecto: { proyecto: string; proyecto_id: number; cobrado: number; vencido: number; pendiente: number }[] | null;
   cobrado_mensual: { mes: string; cobrado: number }[] | null;
-  programado_mensual: { mes: string; programado: number }[] | null;
+  programado_mensual: { mes: string; programado: number; programado_sin_ce: number }[] | null;
 }
 
 export function useCobranzaDashboard(
