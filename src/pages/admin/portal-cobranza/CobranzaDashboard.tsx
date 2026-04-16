@@ -490,7 +490,7 @@ export default function CobranzaDashboard() {
                     <th>Cliente</th>
                     <th>Proyecto</th>
                     <th className="text-center">Parc. Vencidas</th>
-                    <th className="text-right">Monto Vencido</th>
+                    <th className="text-center">Monto Vencido</th>
                     <th>Estatus Legal</th>
                   </tr>
                 </thead>
@@ -516,7 +516,7 @@ export default function CobranzaDashboard() {
                             {c.parcialidades_vencidas}
                           </span>
                         </td>
-                        <td className="px-3 text-right text-[13px] font-semibold text-danger tabular-nums">
+                        <td className="px-3 text-center text-[13px] font-semibold text-danger tabular-nums">
                           {formatCurrency(c.monto_vencido)}
                         </td>
                         <td className="px-3 text-[13px] text-muted-foreground">NA</td>
