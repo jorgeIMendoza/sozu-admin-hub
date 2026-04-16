@@ -86,6 +86,15 @@ export default function CobranzaDashboard() {
   }, [selectedEntidad, entidades]);
 
   const { data: kpis, isLoading, error } = useCobranzaDashboard(selectedProyecto, fechaInicio, fechaFin, selectedEntidadIds);
+  const { data: bandejaCuentas } = useBandejaOperativa({ proyectoId: selectedProyecto, soloVencidas: true });
+
+  const clientesCriticos = useMemo(() => {
+    if (!bandejaCuentas) return [];
+    return bandejaCuentas
+      .filter(c => c.prioridad === 'purple')
+      .sort((a, b) => (b.monto_vencido ?? 0) - (a.monto_vencido ?? 0))
+      .slice(0, 20);
+  }, [bandejaCuentas]);
 
   const mesActual = periodLabel;
 
