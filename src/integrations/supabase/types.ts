@@ -7928,6 +7928,15 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_entidad_ids?: number[]
+              p_fecha_fin?: string
+              p_fecha_inicio?: string
+              p_proyecto_id?: number
+            }
+            Returns: Json
+          }
       get_inventario_disponible: {
         Args: { p_accessible_project_ids?: number[] }
         Returns: Json

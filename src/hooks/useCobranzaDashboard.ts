@@ -25,14 +25,16 @@ export function useCobranzaDashboard(
   proyectoId?: number | null,
   fechaInicio?: string | null,
   fechaFin?: string | null,
+  entidadIds?: number[] | null,
 ) {
   return useQuery({
-    queryKey: ['cobranza-dashboard-kpis', proyectoId, fechaInicio, fechaFin],
+    queryKey: ['cobranza-dashboard-kpis', proyectoId, fechaInicio, fechaFin, entidadIds],
     queryFn: async (): Promise<DashboardKPIs> => {
       const { data, error } = await supabase.rpc('get_dashboard_cobranza_kpis', {
         p_proyecto_id: proyectoId ?? null,
         p_fecha_inicio: fechaInicio ?? null,
         p_fecha_fin: fechaFin ?? null,
+        p_entidad_ids: entidadIds && entidadIds.length > 0 ? entidadIds : null,
       } as any);
       if (error) throw error;
       return data as unknown as DashboardKPIs;

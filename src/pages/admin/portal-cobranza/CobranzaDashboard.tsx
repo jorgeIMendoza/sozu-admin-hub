@@ -75,9 +75,16 @@ export default function CobranzaDashboard() {
 
   const { fechaInicio, fechaFin, label: periodLabel } = useMemo(() => getPeriodDates(period), [period]);
 
-  const { data: kpis, isLoading, error } = useCobranzaDashboard(selectedProyecto, fechaInicio, fechaFin);
   const { data: proyectos } = useProyectosCobranza();
   const { data: entidades } = useEntidadesDuenos();
+
+  const selectedEntidadIds = useMemo(() => {
+    if (!selectedEntidad || !entidades) return null;
+    const found = entidades.find(e => e.nombre_legal === selectedEntidad);
+    return found ? found.er_ids : null;
+  }, [selectedEntidad, entidades]);
+
+  const { data: kpis, isLoading, error } = useCobranzaDashboard(selectedProyecto, fechaInicio, fechaFin, selectedEntidadIds);
 
   const mesActual = periodLabel;
 
