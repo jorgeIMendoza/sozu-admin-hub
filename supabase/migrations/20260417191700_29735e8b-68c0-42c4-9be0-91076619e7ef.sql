@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.get_relacion_pagos(integer, text, text, boolean, integer, integer);
