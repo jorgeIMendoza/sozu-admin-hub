@@ -271,14 +271,13 @@ export const PortalCobranzaLayout = () => {
         {/* Mobile Topbar */}
         <header className="flex lg:hidden items-center justify-between sticky top-0 z-20 bg-card border-b border-border px-3 h-14">
           <div className="flex items-center gap-2 min-w-0">
-            <SheetTrigger asChild onClick={() => setMobileOpen(true)}>
-              <button
-                className="p-2 -ml-1 rounded-md text-foreground hover:bg-muted transition-colors"
-                aria-label="Abrir menú"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-            </SheetTrigger>
+            <button
+              onClick={() => setMobileOpen(true)}
+              className="p-2 -ml-1 rounded-md text-foreground hover:bg-muted transition-colors"
+              aria-label="Abrir menú"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
             <div className="min-w-0">
               <p className="text-[13px] font-semibold text-foreground leading-tight truncate">Cobranza 360</p>
               <p className="text-[11px] text-muted-foreground leading-tight truncate">{currentSection}</p>
