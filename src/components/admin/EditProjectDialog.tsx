@@ -980,6 +980,12 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
                                   updated[idx] = { ...updated[idx], descripcion_direccion: e.target.value };
                                   setShowrooms(updated);
                                 }}
+                                onBlur={(e) => {
+                                  // Auto-geocode when user finishes typing the address manually
+                                  if (e.target.value.trim() && (!showroom.latitud || !showroom.longitud)) {
+                                    geocodeAddress(e.target.value, idx);
+                                  }
+                                }}
                                 className="mt-1"
                               />
                             </div>
