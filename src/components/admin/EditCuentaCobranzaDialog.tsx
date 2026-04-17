@@ -316,13 +316,12 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
     }
   }, [cuentaDetalle]);
 
-  // Get property or product/service details
-  const { data: propiedadDetalle } = useQuery({
-    queryKey: ["propiedad_detalle", cuentaDetalle?.id_oferta],
+  // Query separada para determinar tipo de cuenta (siempre se sincroniza vía useEffect, incluso con caché).
+  const { data: ofertaTipoData } = useQuery({
+    queryKey: ["oferta_tipo_cuenta", cuentaDetalle?.id_oferta],
     queryFn: async () => {
       if (!cuentaDetalle?.id_oferta) return null;
-      
-      const { data: ofertaData } = await supabase
+      const { data } = await supabase
         .from('ofertas')
         .select(`
           id_propiedad,
@@ -338,20 +337,36 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         `)
         .eq('id', cuentaDetalle.id_oferta)
         .single();
+      return data;
+    },
+    enabled: !!cuentaDetalle?.id_oferta,
+  });
 
-      // Determine account type
-      if (ofertaData?.id_producto && ofertaData?.productos_servicios) {
-        const categoriaNombre = ofertaData.productos_servicios.categorias_producto?.nombre?.toLowerCase();
-        setTipoCuenta(categoriaNombre === 'servicios' ? 'Servicio' : 'Producto');
-        setProductoServicioInfo(ofertaData.productos_servicios);
-        setOfertaProductoData({ id_producto: ofertaData.id_producto, id_propiedad: ofertaData.id_propiedad });
-      } else {
-        setTipoCuenta('Propiedad');
-        setOfertaProductoData({ id_producto: null, id_propiedad: null });
-      }
+  // Sincroniza tipoCuenta y datos relacionados desde la data de la query (funciona también con caché en re-aperturas del modal).
+  useEffect(() => {
+    if (!ofertaTipoData) {
+      setTipoCuenta('Propiedad');
+      setProductoServicioInfo(null);
+      setOfertaProductoData({ id_producto: null, id_propiedad: null });
+      return;
+    }
+    if (ofertaTipoData.id_producto && ofertaTipoData.productos_servicios) {
+      const categoriaNombre = (ofertaTipoData.productos_servicios as any).categorias_producto?.nombre?.toLowerCase();
+      setTipoCuenta(categoriaNombre === 'servicios' ? 'Servicio' : 'Producto');
+      setProductoServicioInfo(ofertaTipoData.productos_servicios);
+      setOfertaProductoData({ id_producto: ofertaTipoData.id_producto, id_propiedad: ofertaTipoData.id_propiedad });
+    } else {
+      setTipoCuenta('Propiedad');
+      setProductoServicioInfo(null);
+      setOfertaProductoData({ id_producto: null, id_propiedad: ofertaTipoData.id_propiedad ?? null });
+    }
+  }, [ofertaTipoData]);
 
-      if (!ofertaData?.id_propiedad) return null;
-
+  // Get property details
+  const { data: propiedadDetalle } = useQuery({
+    queryKey: ["propiedad_detalle", ofertaTipoData?.id_propiedad],
+    queryFn: async () => {
+      if (!ofertaTipoData?.id_propiedad) return null;
       const { data } = await supabase
         .from('propiedades')
         .select(`
@@ -374,12 +389,11 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
             )
           )
         `)
-        .eq('id', ofertaData.id_propiedad)
+        .eq('id', ofertaTipoData.id_propiedad)
         .single();
-
       return data;
     },
-    enabled: !!cuentaDetalle?.id_oferta
+    enabled: !!ofertaTipoData?.id_propiedad
   });
 
   // Get property's cuenta cobranza data (notario and escritura fields) for product accounts
