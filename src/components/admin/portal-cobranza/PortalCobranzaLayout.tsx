@@ -290,7 +290,7 @@ export const PortalCobranzaLayout = () => {
           </Avatar>
         </header>
 
-        <main className="p-8 lg:px-10 lg:py-8 bg-background min-h-[calc(100vh-56px)]">
+        <main className="p-4 lg:px-10 lg:py-8 bg-background min-h-[calc(100vh-56px)]">
           <Outlet />
         </main>
       </div>
