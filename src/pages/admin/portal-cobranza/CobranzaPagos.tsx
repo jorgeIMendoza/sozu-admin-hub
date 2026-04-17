@@ -13,6 +13,13 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
+function formatCompactNumber(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 1 : 2).replace(/\.?0+$/, '')}M`;
+  if (abs >= 1_000) return `${(n / 1_000).toFixed(abs >= 10_000 ? 1 : 2).replace(/\.?0+$/, '')}K`;
+  return n.toLocaleString();
+}
+
 const METODOS_PAGO = [
   'STP', 'Transferencia bancaria', 'Cheque', 'Efectivo',
   'Tarjeta de crédito', 'Tarjeta de débito', 'STP-manual', 'Cesión de derechos',
