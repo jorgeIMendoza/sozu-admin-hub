@@ -808,6 +808,24 @@ export const NewProjectDialog = ({ onProjectAdded }: NewProjectDialogProps) => {
                                 updated[idx] = { ...updated[idx], descripcion_direccion: e.target.value };
                                 setShowrooms(updated);
                               }}
+                              onBlur={(e) => {
+                                const address = e.target.value.trim();
+                                if (address && (!showroom.latitud || !showroom.longitud) && (window as any).google?.maps) {
+                                  const geocoder = new (window as any).google.maps.Geocoder();
+                                  geocoder.geocode({ address, componentRestrictions: { country: "mx" } }, (results: any, status: string) => {
+                                    if (status === 'OK' && results && results[0]) {
+                                      const loc = results[0].geometry.location;
+                                      setShowrooms(prev => {
+                                        const upd = [...prev];
+                                        if (upd[idx]) {
+                                          upd[idx] = { ...upd[idx], latitud: loc.lat(), longitud: loc.lng(), descripcion_direccion: results[0].formatted_address || upd[idx].descripcion_direccion };
+                                        }
+                                        return upd;
+                                      });
+                                    }
+                                  });
+                                }
+                              }}
                               className="mt-1"
                             />
                           </div>
