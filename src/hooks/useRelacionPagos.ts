@@ -60,12 +60,13 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
     'relacion-pagos',
     filters.proyectoId,
     filters.metodoPago,
+    filters.metodosPermitidos,
     debouncedSearch,
     filters.hasCep,
     filters.tipoCuenta,
     filters.page,
     filters.pageSize,
-  ], [filters.proyectoId, filters.metodoPago, debouncedSearch, filters.hasCep, filters.tipoCuenta, filters.page, filters.pageSize]);
+  ], [filters.proyectoId, filters.metodoPago, filters.metodosPermitidos, debouncedSearch, filters.hasCep, filters.tipoCuenta, filters.page, filters.pageSize]);
 
   const { data, isLoading, error } = useQuery({
     queryKey,
@@ -73,6 +74,7 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
       const { data, error } = await supabase.rpc('get_relacion_pagos', {
         p_proyecto_id: filters.proyectoId ?? null,
         p_metodo_pago: filters.metodoPago ?? null,
+        p_metodos_permitidos: filters.metodosPermitidos ?? null,
         p_search: debouncedSearch || null,
         p_has_cep: filters.hasCep ?? null,
         p_tipo_cuenta: filters.tipoCuenta ?? null,
