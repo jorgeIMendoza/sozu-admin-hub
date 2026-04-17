@@ -28,6 +28,7 @@ export default function RelacionPagosPage() {
   });
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string | null>(() => searchParams.get('metodo') || null);
   const [cepFilter, setCepFilter] = useState<boolean | null>(null);
+  const [tipoCuentaFilter, setTipoCuentaFilter] = useState<'propiedad' | 'producto' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
 
@@ -36,6 +37,7 @@ export default function RelacionPagosPage() {
     metodoPago: metodoPagoFilter,
     search: searchQuery,
     hasCep: cepFilter,
+    tipoCuenta: tipoCuentaFilter,
     page,
     pageSize: PAGE_SIZE,
   });
