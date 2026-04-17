@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Search, Copy, Check, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { usePagination } from "@/hooks/usePagination";
+import { SimplePagination } from "@/components/ui/simple-pagination";
 
 interface Ejecucion {
   id: number;
@@ -152,6 +154,8 @@ export default function Ejecuciones() {
     return true;
   });
 
+  const { paginated: pagedEjec, page, setPage, totalPages, total, from, to } = usePagination(filtered, 50);
+
   const chartData = (() => {
     const map = new Map<string, { date: string; enviados: number; errores: number }>();
     filtered.forEach(e => {
@@ -233,7 +237,7 @@ export default function Ejecuciones() {
               <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay ejecuciones</TableCell></TableRow>
-            ) : filtered.map(e => (
+            ) : pagedEjec.map(e => (
               <TableRow key={e.id}>
                 <TableCell className="text-sm">{new Date(e.fecha_ejecucion).toLocaleString('es-MX')}</TableCell>
                 <TableCell className="font-medium">{(e.avisos as any)?.nombre || '—'}</TableCell>
@@ -266,6 +270,14 @@ export default function Ejecuciones() {
             ))}
           </TableBody>
         </Table>
+        <SimplePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          total={total}
+          from={from}
+          to={to}
+        />
       </div>
 
       <Dialog open={!!errorDetail} onOpenChange={() => setErrorDetail(null)}>
