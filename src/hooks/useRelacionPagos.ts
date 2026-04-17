@@ -38,6 +38,11 @@ export interface RelacionPagosFilters {
 export interface RelacionPagosResult {
   pagos: PagoRecord[];
   total: number;
+  totalMonto: number;
+  totalConCep: number;
+  totalSinCep: number;
+  totalAplicados: number;
+  totalSinAplicar: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -74,14 +79,27 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
         p_offset: (filters.page - 1) * filters.pageSize,
       });
       if (error) throw error;
-      return data as unknown as { total: number; pagos: PagoRecord[] };
+      return data as unknown as {
+        total: number;
+        total_monto: number;
+        total_con_cep: number;
+        total_sin_cep: number;
+        total_aplicados: number;
+        total_sin_aplicar: number;
+        pagos: PagoRecord[];
+      };
     },
     staleTime: 30_000,
   });
 
   return {
     pagos: data?.pagos ?? [],
-    total: data?.total ?? 0,
+    total: Number(data?.total ?? 0),
+    totalMonto: Number(data?.total_monto ?? 0),
+    totalConCep: Number(data?.total_con_cep ?? 0),
+    totalSinCep: Number(data?.total_sin_cep ?? 0),
+    totalAplicados: Number(data?.total_aplicados ?? 0),
+    totalSinAplicar: Number(data?.total_sin_aplicar ?? 0),
     isLoading,
     error: error ? (error as Error).message : null,
   };

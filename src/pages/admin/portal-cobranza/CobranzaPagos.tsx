@@ -32,7 +32,17 @@ export default function RelacionPagosPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
 
-  const { pagos, total, isLoading, error } = useRelacionPagos({
+  const {
+    pagos,
+    total,
+    totalMonto,
+    totalConCep,
+    totalSinCep,
+    totalAplicados,
+    totalSinAplicar,
+    isLoading,
+    error,
+  } = useRelacionPagos({
     proyectoId: projectFilter,
     metodoPago: metodoPagoFilter,
     search: searchQuery,
@@ -59,12 +69,8 @@ export default function RelacionPagosPage() {
     return tipo === 'producto' ? `CCP-${padded}` : `CC-${padded}`;
   };
 
-  // Stats from current result set
-  const totalAmount = useMemo(() => pagos.reduce((s, r) => s + Number(r.monto), 0), [pagos]);
-  const conCep = useMemo(() => pagos.filter(r => r.tiene_cep).length, [pagos]);
-  const sinCep = useMemo(() => pagos.filter(r => !r.tiene_cep).length, [pagos]);
-  const aplicados = useMemo(() => pagos.filter(r => r.num_aplicaciones > 0).length, [pagos]);
-  const sinAplicar = useMemo(() => pagos.filter(r => r.num_aplicaciones === 0).length, [pagos]);
+  // Page-only stats (for the small inline header next to the title)
+  const pageAmount = useMemo(() => pagos.reduce((s, r) => s + Number(r.monto), 0), [pagos]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -85,11 +91,11 @@ export default function RelacionPagosPage() {
               <span className="text-muted-foreground">{total.toLocaleString()} pagos</span>
               {pagos.length > 0 && (
                 <>
-                  <span className="text-foreground font-medium">Página: {formatCurrency(totalAmount)}</span>
-                  <span className="text-success font-medium">{conCep} con CEP</span>
-                  <span className="text-warning font-medium">{sinCep} sin CEP</span>
-                  <span className="text-primary font-medium">{aplicados} aplicados</span>
-                  <span className="text-muted-foreground">{sinAplicar} sin aplicar</span>
+                  <span className="text-foreground font-medium">Página: {formatCurrency(pageAmount)}</span>
+                  <span className="text-success font-medium">{totalConCep.toLocaleString()} con CEP</span>
+                  <span className="text-warning font-medium">{totalSinCep.toLocaleString()} sin CEP</span>
+                  <span className="text-primary font-medium">{totalAplicados.toLocaleString()} aplicados</span>
+                  <span className="text-muted-foreground">{totalSinAplicar.toLocaleString()} sin aplicar</span>
                 </>
               )}
             </div>
@@ -151,20 +157,20 @@ export default function RelacionPagosPage() {
           <p className="text-lg font-semibold text-foreground tabular-nums">{total.toLocaleString()}</p>
         </div>
         <div className="sozu-kpi-card !p-4">
-          <div className="flex items-center gap-1.5 mb-1"><DollarSign className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Monto página</span></div>
-          <p className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(totalAmount)}</p>
+          <div className="flex items-center gap-1.5 mb-1"><DollarSign className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Monto total</span></div>
+          <p className="text-lg font-semibold text-foreground tabular-nums">{formatCurrency(totalMonto)}</p>
         </div>
         <div className="sozu-kpi-card !p-4">
           <div className="flex items-center gap-1.5 mb-1"><CheckCircle2 className="w-3.5 h-3.5 text-success" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Con CEP</span></div>
-          <p className="text-lg font-semibold text-success tabular-nums">{conCep}</p>
+          <p className="text-lg font-semibold text-success tabular-nums">{totalConCep.toLocaleString()}</p>
         </div>
         <div className="sozu-kpi-card !p-4">
           <div className="flex items-center gap-1.5 mb-1"><Clock className="w-3.5 h-3.5 text-warning" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Sin CEP</span></div>
-          <p className="text-lg font-semibold text-warning tabular-nums">{sinCep}</p>
+          <p className="text-lg font-semibold text-warning tabular-nums">{totalSinCep.toLocaleString()}</p>
         </div>
         <div className="sozu-kpi-card !p-4">
           <div className="flex items-center gap-1.5 mb-1"><Shield className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Aplicados</span></div>
-          <p className="text-lg font-semibold text-primary tabular-nums">{aplicados}</p>
+          <p className="text-lg font-semibold text-primary tabular-nums">{totalAplicados.toLocaleString()}</p>
         </div>
       </div>
 
