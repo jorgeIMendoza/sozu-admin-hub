@@ -6,7 +6,7 @@ import {
   HardHat, BarChart3, Settings, ArrowLeft, LogOut, LucideIcon,
   ChevronDown, ChevronRight, Menu,
 } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
