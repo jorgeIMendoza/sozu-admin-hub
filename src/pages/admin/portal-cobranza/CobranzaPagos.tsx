@@ -176,7 +176,8 @@ export default function RelacionPagosPage() {
                 <tr>
                   <th>Fecha</th>
                   <th>Cliente</th>
-                  <th>Proyecto</th>
+                  <th>Proyecto / Unidad</th>
+                  <th>Producto</th>
                   <th>Método</th>
                   <th className="text-center">Monto</th>
                   <th>Clave rastreo</th>
@@ -188,18 +189,18 @@ export default function RelacionPagosPage() {
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mx-auto" />
                   </td></tr>
                 )}
                 {error && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <AlertTriangle className="w-6 h-6 text-danger mx-auto mb-2" />
                     <p className="text-sm text-danger">{error}</p>
                   </td></tr>
                 )}
                 {!isLoading && !error && pagos.length === 0 && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <DollarSign className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">No se encontraron pagos</p>
                   </td></tr>
