@@ -13,17 +13,21 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
+function formatWithThousands(n: number): string {
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatCompactNumber(n: number): string {
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${(n / 1_000).toFixed(2)}K`;
+  if (abs >= 1_000_000) return `${formatWithThousands(n / 1_000_000)}M`;
+  if (abs >= 1_000) return `${formatWithThousands(n / 1_000)}K`;
   return n.toLocaleString();
 }
 
 function formatCompactCurrency(n: number): string {
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `$${(n / 1_000).toFixed(2)}K`;
+  if (abs >= 1_000_000) return `$${formatWithThousands(n / 1_000_000)}M`;
+  if (abs >= 1_000) return `$${formatWithThousands(n / 1_000)}K`;
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
