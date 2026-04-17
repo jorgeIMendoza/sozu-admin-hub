@@ -300,14 +300,35 @@ function Field({
 }
 
 // ─── Estado de Cuenta ─────────────────────────────────────────────
+type MovType = 'cargo' | 'pago' | 'multa';
+type FilterType = 'todos' | 'cargo' | 'pago' | 'multa';
+
+const movTypeLabels: Record<MovType, string> = {
+  cargo: 'Cargo',
+  pago: 'Pago',
+  multa: 'Multa',
+};
+
 function EstadoCuentaTab({
-  parcialidades, pagos,
+  parcialidades, pagos, multas,
 }: {
   parcialidades: NonNullable<ReturnType<typeof useExpedienteCobranza>['data']>['parcialidades'];
   pagos: NonNullable<ReturnType<typeof useExpedienteCobranza>['data']>['pagos'];
+  multas: NonNullable<ReturnType<typeof useExpedienteCobranza>['data']>['multas'];
 }) {
-  // Build movement timeline: each acuerdo (cargo) and pago (abono) sorted by date
-  type Mov = { date: string; type: 'cargo' | 'pago'; concept: string; amount: number; ref?: string | null };
+  const [filter, setFilter] = useState<FilterType>('todos');
+  const [search, setSearch] = useState('');
+
+  type Mov = {
+    date: string;
+    type: MovType;
+    concept: string;
+    amount: number;
+    ref?: string | null;
+    paid?: boolean;
+    sortKey: number; // 0=cargo/multa, 1=pago for same-day stable order
+  };
+
   const movs: Mov[] = [];
   parcialidades.forEach(p => {
     if (p.fecha_pago) {
@@ -316,8 +337,19 @@ function EstadoCuentaTab({
         type: 'cargo',
         concept: `Parc. ${p.orden} · ${p.concepto || 'Acuerdo'}`,
         amount: Number(p.monto),
+        sortKey: 0,
       });
     }
+  });
+  multas.forEach(m => {
+    movs.push({
+      date: (m.fecha_creacion || '').slice(0, 10),
+      type: 'multa',
+      concept: `Multa${m.acuerdo_orden ? ` · Parc. ${m.acuerdo_orden}` : ''}${m.descripcion ? ` · ${m.descripcion}` : ''}`,
+      amount: Number(m.monto),
+      paid: m.es_pagada,
+      sortKey: 0,
+    });
   });
   pagos.forEach(p => {
     movs.push({
@@ -326,20 +358,91 @@ function EstadoCuentaTab({
       concept: p.descripcion || p.metodo || 'Pago recibido',
       amount: Number(p.monto),
       ref: p.clave_rastreo,
+      sortKey: 1,
     });
   });
-  movs.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Stable order: by date asc, charges (incl. fines) before payments same day
+  movs.sort((a, b) => {
+    const cmp = a.date.localeCompare(b.date);
+    if (cmp !== 0) return cmp;
+    return a.sortKey - b.sortKey;
+  });
 
   let saldo = 0;
-  const rows = movs.map(m => {
-    saldo += m.type === 'cargo' ? m.amount : -m.amount;
+  const allRows = movs.map(m => {
+    if (m.type === 'pago') saldo -= m.amount;
+    else saldo += m.amount;
     return { ...m, saldo };
   });
 
+  // Apply filters (after saldo computed so balance remains accurate)
+  const rows = allRows.filter(r => {
+    if (filter !== 'todos' && r.type !== filter) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const inRef = (r.ref || '').toLowerCase().includes(q);
+      const inConcept = r.concept.toLowerCase().includes(q);
+      if (!inRef && !inConcept) return false;
+    }
+    return true;
+  });
+
+  const totalCargos = allRows.filter(r => r.type !== 'pago').reduce((s, r) => s + r.amount, 0);
+  const totalAbonos = allRows.filter(r => r.type === 'pago').reduce((s, r) => s + r.amount, 0);
+  const saldoFinal = totalCargos - totalAbonos;
+
+  const filterOptions: { id: FilterType; label: string }[] = [
+    { id: 'todos', label: `Todos (${allRows.length})` },
+    { id: 'cargo', label: `Cargos (${allRows.filter(r => r.type === 'cargo').length})` },
+    { id: 'pago', label: `Pagos (${allRows.filter(r => r.type === 'pago').length})` },
+    { id: 'multa', label: `Multas (${allRows.filter(r => r.type === 'multa').length})` },
+  ];
+
+  function chipClass(type: MovType) {
+    if (type === 'cargo') return 'bg-warning-bg text-warning';
+    if (type === 'pago') return 'bg-success-bg text-success';
+    return 'bg-danger-bg text-danger';
+  }
+
+  function saldoColor(v: number) {
+    if (v > 0.005) return 'text-warning';
+    if (v < -0.005) return 'text-success';
+    return 'text-muted-foreground';
+  }
+
   return (
     <div className="sozu-kpi-card !p-0 overflow-hidden">
-      <div className="px-5 py-3 border-b border-border">
-        <h3 className="sozu-section-title">Movimientos Financieros</h3>
+      <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
+        <h3 className="sozu-section-title">Estado de Cuenta</h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-0.5 p-0.5 bg-muted rounded-md">
+            {filterOptions.map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => setFilter(opt.id)}
+                className={cn(
+                  'px-2.5 py-1 rounded text-[12px] font-medium transition-colors',
+                  filter === opt.id
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.75} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar referencia o concepto"
+              className="pl-7 pr-2 h-7 text-[12px] rounded-md border border-border bg-background w-[220px] focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -349,34 +452,78 @@ function EstadoCuentaTab({
               <th>Tipo</th>
               <th>Concepto</th>
               <th>Referencia</th>
-              <th className="text-left">Monto</th>
-              <th className="text-left">Saldo</th>
+              <th className="text-right">Cargo (+)</th>
+              <th className="text-right">Abono (−)</th>
+              <th className="text-right">Saldo</th>
             </tr>
           </thead>
           <tbody>
+            <tr className="border-b border-border-light bg-muted/30 h-[36px]">
+              <td className="px-4 text-[12px] text-muted-foreground italic" colSpan={6}>Saldo inicial</td>
+              <td className="px-4 text-right text-[12px] text-muted-foreground tabular-nums">{formatCurrency(0)}</td>
+            </tr>
             {rows.length === 0 ? (
               <tr className="h-[64px]">
-                <td colSpan={6} className="text-center text-[13px] text-muted-foreground">
-                  Sin movimientos registrados.
+                <td colSpan={7} className="text-center text-[13px] text-muted-foreground">
+                  Sin movimientos {filter !== 'todos' || search ? 'que coincidan con el filtro' : 'registrados'}.
                 </td>
               </tr>
             ) : rows.map((m, i) => (
               <tr key={i} className="border-b border-border-light hover:bg-primary-muted/50 h-[44px]">
-                <td className="px-4 text-[13px] text-muted-foreground tabular-nums">{formatDate(m.date)}</td>
+                <td className="px-4 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">{formatDate(m.date)}</td>
                 <td className="px-4">
-                  <span className={cn('sozu-chip', m.type === 'cargo' ? 'bg-warning-bg text-warning' : 'bg-success-bg text-success')}>
-                    {m.type}
+                  <span className={cn('sozu-chip', chipClass(m.type))}>
+                    {movTypeLabels[m.type]}
                   </span>
                 </td>
-                <td className="px-4 text-[13px] text-foreground">{m.concept}</td>
-                <td className="px-4 font-mono text-[11px] text-muted-foreground">{m.ref || '—'}</td>
-                <td className={cn('px-4 text-left text-[13px] font-semibold tabular-nums', m.type === 'pago' ? 'text-success' : 'text-foreground')}>
-                  {m.type === 'pago' ? '-' : ''}{formatCurrency(Math.abs(m.amount))}
+                <td className="px-4 text-[13px] text-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate max-w-[320px]">{m.concept}</span>
+                    {m.type === 'multa' && m.paid && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" strokeWidth={2} />
+                    )}
+                  </div>
                 </td>
-                <td className="px-4 text-left text-[13px] text-foreground tabular-nums">{formatCurrency(m.saldo)}</td>
+                <td className="px-4 font-mono text-[11px] text-muted-foreground">{m.ref || '—'}</td>
+                <td className="px-4 text-right text-[13px] tabular-nums">
+                  {m.type !== 'pago' ? (
+                    <span className={cn('font-semibold', m.type === 'multa' ? 'text-danger' : 'text-foreground')}>
+                      {formatCurrency(m.amount)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-4 text-right text-[13px] tabular-nums">
+                  {m.type === 'pago' ? (
+                    <span className="font-semibold text-success">{formatCurrency(m.amount)}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className={cn('px-4 text-right text-[13px] tabular-nums font-medium', saldoColor(m.saldo))}>
+                  {formatCurrency(m.saldo)}
+                </td>
               </tr>
             ))}
           </tbody>
+          {allRows.length > 0 && (
+            <tfoot>
+              <tr className="bg-muted/40 border-t-2 border-border h-[44px] font-semibold">
+                <td className="px-4 text-[12px] uppercase tracking-wider text-muted-foreground" colSpan={4}>
+                  <div className="flex items-center gap-1.5">
+                    <Receipt className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    Totales
+                  </div>
+                </td>
+                <td className="px-4 text-right text-[13px] text-foreground tabular-nums">{formatCurrency(totalCargos)}</td>
+                <td className="px-4 text-right text-[13px] text-success tabular-nums">{formatCurrency(totalAbonos)}</td>
+                <td className={cn('px-4 text-right text-[14px] tabular-nums font-bold', saldoColor(saldoFinal))}>
+                  {formatCurrency(saldoFinal)}
+                </td>
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
     </div>
