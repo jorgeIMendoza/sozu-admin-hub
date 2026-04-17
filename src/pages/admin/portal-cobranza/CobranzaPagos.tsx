@@ -28,6 +28,7 @@ export default function RelacionPagosPage() {
   });
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string | null>(() => searchParams.get('metodo') || null);
   const [cepFilter, setCepFilter] = useState<boolean | null>(null);
+  const [tipoCuentaFilter, setTipoCuentaFilter] = useState<'propiedad' | 'producto' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
 
@@ -36,6 +37,7 @@ export default function RelacionPagosPage() {
     metodoPago: metodoPagoFilter,
     search: searchQuery,
     hasCep: cepFilter,
+    tipoCuenta: tipoCuentaFilter,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -44,12 +46,18 @@ export default function RelacionPagosPage() {
     setProjectFilter(null);
     setMetodoPagoFilter(null);
     setCepFilter(null);
+    setTipoCuentaFilter(null);
     setSearchQuery('');
     setPage(1);
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
-  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || cepFilter !== null || searchQuery;
+  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || cepFilter !== null || tipoCuentaFilter !== null || searchQuery;
+
+  const formatCuenta = (id: number, tipo: 'propiedad' | 'producto' | null) => {
+    const padded = String(id).padStart(6, '0');
+    return tipo === 'producto' ? `CCP-${padded}` : `CC-${padded}`;
+  };
 
   // Stats from current result set
   const totalAmount = useMemo(() => pagos.reduce((s, r) => s + Number(r.monto), 0), [pagos]);
@@ -114,6 +122,19 @@ export default function RelacionPagosPage() {
             <option value="con">Con CEP</option>
             <option value="sin">Sin CEP</option>
           </select>
+          <select
+            value={tipoCuentaFilter ?? 'all'}
+            onChange={e => {
+              const v = e.target.value;
+              setTipoCuentaFilter(v === 'all' ? null : (v as 'propiedad' | 'producto'));
+              setPage(1);
+            }}
+            className="sozu-filter-select"
+          >
+            <option value="all">Propiedad / Producto</option>
+            <option value="propiedad">Propiedades</option>
+            <option value="producto">Productos / Servicios</option>
+          </select>
           {hasFilters && (
             <button onClick={clearAllFilters}
               className="h-[38px] px-3 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg flex items-center gap-1.5 transition-colors duration-100">
@@ -155,7 +176,8 @@ export default function RelacionPagosPage() {
                 <tr>
                   <th>Fecha</th>
                   <th>Cliente</th>
-                  <th>Proyecto</th>
+                  <th>Proyecto / Unidad</th>
+                  <th>Producto</th>
                   <th>Método</th>
                   <th className="text-center">Monto</th>
                   <th>Clave rastreo</th>
@@ -167,18 +189,18 @@ export default function RelacionPagosPage() {
               </thead>
               <tbody>
                 {isLoading && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mx-auto" />
                   </td></tr>
                 )}
                 {error && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <AlertTriangle className="w-6 h-6 text-danger mx-auto mb-2" />
                     <p className="text-sm text-danger">{error}</p>
                   </td></tr>
                 )}
                 {!isLoading && !error && pagos.length === 0 && (
-                  <tr><td colSpan={10} className="text-center py-12">
+                  <tr><td colSpan={11} className="text-center py-12">
                     <DollarSign className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground">No se encontraron pagos</p>
                   </td></tr>
@@ -187,10 +209,20 @@ export default function RelacionPagosPage() {
                   <tr key={r.pago_id} className="sozu-table-row h-[52px]">
                     <td className="px-4 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">{formatDate(r.fecha_pago)}</td>
                     <td className="px-4">
-                      <p className="text-[13px] font-medium text-foreground truncate max-w-[180px]">{r.cliente || 'Sin identificar'}</p>
-                      {r.num_propiedad && <p className="text-[11px] text-muted-foreground">Prop. {r.num_propiedad}</p>}
+                      <p className="text-[13px] font-medium text-foreground truncate max-w-[200px]">{r.cliente || 'Sin identificar'}</p>
+                      <p className="text-[11px] font-mono text-muted-foreground">{formatCuenta(r.id_cuenta_cobranza, r.tipo_cuenta)}</p>
                     </td>
-                    <td className="px-4 text-[13px] text-foreground">{r.proyecto || '—'}</td>
+                    <td className="px-4">
+                      <p className="text-[13px] text-foreground">{r.proyecto || '—'}</p>
+                      {r.num_propiedad && (
+                        <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                          {r.proyecto ? `${r.proyecto} · ` : ''}{r.num_propiedad}
+                        </p>
+                      )}
+                    </td>
+                    <td className="px-4 text-[13px] text-foreground truncate max-w-[180px]" title={r.producto || ''}>
+                      {r.tipo_cuenta === 'producto' ? (r.producto || '—') : '—'}
+                    </td>
                     <td className="px-4">
                       <span className={cn('sozu-chip text-[10px]',
                         r.metodo_pago === 'STP' ? 'bg-info/10 text-info' :
@@ -228,12 +260,19 @@ export default function RelacionPagosPage() {
                       {r.num_aplicaciones > 0 ? (
                         <span
                           className="sozu-chip bg-success-bg text-success text-[10px] cursor-help"
-                          title={`Aplicado a ${r.num_aplicaciones} ${r.num_aplicaciones === 1 ? 'parcialidad' : 'parcialidades'} · Monto total aplicado: ${formatCurrency(Number(r.monto_aplicado))}`}
+                          title={
+                            (r.aplicaciones_detalle && r.aplicaciones_detalle.length > 0
+                              ? r.aplicaciones_detalle
+                                  .map(a => `• ${a.concepto || 'Concepto'}: ${formatCurrency(Number(a.monto))}`)
+                                  .join('\n')
+                              : `Aplicado a ${r.num_aplicaciones} ${r.num_aplicaciones === 1 ? 'pago' : 'pagos'}`) +
+                            `\n\nTotal aplicado: ${formatCurrency(Number(r.monto_aplicado))}`
+                          }
                         >
-                          {r.num_aplicaciones} {r.num_aplicaciones === 1 ? 'parc.' : 'parcs.'} · {formatCurrency(Number(r.monto_aplicado))}
+                          {r.num_aplicaciones} {r.num_aplicaciones === 1 ? 'pago' : 'pagos'} · {formatCurrency(Number(r.monto_aplicado))}
                         </span>
                       ) : (
-                        <span className="text-[11px] text-muted-foreground" title="Pago sin aplicar a parcialidades">—</span>
+                        <span className="text-[11px] text-muted-foreground" title="Pago sin aplicar">—</span>
                       )}
                     </td>
                     <td className="px-4">

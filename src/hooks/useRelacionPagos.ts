@@ -15,11 +15,14 @@ export interface PagoRecord {
   clabe_stp: string | null;
   cliente: string | null;
   num_propiedad: string | null;
+  producto: string | null;
+  tipo_cuenta: 'propiedad' | 'producto' | null;
   proyecto: string | null;
   proyecto_id: number | null;
   tiene_cep: boolean;
   monto_aplicado: number;
   num_aplicaciones: number;
+  aplicaciones_detalle: Array<{ concepto: string | null; orden: number | null; monto: number }>;
 }
 
 export interface RelacionPagosFilters {
@@ -27,6 +30,7 @@ export interface RelacionPagosFilters {
   metodoPago?: string | null;
   search?: string;
   hasCep?: boolean | null;
+  tipoCuenta?: 'propiedad' | 'producto' | null;
   page: number;
   pageSize: number;
 }
@@ -52,9 +56,10 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
     filters.metodoPago,
     debouncedSearch,
     filters.hasCep,
+    filters.tipoCuenta,
     filters.page,
     filters.pageSize,
-  ], [filters.proyectoId, filters.metodoPago, debouncedSearch, filters.hasCep, filters.page, filters.pageSize]);
+  ], [filters.proyectoId, filters.metodoPago, debouncedSearch, filters.hasCep, filters.tipoCuenta, filters.page, filters.pageSize]);
 
   const { data, isLoading, error } = useQuery({
     queryKey,
@@ -64,6 +69,7 @@ export function useRelacionPagos(filters: RelacionPagosFilters): RelacionPagosRe
         p_metodo_pago: filters.metodoPago ?? null,
         p_search: debouncedSearch || null,
         p_has_cep: filters.hasCep ?? null,
+        p_tipo_cuenta: filters.tipoCuenta ?? null,
         p_limit: filters.pageSize,
         p_offset: (filters.page - 1) * filters.pageSize,
       });
