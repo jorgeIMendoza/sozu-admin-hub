@@ -91,11 +91,11 @@ export default function RelacionPagosPage() {
               <span className="text-muted-foreground">{total.toLocaleString()} pagos</span>
               {pagos.length > 0 && (
                 <>
-                  <span className="text-foreground font-medium">Página: {formatCurrency(totalAmount)}</span>
-                  <span className="text-success font-medium">{conCep} con CEP</span>
-                  <span className="text-warning font-medium">{sinCep} sin CEP</span>
-                  <span className="text-primary font-medium">{aplicados} aplicados</span>
-                  <span className="text-muted-foreground">{sinAplicar} sin aplicar</span>
+                  <span className="text-foreground font-medium">Página: {formatCurrency(pageAmount)}</span>
+                  <span className="text-success font-medium">{totalConCep.toLocaleString()} con CEP</span>
+                  <span className="text-warning font-medium">{totalSinCep.toLocaleString()} sin CEP</span>
+                  <span className="text-primary font-medium">{totalAplicados.toLocaleString()} aplicados</span>
+                  <span className="text-muted-foreground">{totalSinAplicar.toLocaleString()} sin aplicar</span>
                 </>
               )}
             </div>
