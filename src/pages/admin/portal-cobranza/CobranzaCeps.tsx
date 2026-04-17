@@ -45,6 +45,7 @@ export default function CEPsPage() {
     return p ? parseInt(p) : null;
   });
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string | null>(null);
+  const [aplicacionFilter, setAplicacionFilter] = useState<'aplicados' | 'sin_aplicar' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [selectedCEP, setSelectedCEP] = useState<PagoRecord | null>(null);
