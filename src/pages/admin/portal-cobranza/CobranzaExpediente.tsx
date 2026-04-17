@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale';
 import {
   ArrowLeft, User, Building2, CreditCard, Calendar, FileCheck,
   AlertTriangle, Clock, CheckCircle2, Mail, Phone, Hash,
-  Loader2, Users,
+  Loader2, Users, Receipt, Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
