@@ -260,12 +260,19 @@ export default function RelacionPagosPage() {
                       {r.num_aplicaciones > 0 ? (
                         <span
                           className="sozu-chip bg-success-bg text-success text-[10px] cursor-help"
-                          title={`Aplicado a ${r.num_aplicaciones} ${r.num_aplicaciones === 1 ? 'parcialidad' : 'parcialidades'} · Monto total aplicado: ${formatCurrency(Number(r.monto_aplicado))}`}
+                          title={
+                            (r.aplicaciones_detalle && r.aplicaciones_detalle.length > 0
+                              ? r.aplicaciones_detalle
+                                  .map(a => `• ${a.concepto || 'Concepto'}: ${formatCurrency(Number(a.monto))}`)
+                                  .join('\n')
+                              : `Aplicado a ${r.num_aplicaciones} ${r.num_aplicaciones === 1 ? 'pago' : 'pagos'}`) +
+                            `\n\nTotal aplicado: ${formatCurrency(Number(r.monto_aplicado))}`
+                          }
                         >
-                          {r.num_aplicaciones} {r.num_aplicaciones === 1 ? 'parc.' : 'parcs.'} · {formatCurrency(Number(r.monto_aplicado))}
+                          {r.num_aplicaciones} {r.num_aplicaciones === 1 ? 'pago' : 'pagos'} · {formatCurrency(Number(r.monto_aplicado))}
                         </span>
                       ) : (
-                        <span className="text-[11px] text-muted-foreground" title="Pago sin aplicar a parcialidades">—</span>
+                        <span className="text-[11px] text-muted-foreground" title="Pago sin aplicar">—</span>
                       )}
                     </td>
                     <td className="px-4">
