@@ -15,6 +15,8 @@ import { Plus, Pencil, Trash2, Search, Users, Mail, Loader2 } from "lucide-react
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
 import { AvisoDestinatariosSection } from "@/components/admin/AvisoDestinatariosSection";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { usePagination } from "@/hooks/usePagination";
+import { SimplePagination } from "@/components/ui/simple-pagination";
 
 interface PostmarkTemplate {
   id: number;
@@ -368,6 +370,7 @@ export default function AdministrarAvisos() {
   };
 
   const filtered = avisos.filter(a => a.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+  const { paginated: pagedAvisos, page, setPage, totalPages, total, from, to } = usePagination(filtered, 50);
 
   if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
 
@@ -420,7 +423,7 @@ export default function AdministrarAvisos() {
               <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
-            ) : filtered.map(aviso => (
+            ) : pagedAvisos.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
                 <TableCell>
