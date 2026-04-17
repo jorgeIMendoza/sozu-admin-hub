@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileText } from "lucide-react";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 
@@ -19,15 +19,43 @@ interface AddCepDialogProps {
 export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: AddCepDialogProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [claveRastreo, setClaveRastreo] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { registrarSubidaDocumento } = useActivityLogger();
 
+  // Fetch existing clave_rastreo for this payment
+  const { data: pagoData } = useQuery({
+    queryKey: ["pago-cep-info", paymentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pagos")
+        .select("clave_rastreo")
+        .eq("id", paymentId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!paymentId,
+  });
+
+  const existingClaveRastreo = pagoData?.clave_rastreo?.trim() || "";
+  const claveRastreoIsEditable = !existingClaveRastreo;
+
+  useEffect(() => {
+    if (open) {
+      setClaveRastreo(existingClaveRastreo);
+    }
+  }, [open, existingClaveRastreo]);
+
   const updateCepMutation = useMutation({
-    mutationFn: async (cepUrl: string) => {
+    mutationFn: async ({ cepUrl, newClaveRastreo }: { cepUrl: string; newClaveRastreo?: string }) => {
+      const updatePayload: { url_cep: string; clave_rastreo?: string } = { url_cep: cepUrl };
+      if (newClaveRastreo) updatePayload.clave_rastreo = newClaveRastreo;
+
       const { error } = await supabase
         .from('pagos')
-        .update({ url_cep: cepUrl })
+        .update(updatePayload)
         .eq('id', paymentId);
 
       if (error) throw error;
@@ -36,6 +64,8 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
       queryClient.invalidateQueries({ queryKey: ["cuenta_detalle", cuentaCobranzaId] });
       queryClient.invalidateQueries({ queryKey: ["acuerdos_pago", cuentaCobranzaId] });
       queryClient.invalidateQueries({ queryKey: ["pagos_cuenta", cuentaCobranzaId] });
+      queryClient.invalidateQueries({ queryKey: ["relacion-pagos"] });
+      queryClient.invalidateQueries({ queryKey: ["pago-cep-info", paymentId] });
       toast({
         title: "CEP actualizado",
         description: "El comprobante electrónico de pago ha sido agregado exitosamente.",
@@ -56,7 +86,6 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
       if (file.type !== 'application/pdf') {
         toast({
           title: "Tipo de archivo inválido",
@@ -66,7 +95,6 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
         return;
       }
       
-      // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "Archivo muy grande",
@@ -83,12 +111,22 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
   const handleUpload = async () => {
     if (!selectedFile) return;
 
+    // If editable and user provided a value, validate basic format
+    const trimmedClave = claveRastreo.trim();
+    if (claveRastreoIsEditable && !trimmedClave) {
+      toast({
+        title: "Clave de rastreo requerida",
+        description: "Captura la clave de rastreo antes de subir el CEP.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setUploading(true);
     try {
       const timestamp = Date.now();
       const fileName = `cep_${timestamp}_${selectedFile.name}`;
       
-      // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('documentos')
         .upload(fileName, selectedFile);
@@ -98,15 +136,15 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
         throw new Error('Error al subir el archivo');
       }
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('documentos')
         .getPublicUrl(fileName);
 
-      // Update payment record
-      await updateCepMutation.mutateAsync(publicUrl);
+      await updateCepMutation.mutateAsync({
+        cepUrl: publicUrl,
+        newClaveRastreo: claveRastreoIsEditable ? trimmedClave : undefined,
+      });
 
-      // Log success
       await registrarSubidaDocumento({
         tipo: 'cep_pago',
         id_pago: paymentId,
@@ -117,7 +155,6 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
     } catch (error) {
       console.error('Error in handleUpload:', error);
       
-      // Log error
       await registrarSubidaDocumento(
         { tipo: 'cep_pago', id_pago: paymentId, id_cuenta_cobranza: cuentaCobranzaId, nombre_archivo: selectedFile?.name },
         'error',
@@ -145,6 +182,26 @@ export const AddCepDialog = ({ open, onClose, paymentId, cuentaCobranzaId }: Add
         </DialogHeader>
         
         <div className="space-y-4">
+          <div>
+            <Label htmlFor="clave-rastreo">
+              Clave de rastreo {claveRastreoIsEditable && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              id="clave-rastreo"
+              type="text"
+              value={claveRastreo}
+              onChange={(e) => setClaveRastreo(e.target.value)}
+              disabled={!claveRastreoIsEditable || uploading}
+              placeholder={claveRastreoIsEditable ? "Captura la clave de rastreo" : ""}
+              className="font-mono"
+            />
+            {!claveRastreoIsEditable && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Esta clave ya está registrada y no puede modificarse.
+              </p>
+            )}
+          </div>
+
           <div>
             <Label htmlFor="cep-file">Comprobante Electrónico de Pago (PDF)</Label>
             <Input
