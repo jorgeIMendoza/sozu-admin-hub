@@ -202,26 +202,49 @@ export default function RelacionPagosPage() {
                     <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[160px]">{r.clave_rastreo || '—'}</td>
                     <td className="px-4 font-mono text-[11px] text-muted-foreground truncate max-w-[140px]">{r.clabe_stp || '—'}</td>
                     <td className="px-4 text-center">
-                      {r.tiene_cep
-                        ? <CheckCircle2 className="w-4 h-4 text-success mx-auto" strokeWidth={1.75} />
-                        : <Clock className="w-4 h-4 text-warning mx-auto" strokeWidth={1.75} />}
+                      {r.tiene_cep ? (
+                        r.url_cep ? (
+                          <a
+                            href={r.url_cep}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="CEP disponible — Clic para abrir el comprobante"
+                            className="inline-flex items-center justify-center p-1 rounded-md hover:bg-success/10 transition-colors"
+                          >
+                            <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />
+                          </a>
+                        ) : (
+                          <span title="CEP registrado (sin enlace disponible)">
+                            <CheckCircle2 className="w-4 h-4 text-success mx-auto" strokeWidth={1.75} />
+                          </span>
+                        )
+                      ) : (
+                        <span title="CEP pendiente — aún no se ha generado el comprobante">
+                          <Clock className="w-4 h-4 text-warning mx-auto" strokeWidth={1.75} />
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 text-center">
-                      {r.num_aplicaciones > 0
-                        ? <span className="sozu-chip bg-success-bg text-success text-[10px]">{r.num_aplicaciones} ({formatCurrency(Number(r.monto_aplicado))})</span>
-                        : <span className="text-[11px] text-muted-foreground">—</span>}
+                      {r.num_aplicaciones > 0 ? (
+                        <span
+                          className="sozu-chip bg-success-bg text-success text-[10px] cursor-help"
+                          title={`Aplicado a ${r.num_aplicaciones} ${r.num_aplicaciones === 1 ? 'parcialidad' : 'parcialidades'} · Monto total aplicado: ${formatCurrency(Number(r.monto_aplicado))}`}
+                        >
+                          {r.num_aplicaciones} {r.num_aplicaciones === 1 ? 'parc.' : 'parcs.'} · {formatCurrency(Number(r.monto_aplicado))}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground" title="Pago sin aplicar a parcialidades">—</span>
+                      )}
                     </td>
                     <td className="px-4">
                       <div className="flex items-center justify-center gap-0.5">
-                        <button className="p-1.5 rounded-md hover:bg-muted transition-colors duration-100" title="Ver expediente"
-                          onClick={() => navigate(`/cuenta/${r.id_cuenta_cobranza}`)}>
+                        <button
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors duration-100"
+                          title="Ver expediente de la cuenta"
+                          onClick={() => navigate(`/cuenta/${r.id_cuenta_cobranza}`)}
+                        >
                           <Eye className="w-[14px] h-[14px] text-muted-foreground" strokeWidth={1.75} />
                         </button>
-                        {r.url_cep && (
-                          <a href={r.url_cep} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-md hover:bg-muted transition-colors duration-100" title="Ver CEP">
-                            <FileText className="w-[14px] h-[14px] text-muted-foreground" strokeWidth={1.75} />
-                          </a>
-                        )}
                       </div>
                     </td>
                   </tr>
