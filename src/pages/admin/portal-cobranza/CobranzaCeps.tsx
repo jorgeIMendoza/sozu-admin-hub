@@ -45,6 +45,7 @@ export default function CEPsPage() {
     return p ? parseInt(p) : null;
   });
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string | null>(null);
+  const [aplicacionFilter, setAplicacionFilter] = useState<'aplicados' | 'sin_aplicar' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [selectedCEP, setSelectedCEP] = useState<PagoRecord | null>(null);
@@ -69,15 +70,22 @@ export default function CEPsPage() {
     pageSize: PAGE_SIZE,
   });
 
+  const filteredPagos = useMemo(() => {
+    if (!aplicacionFilter) return pagos;
+    if (aplicacionFilter === 'aplicados') return pagos.filter(p => p.num_aplicaciones > 0);
+    return pagos.filter(p => p.num_aplicaciones === 0);
+  }, [pagos, aplicacionFilter]);
+
   const clearAllFilters = useCallback(() => {
     setProjectFilter(null);
     setMetodoPagoFilter(null);
+    setAplicacionFilter(null);
     setSearchQuery('');
     setPage(1);
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
-  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || searchQuery;
+  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || aplicacionFilter !== null || searchQuery;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   useEffect(() => {
@@ -144,14 +152,22 @@ export default function CEPsPage() {
           <div className="flex items-center gap-1.5 mb-1"><DollarSign className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Monto total</span></div>
           <p className="text-lg font-semibold text-foreground tabular-nums" title={formatCurrency(totalMonto)}>{formatCompactCurrency(totalMonto)}</p>
         </div>
-        <div className="sozu-kpi-card !p-4">
+        <button
+          type="button"
+          onClick={() => { setAplicacionFilter(prev => prev === 'aplicados' ? null : 'aplicados'); setPage(1); }}
+          className={cn('sozu-kpi-card !p-4 text-left transition-all hover:shadow-md cursor-pointer',
+            aplicacionFilter === 'aplicados' && 'ring-2 ring-primary border-primary')}>
           <div className="flex items-center gap-1.5 mb-1"><Shield className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Aplicados</span></div>
           <p className="text-lg font-semibold text-primary tabular-nums" title={totalAplicados.toLocaleString()}>{formatCompactNumber(totalAplicados)}</p>
-        </div>
-        <div className="sozu-kpi-card !p-4">
-          <div className="flex items-center gap-1.5 mb-1"><AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={1.75} /><span className="text-[11px] text-muted-foreground">Sin aplicar</span></div>
-          <p className="text-lg font-semibold text-muted-foreground tabular-nums" title={totalSinAplicar.toLocaleString()}>{formatCompactNumber(totalSinAplicar)}</p>
-        </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setAplicacionFilter(prev => prev === 'sin_aplicar' ? null : 'sin_aplicar'); setPage(1); }}
+          className={cn('sozu-kpi-card !p-4 text-left transition-all hover:shadow-md cursor-pointer',
+            aplicacionFilter === 'sin_aplicar' && 'ring-2 ring-danger border-danger')}>
+          <div className="flex items-center gap-1.5 mb-1"><AlertTriangle className="w-3.5 h-3.5 text-danger" strokeWidth={1.75} /><span className="text-[11px] text-danger">Sin aplicar</span></div>
+          <p className="text-lg font-semibold text-danger tabular-nums" title={totalSinAplicar.toLocaleString()}>{formatCompactNumber(totalSinAplicar)}</p>
+        </button>
       </div>
 
       <div className="flex h-full px-5 gap-5">
@@ -167,7 +183,7 @@ export default function CEPsPage() {
                   <AlertTriangle className="w-6 h-6 text-danger mx-auto mb-2" />
                   <p className="text-sm text-danger">{error}</p>
                 </div>
-              ) : pagos.length === 0 ? (
+              ) : filteredPagos.length === 0 ? (
                 <div className="text-center py-16">
                   <FileCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" strokeWidth={1.5} />
                   <p className="text-sm text-muted-foreground mb-1">No se encontraron CEPs pendientes</p>
@@ -189,8 +205,12 @@ export default function CEPsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {pagos.map(r => (
-                        <tr key={r.pago_id} className={cn('sozu-table-row h-[52px] cursor-pointer', selectedCEP?.pago_id === r.pago_id && 'bg-primary-muted')}
+                      {filteredPagos.map(r => {
+                        const sinAplicar = r.num_aplicaciones === 0;
+                        return (
+                        <tr key={r.pago_id} className={cn('sozu-table-row h-[52px] cursor-pointer',
+                          selectedCEP?.pago_id === r.pago_id && 'bg-primary-muted',
+                          sinAplicar && 'border-l-2 border-l-danger bg-danger/[0.03] hover:bg-danger/[0.06]')}
                           onClick={() => setSelectedCEP(r)}>
                           <td className="px-4 text-[13px] text-muted-foreground tabular-nums whitespace-nowrap">{formatDate(r.fecha_pago)}</td>
                           <td className="px-4">
@@ -211,10 +231,11 @@ export default function CEPsPage() {
                           <td className="px-4 text-center">
                             {r.num_aplicaciones > 0
                               ? <span className="sozu-chip bg-success-bg text-success text-[10px]" title={`${r.num_aplicaciones} aplicación(es) — Total aplicado: ${formatCurrency(Number(r.monto_aplicado))}`}>{r.num_aplicaciones}</span>
-                              : <span className="text-[11px] text-muted-foreground">—</span>}
+                              : <span className="sozu-chip bg-danger/10 text-danger text-[10px]" title="Pago sin aplicar a ningún acuerdo">Sin aplicar</span>}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
 
@@ -245,13 +266,31 @@ export default function CEPsPage() {
 
         {/* Detail panel */}
         {selectedCEP && (
-          <div className="w-[380px] shrink-0 bg-card border border-border rounded-xl flex flex-col animate-slide-in-right self-start sticky top-[180px]">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div className={cn('w-[380px] shrink-0 bg-card border rounded-xl flex flex-col animate-slide-in-right self-start sticky top-[180px]',
+            selectedCEP.num_aplicaciones === 0 ? 'border-danger/40' : 'border-border')}>
+            <div className={cn('flex items-center justify-between px-5 py-3 border-b',
+              selectedCEP.num_aplicaciones === 0 ? 'border-danger/30 bg-danger/[0.04]' : 'border-border')}>
               <h3 className="text-[14px] font-semibold text-foreground">Detalle CEP Pendiente</h3>
               <button onClick={() => setSelectedCEP(null)} className="p-1.5 rounded-md hover:bg-muted transition-colors"><X className="w-4 h-4" strokeWidth={1.75} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              <span className="sozu-chip bg-warning-bg text-warning">Sin CEP</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="sozu-chip bg-warning-bg text-warning">Sin CEP</span>
+                {selectedCEP.num_aplicaciones === 0 && (
+                  <span className="sozu-chip bg-danger/10 text-danger">Sin aplicar</span>
+                )}
+              </div>
+              {selectedCEP.num_aplicaciones === 0 && (
+                <div className="rounded-md border border-danger/30 bg-danger/[0.06] px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-danger" strokeWidth={1.75} />
+                    <p className="text-[11px] font-semibold text-danger uppercase tracking-wider">Pago no aplicado — motivo</p>
+                  </div>
+                  <p className="text-[12px] text-foreground leading-relaxed">
+                    {selectedCEP.descripcion?.trim() || 'Este pago aún no se ha asociado a ningún acuerdo de pago. No hay descripción registrada que indique el motivo.'}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
                 <InfoItem label="Cliente" value={selectedCEP.cliente || 'Sin identificar'} />
                 <InfoItem label="Proyecto" value={selectedCEP.proyecto || '—'} />
@@ -264,7 +303,7 @@ export default function CEPsPage() {
                 <InfoItem label="Propiedad" value={selectedCEP.num_propiedad || '—'} />
                 <InfoItem label="Aplicaciones" value={selectedCEP.num_aplicaciones > 0 ? `${selectedCEP.num_aplicaciones} (${formatCurrency(Number(selectedCEP.monto_aplicado))})` : 'Sin aplicar'} />
               </div>
-              {selectedCEP.descripcion && (
+              {selectedCEP.descripcion && selectedCEP.num_aplicaciones > 0 && (
                 <div>
                   <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Descripción</p>
                   <p className="text-[13px] text-muted-foreground">{selectedCEP.descripcion}</p>
