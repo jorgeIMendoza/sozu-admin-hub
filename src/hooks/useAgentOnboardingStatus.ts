@@ -72,6 +72,24 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
     enabled: !!personaId,
   });
 
+  // Carta de cumplimiento firmada vía Mifiel (fallback si el webhook no creó el doc tipo 48)
+  const { data: cartaFirmada = false, isLoading: loadingCarta } = useQuery({
+    queryKey: ['agent-onboarding-carta-firmada', personaId],
+    queryFn: async () => {
+      if (!personaId) return false;
+      const { data, error } = await supabase
+        .from('firmas_digitales')
+        .select('id')
+        .eq('tipo_documento', 'carta_acuerdos')
+        .eq('referencia_id', personaId)
+        .eq('estado', 'completado')
+        .limit(1);
+      if (error) throw error;
+      return !!(data && data.length > 0);
+    },
+    enabled: !!personaId,
+  });
+
   const { data: cuentas = [], isLoading: loadingCuentas } = useQuery({
     queryKey: ['agent-onboarding-bank', personaId],
     queryFn: async () => {
@@ -90,7 +108,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
 
   const { appointments: citasCapacitacion = [], isLoading: loadingCitas } = useAgentTrainingAppointments(personaId);
 
-  const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas;
+  const isLoading = loadingInmo || loadingPersona || loadingDocs || loadingCuentas || loadingCitas || loadingCarta;
 
   // Training is complete if at least one cita is confirmed (asistio / id_estatus_cita=3)
   const activeCitas = citasCapacitacion.filter((c: any) => c.activo);
@@ -197,8 +215,9 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   const hasINE = docTypes.has(2) && docTypes.has(3);
   const hasPasaporte = docTypes.has(4);
   const hasIdentityDoc = hasINE || hasPasaporte;
-  const documentsComplete = hasIdentityDoc && docTypes.has(48);
-  const documentsPartial = !documentsComplete && docTypes.size > 0;
+  const hasCartaCumplimiento = docTypes.has(48) || cartaFirmada;
+  const documentsComplete = hasIdentityDoc && hasCartaCumplimiento;
+  const documentsPartial = !documentsComplete && (docTypes.size > 0 || cartaFirmada);
 
   const bankComplete = cuentas.length > 0;
 
@@ -222,7 +241,7 @@ export function useAgentOnboardingStatus(personaId: number | null | undefined): 
   if (!persona?.direccion_id_estado) basicMissing.push('Estado');
   if (!persona?.direccion_id_municipio) basicMissing.push('Municipio');
   if (!hasIdentityDoc) basicMissing.push('INE o Pasaporte');
-  if (!docTypes.has(48)) basicMissing.push('Carta de comercialización');
+  if (!hasCartaCumplimiento) basicMissing.push('Carta de comercialización');
 
   const fiscalMissing: string[] = [];
   if (!persona?.rfc) fiscalMissing.push('RFC');
