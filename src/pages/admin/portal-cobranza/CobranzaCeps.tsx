@@ -70,15 +70,22 @@ export default function CEPsPage() {
     pageSize: PAGE_SIZE,
   });
 
+  const filteredPagos = useMemo(() => {
+    if (!aplicacionFilter) return pagos;
+    if (aplicacionFilter === 'aplicados') return pagos.filter(p => p.num_aplicaciones > 0);
+    return pagos.filter(p => p.num_aplicaciones === 0);
+  }, [pagos, aplicacionFilter]);
+
   const clearAllFilters = useCallback(() => {
     setProjectFilter(null);
     setMetodoPagoFilter(null);
+    setAplicacionFilter(null);
     setSearchQuery('');
     setPage(1);
     setSearchParams({}, { replace: true });
   }, [setSearchParams]);
 
-  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || searchQuery;
+  const hasFilters = projectFilter !== null || metodoPagoFilter !== null || aplicacionFilter !== null || searchQuery;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   useEffect(() => {
