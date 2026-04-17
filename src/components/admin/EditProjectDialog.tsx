@@ -503,7 +503,14 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
 
       // Update existing showrooms
       for (const s of validShowrooms.filter(s => s.id)) {
-        const { error: updateErr } = await supabase
+        console.log('[EditProjectDialog] Updating showroom', {
+          id: s.id,
+          nombre: s.nombre,
+          descripcion_direccion: s.descripcion_direccion,
+          latitud: s.latitud,
+          longitud: s.longitud,
+        });
+        const { error: updateErr, data: updData } = await supabase
           .from('showrooms_proyecto')
           .update({
             nombre: s.nombre,
@@ -512,7 +519,9 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
             longitud: s.longitud!,
             fecha_actualizacion: new Date().toISOString(),
           })
-          .eq('id', s.id!);
+          .eq('id', s.id!)
+          .select();
+        console.log('[EditProjectDialog] Update result', { id: s.id, updData, updateErr });
         if (updateErr) throw updateErr;
       }
 
@@ -538,6 +547,7 @@ export const EditProjectDialog = ({ projectId, onProjectUpdated, trigger, canCre
         description: "El proyecto se ha actualizado exitosamente.",
       });
 
+      await queryClient.invalidateQueries({ queryKey: ["showrooms-proyecto", projectId] });
       setOpen(false);
       onProjectUpdated();
     } catch (error) {
