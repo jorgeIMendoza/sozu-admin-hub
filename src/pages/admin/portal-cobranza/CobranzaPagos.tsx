@@ -214,9 +214,9 @@ export default function RelacionPagosPage() {
                     </td>
                     <td className="px-4">
                       <p className="text-[13px] text-foreground">{r.proyecto || '—'}</p>
-                      {(r.num_propiedad || r.producto) && (
+                      {r.num_propiedad && (
                         <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">
-                          {r.proyecto && (r.num_propiedad || r.producto) ? `${r.proyecto} · ` : ''}{r.num_propiedad || r.producto}
+                          {r.proyecto ? `${r.proyecto} · ` : ''}{r.num_propiedad}
                         </p>
                       )}
                     </td>
