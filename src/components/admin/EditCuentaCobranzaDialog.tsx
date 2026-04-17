@@ -4893,7 +4893,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                               setShowComisionEfectivoDialog(true);
                             }
                           }}
-                          disabled={isReadOnly || esComisionEfectivo || isEnganchePagado}
+                          disabled={isReadOnly || esComisionEfectivo || aplicaBloqueoComisionPorEnganche}
                         />
                       </div>
                     </div>
@@ -4931,13 +4931,13 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                           handlePorcentajeComisionChange(value);
                         }}
                         onBlur={handleComisionBlur}
-                        disabled={isReadOnly || (isEnganchePagado && !canSuperAdminEditComision)}
+                        disabled={isReadOnly || isComisionLockedByEnganche}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {isEnganchePagado && canSuperAdminEditComision
+                        {aplicaBloqueoComisionPorEnganche && canSuperAdminEditComision
                           ? 'Editable por Super Admin (factura aún no generada)'
-                          : isEnganchePagado 
-                            ? 'No editable - El enganche está completamente pagado' 
+                          : aplicaBloqueoComisionPorEnganche
+                            ? 'No editable - El enganche está completamente pagado'
                             : 'Mínimo 4%, máximo 100% (hasta 4 decimales)'}
                       </p>
                     </div>
@@ -4975,7 +4975,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
                                 ivaIncluido: checked === true 
                               });
                             }}
-                            disabled={isReadOnly || (isEnganchePagado && !canSuperAdminEditComision)}
+                            disabled={isReadOnly || isComisionLockedByEnganche}
                           />
                           <Label
                             htmlFor="iva-incluido"
@@ -5009,7 +5009,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {isEnganchePagado && (
+                  {aplicaBloqueoComisionPorEnganche && (
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <p className="text-sm text-blue-700 dark:text-blue-300">
                         ℹ️ El enganche está completamente pagado. Solo se pueden agregar nuevos comisionistas, no editar porcentajes existentes.
