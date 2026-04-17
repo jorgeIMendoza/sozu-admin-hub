@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Send, Search, Eye, Clock, Users, Mail } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import { SimplePagination } from "@/components/ui/simple-pagination";
 
 interface AvisoRolDestinatario {
   correos: { destinatarios?: { nombre?: string; email?: string }[] } | null;
@@ -213,6 +215,7 @@ export default function EnviarAvisos() {
   };
 
   const filtered = avisos.filter(a => a.nombre.toLowerCase().includes(searchTerm.toLowerCase()));
+  const { paginated: pagedAvisos, page, setPage, totalPages, total, from, to } = usePagination(filtered, 50);
 
   if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
 
@@ -242,7 +245,7 @@ export default function EnviarAvisos() {
               <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay avisos activos</TableCell></TableRow>
-            ) : filtered.map(aviso => (
+            ) : pagedAvisos.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
                 <TableCell className="text-muted-foreground">{aviso.asunto}</TableCell>
@@ -277,6 +280,14 @@ export default function EnviarAvisos() {
             ))}
           </TableBody>
         </Table>
+        <SimplePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          total={total}
+          from={from}
+          to={to}
+        />
       </div>
 
       {/* Preview Dialog */}
