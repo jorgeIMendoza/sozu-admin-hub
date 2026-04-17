@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 const METODOS_PAGO = [
   'STP', 'Transferencia bancaria', 'Cheque', 'Efectivo',
