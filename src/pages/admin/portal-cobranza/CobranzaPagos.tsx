@@ -122,6 +122,19 @@ export default function RelacionPagosPage() {
             <option value="con">Con CEP</option>
             <option value="sin">Sin CEP</option>
           </select>
+          <select
+            value={tipoCuentaFilter ?? 'all'}
+            onChange={e => {
+              const v = e.target.value;
+              setTipoCuentaFilter(v === 'all' ? null : (v as 'propiedad' | 'producto'));
+              setPage(1);
+            }}
+            className="sozu-filter-select"
+          >
+            <option value="all">Propiedad / Producto</option>
+            <option value="propiedad">Propiedades</option>
+            <option value="producto">Productos / Servicios</option>
+          </select>
           {hasFilters && (
             <button onClick={clearAllFilters}
               className="h-[38px] px-3 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg flex items-center gap-1.5 transition-colors duration-100">
