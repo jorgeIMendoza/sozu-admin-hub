@@ -18,7 +18,9 @@ export interface BandejaCuenta {
   monto_vencido: number;
   saldo_pendiente: number;
   proximo_vencimiento: string | null;
-  prioridad: 'purple' | 'red' | 'yellow' | 'green';
+  ultima_fecha_pago: string | null;
+  dias_sin_pagar: number;
+  prioridad: 'purple' | 'red_dark' | 'red' | 'yellow' | 'green' | 'blue' | 'gray';
 }
 
 interface BandejaFilters {
