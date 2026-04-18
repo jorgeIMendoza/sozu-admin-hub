@@ -226,6 +226,11 @@ export default function BandejaOperativaPage() {
                       ? <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-danger-bg text-danger text-xs font-semibold">{cuenta.parcialidades_vencidas}</span>
                       : <span className="text-muted-foreground">—</span>}
                   </td>
+                  <td className="px-3 text-center text-[12px] tabular-nums">
+                    {cuenta.parcialidades_vencidas > 0
+                      ? <span className="font-semibold text-danger">{cuenta.dias_sin_pagar}d</span>
+                      : <span className="text-muted-foreground">{cuenta.dias_sin_pagar}d</span>}
+                  </td>
                   <td className="px-3 text-[13px] text-muted-foreground tabular-nums">{formatDate(cuenta.proximo_vencimiento)}</td>
                   <td className="px-3 text-[11px] text-muted-foreground font-mono tracking-wide truncate max-w-[160px]">
                     {cuenta.clabe_stp || '—'}
