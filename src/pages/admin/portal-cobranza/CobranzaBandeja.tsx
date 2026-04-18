@@ -83,7 +83,7 @@ export default function BandejaOperativaPage() {
 
   const counts = useMemo(() => ({
     total: filtered.length,
-    critical: filtered.filter(c => c.prioridad === 'purple' || c.prioridad === 'red').length,
+    critical: filtered.filter(c => c.prioridad === 'purple' || c.prioridad === 'red_dark' || c.prioridad === 'red').length,
     pending: filtered.filter(c => c.prioridad === 'yellow').length,
     ok: filtered.filter(c => c.prioridad === 'green').length,
   }), [filtered]);
