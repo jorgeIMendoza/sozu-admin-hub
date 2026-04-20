@@ -235,6 +235,15 @@ export default function AdministrarAvisos() {
   const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
+  // Modo trigger por evento
+  const [modoTrigger, setModoTrigger] = useState<'cron' | 'evento'>('cron');
+  const [fuentesTrigger, setFuentesTrigger] = useState<FuenteTrigger[]>([]);
+  const [eventoFuenteId, setEventoFuenteId] = useState<string>('');
+  const [eventoOffsets, setEventoOffsets] = useState<string>('-5,-3,-1');
+  const [eventoHora, setEventoHora] = useState<string>('10:00');
+  const [eventoCanal, setEventoCanal] = useState<'email' | 'whatsapp' | 'ambos'>('email');
+  const [eventoActivo, setEventoActivo] = useState<boolean>(true);
+
   const fetchAvisos = async () => {
     setIsLoading(true);
     const { data } = await supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false });
