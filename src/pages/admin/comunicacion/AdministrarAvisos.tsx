@@ -34,6 +34,7 @@ interface Aviso {
   activo: boolean;
   fecha_creacion: string;
   postmark_template_id: number;
+  modo_trigger?: string | null;
 }
 
 interface Rol {
@@ -44,6 +45,25 @@ interface Rol {
 interface Destinatario {
   nombre: string;
   email: string;
+}
+
+interface FuenteTrigger {
+  id: number;
+  clave: string;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
+interface TriggerEvento {
+  id?: number;
+  id_aviso?: number;
+  id_fuente: number;
+  offsets_dias: number[];
+  hora_envio: string; // HH:MM
+  canal: 'email' | 'whatsapp' | 'ambos';
+  filtros?: any;
+  activo: boolean;
 }
 
 const DIAS_SEMANA: Record<string, string> = { '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles', '4': 'jueves', '5': 'viernes', '6': 'sábado', '7': 'domingo' };
