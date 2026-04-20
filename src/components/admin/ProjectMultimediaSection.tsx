@@ -71,6 +71,29 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
     }
   });
 
+  // Load notification config for "nuevo_avance_de_obra" so the confirmation
+  // dialog reflects the actual configuration (channel + recipient roles).
+  const { data: avanceObraConfig } = useQuery({
+    queryKey: ['notif-config', 'nuevo_avance_de_obra'],
+    queryFn: async () => {
+      const { data: config } = await (supabase as any)
+        .from('notificaciones_configuracion')
+        .select('tipo_evento, descripcion, canal, roles_destino, activo')
+        .eq('tipo_evento', 'nuevo_avance_de_obra')
+        .maybeSingle();
+      if (!config) return null;
+      let roleNames: string[] = [];
+      if (Array.isArray(config.roles_destino) && config.roles_destino.length > 0) {
+        const { data: roles } = await supabase
+          .from('roles')
+          .select('id, nombre')
+          .in('id', config.roles_destino);
+        roleNames = (roles || []).map((r: any) => r.nombre);
+      }
+      return { ...config, roleNames };
+    },
+  });
+
   const addMutation = useMutation({
     mutationFn: async (multimediaData: typeof newMultimedia) => {
       const { data, error } = await supabase
