@@ -731,10 +731,10 @@ const AgentProyectoDetalle = () => {
                       )}
                       {m.availableCount > 0 && (
                         <button
-                          onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_ver_unidades_modelo', elementLabel: 'Ver unidades', metadata: { modelo_id: m.id } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`); }}
+                          onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_ver_inventario_modelo', elementLabel: 'Ver inventario', metadata: { modelo_id: m.id } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}&modelo=${m.id}`); }}
                           className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-foreground hover:bg-gray-50 transition-colors"
                         >
-                          Ver unidades
+                          Ver inventario
                           <ChevronRight className="h-4 w-4" />
                         </button>
                       )}
@@ -792,25 +792,13 @@ const AgentProyectoDetalle = () => {
         {/* CTA: Generar oferta + Agendar cita */}
         <section className="bg-[hsl(var(--agent-primary))]/10 rounded-2xl p-5 text-center">
           <p className="text-sm font-semibold text-foreground mb-3">¿Tu cliente está interesado en este proyecto?</p>
-          {inventarioPerms.canGenerateOffer && (
-            isAgentRole && !onboardingLoading && !hasTrainingComplete ? (
-              <Button
-                disabled
-                className="w-full rounded-xl h-12 text-sm font-semibold"
-              >
-                <Lock className="h-4 w-4 mr-2" />
-                Completa tu capacitación para generar ofertas
-              </Button>
-            ) : (
-            <Button
-              onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_generar_oferta', elementLabel: 'Generar oferta comercial', metadata: { proyecto_id: projectId } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}`); }}
-              className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Generar oferta comercial
-            </Button>
-            )
-          )}
+          <Button
+            onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_ver_inventario', elementLabel: 'Ver inventario', metadata: { proyecto_id: projectId } }); navigate(`/admin/agent/inventario/unidades?proyecto=${projectId}`); }}
+            className="w-full bg-[hsl(var(--agent-primary))] hover:bg-[hsl(var(--agent-primary))]/90 text-white rounded-xl h-12 text-sm font-semibold"
+          >
+            <Share2 className="h-4 w-4 mr-2" />
+            Ver inventario
+          </Button>
           <Button
             variant="outline"
             onClick={() => { track({ page: 'agent_detalle_desarrollo', elementId: 'btn_agendar_cita', elementLabel: 'Agendar cita', metadata: { proyecto_id: projectId } }); setAgendarCitaOpen(true); }}

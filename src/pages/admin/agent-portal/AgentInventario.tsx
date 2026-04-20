@@ -209,7 +209,7 @@ const AgentInventario = () => {
               }}
               onViewUnits={(e) => {
                 e.stopPropagation();
-                track({ page: 'agent_inventario', elementId: 'btn_ver_unidades', elementLabel: 'Ver unidades', metadata: { proyecto_id: proyecto.id } });
+                track({ page: 'agent_inventario', elementId: 'btn_ver_inventario', elementLabel: 'Ver inventario', metadata: { proyecto_id: proyecto.id } });
                 navigate(`/admin/agent/inventario/unidades?proyecto=${proyecto.id}`);
               }}
               track={track}
@@ -327,7 +327,7 @@ function ProjectCard({
               onClick={onViewUnits}
               className="flex items-center gap-1 text-xs font-semibold text-[hsl(var(--agent-primary))] hover:underline"
             >
-              Ver unidades
+              Ver inventario
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           )}
