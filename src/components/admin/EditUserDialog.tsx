@@ -196,6 +196,49 @@ export function EditUserDialog({
   const currentInmobiliaria = isAgentRole ? currentAgentInmobiliaria : currentInmobInmobiliaria;
   const isLoadingInmobiliaria = isAgentRole ? isLoadingAgentInmob : isLoadingInmobInmob;
 
+  // Fetch paises for phone country code
+  const { data: paises = [] } = useQuery({
+    queryKey: ['paises_edit_user'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paises')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Fetch phone from usuarios first; fallback to personas if empty
+  const { data: phoneData } = useQuery({
+    queryKey: ['user_phone', userEmail, userPersonaId],
+    queryFn: async () => {
+      const { data: usuarioRow } = await supabase
+        .from('usuarios')
+        .select('telefono, clave_pais_telefono')
+        .eq('email', userEmail)
+        .maybeSingle();
+
+      let telefono = usuarioRow?.telefono || '';
+      let clave = usuarioRow?.clave_pais_telefono || '';
+
+      if ((!telefono || !clave) && userPersonaId) {
+        const { data: personaRow } = await supabase
+          .from('personas')
+          .select('telefono, clave_pais_telefono')
+          .eq('id', userPersonaId)
+          .maybeSingle();
+        if (!telefono) telefono = personaRow?.telefono || '';
+        if (!clave) clave = personaRow?.clave_pais_telefono || '';
+      }
+
+      return { telefono, clave_pais_telefono: clave || 'MX' };
+    },
+    enabled: open && !!userEmail,
+  });
+
   // Reset form when dialog opens with new data
   useEffect(() => {
     if (open) {
@@ -203,6 +246,16 @@ export function EditUserDialog({
       setEmail(userEmail);
     }
   }, [open, userName, userEmail]);
+
+  // Hydrate phone fields when fetched
+  useEffect(() => {
+    if (open && phoneData) {
+      setTelefono(phoneData.telefono);
+      setClavePaisTelefono(phoneData.clave_pais_telefono);
+      setOriginalTelefono(phoneData.telefono);
+      setOriginalClavePais(phoneData.clave_pais_telefono);
+    }
+  }, [open, phoneData]);
 
   // Set inmobiliaria when data is loaded
   useEffect(() => {
