@@ -675,9 +675,40 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar nuevo avance de obra?</AlertDialogTitle>
             <AlertDialogDescription>
-              Al agregar este video se enviará una notificación (email y/o WhatsApp) a los usuarios configurados en el evento <strong>nuevo_avance_de_obra</strong> (Super Administrador, Agente Inmobiliario, Agente Interno, Vendedor, Cliente, Embajador, Desarrollador e Inmobiliaria con acceso al desarrollo).
-              <br /><br />
-              ¿Deseas continuar?
+              {avanceObraConfig ? (
+                <>
+                  Al agregar este video se enviará una notificación por{' '}
+                  <strong>
+                    {avanceObraConfig.canal === 'ambos'
+                      ? 'Email y WhatsApp'
+                      : avanceObraConfig.canal === 'email'
+                      ? 'Email'
+                      : avanceObraConfig.canal === 'whatsapp'
+                      ? 'WhatsApp'
+                      : avanceObraConfig.canal}
+                  </strong>{' '}
+                  a los usuarios con rol{' '}
+                  <strong>
+                    {avanceObraConfig.roleNames.length > 0
+                      ? avanceObraConfig.roleNames.join(', ')
+                      : 'sin roles configurados'}
+                  </strong>{' '}
+                  con acceso al desarrollo, según la configuración del evento{' '}
+                  <strong>{avanceObraConfig.tipo_evento}</strong>.
+                  {!avanceObraConfig.activo && (
+                    <>
+                      <br /><br />
+                      <span className="text-destructive">
+                        ⚠️ El evento está desactivado, no se enviarán notificaciones.
+                      </span>
+                    </>
+                  )}
+                  <br /><br />
+                  ¿Deseas continuar?
+                </>
+              ) : (
+                <>Cargando configuración de la notificación...</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
