@@ -260,7 +260,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
       toast({ title: "Debes completar todos los campos", variant: "destructive" });
       return;
     }
-    addYoutubeMutation.mutate(youtubeForm);
+    setConfirmYoutubeOpen(true);
   };
 
   const getYouTubeEmbedUrl = (url: string) => {
