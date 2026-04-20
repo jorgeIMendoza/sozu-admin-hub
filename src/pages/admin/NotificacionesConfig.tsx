@@ -39,6 +39,7 @@ interface NotificacionConfig {
   asunto_email: string;
   plantilla_wa: string;
   plantilla_email_detalles: string;
+  postmark_template_id: number;
 }
 
 interface Rol {
@@ -56,6 +57,7 @@ const EMPTY_CONFIG: Omit<NotificacionConfig, 'id'> = {
   asunto_email: '',
   plantilla_wa: '',
   plantilla_email_detalles: '',
+  postmark_template_id: 41353048,
 };
 
 const NotificacionesConfig = () => {

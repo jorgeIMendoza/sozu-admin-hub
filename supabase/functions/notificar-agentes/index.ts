@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
         actividad: asuntoEmail,
         detalles: detallesEmail,
       },
-      templateId: 41353048,
+      templateId: config.postmark_template_id || 41353048,
     };
 
     console.log(`Sending notification for ${tipo_evento} to ${filteredUsers.length} users`);
