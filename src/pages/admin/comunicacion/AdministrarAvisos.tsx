@@ -520,7 +520,7 @@ export default function AdministrarAvisos() {
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
                 <TableCell>
                   {aviso.tipo_envio === 'automatico' && aviso.modo_trigger === 'evento' ? (
-                    <Badge variant="default" className="bg-violet-600 hover:bg-violet-700">automático · evento</Badge>
+                    <Badge variant="default" className="bg-accent text-accent-foreground">automático · evento</Badge>
                   ) : aviso.tipo_envio === 'automatico' && aviso.cron_expression ? (
                     <Popover>
                       <PopoverTrigger asChild>
