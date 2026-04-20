@@ -157,11 +157,12 @@ function AgentReadOnlyAccess({ userPersonaId, isSecondaryInmobiliaria, isAgenteI
   );
 }
 // Editable project access for agents (Agente Inmobiliario / Agente Interno) and secondary Inmobiliaria users
-function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno, isSecondaryInmobiliaria, proyectos, selectedProjects, setSelectedProjects, onClose, queryClient }: {
+function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno, isSecondaryInmobiliaria, isEmbajador, proyectos, selectedProjects, setSelectedProjects, onClose, queryClient }: {
   userEmail: string;
   userPersonaId?: number;
   isAgenteInterno: boolean;
   isSecondaryInmobiliaria?: boolean;
+  isEmbajador?: boolean;
   proyectos?: Proyecto[];
   selectedProjects: number[];
   setSelectedProjects: React.Dispatch<React.SetStateAction<number[]>>;
