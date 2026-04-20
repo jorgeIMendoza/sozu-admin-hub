@@ -173,9 +173,11 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
 
   // Get inmobiliaria project base list (including active and inactive) for this user
   const { data: inmobData, isLoading: inmobLoading } = useQuery({
-    queryKey: ['agent-inmob-projects-for-access', userPersonaId, isSecondaryInmobiliaria],
+    queryKey: ['agent-inmob-projects-for-access', userPersonaId, isSecondaryInmobiliaria, isEmbajador],
     queryFn: async () => {
       if (!userPersonaId) return null;
+      // Embajadores nunca tienen inmobiliaria → forzar flujo "independiente" (proyectos públicos de Sozu).
+      if (isEmbajador) return null;
 
       let inmobPersonaId: number;
 
@@ -325,9 +327,11 @@ function AgentProjectAccessEditable({ userEmail, userPersonaId, isAgenteInterno,
         <Alert variant="default" className="border-green-500 bg-green-50 dark:bg-green-950/20">
           <Building2 className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800 dark:text-green-200">
-            <strong>Agente independiente</strong>
+            <strong>{isEmbajador ? 'Embajador' : 'Agente independiente'}</strong>
             <p className="mt-1 text-sm">
-              Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.
+              {isEmbajador
+                ? 'Los Embajadores tienen acceso a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.'
+                : 'Este agente no tiene una Inmobiliaria asignada, por lo que se le otorga acceso automático a los proyectos publicados en Sozu. Puedes habilitar o deshabilitar proyectos individualmente.'}
             </p>
           </AlertDescription>
         </Alert>
