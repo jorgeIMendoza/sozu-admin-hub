@@ -421,13 +421,26 @@ export default function AdministrarAvisos() {
       }
     }
 
+    // Persist event-trigger config: one row per aviso (delete + insert for simplicity)
+    await supabase.from('avisos_triggers_evento').delete().eq('id_aviso', avisoId);
+    if (tipoEnvio === 'automatico' && modoTrigger === 'evento' && eventoFuenteId) {
+      const { error: trigErr } = await supabase.from('avisos_triggers_evento').insert({
+        id_aviso: avisoId,
+        id_fuente: parseInt(eventoFuenteId, 10),
+        offsets_dias: parsedOffsets,
+        hora_envio: `${eventoHora}:00`,
+        canal: eventoCanal,
+        activo: eventoActivo,
+      });
+      if (trigErr) {
+        toast({ title: "Aviso guardado, pero error en trigger evento", description: trigErr.message, variant: "destructive" });
+      }
+    }
+
     toast({ title: editingAviso ? "Aviso actualizado" : "Aviso creado" });
     setDialogOpen(false);
     fetchAvisos();
   };
-
-  // After save: persist event trigger config
-  // We do this by refactoring handleSave to await all writes; here we add a side helper used inside.
 
   const handleDelete = async () => {
     if (!deleteId) return;
