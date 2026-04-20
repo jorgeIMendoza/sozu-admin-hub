@@ -47,6 +47,12 @@ interface Rol {
   nombre: string;
 }
 
+interface PostmarkTemplate {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
 const EMPTY_CONFIG: Omit<NotificacionConfig, 'id'> = {
   tipo_evento: '',
   descripcion: '',
