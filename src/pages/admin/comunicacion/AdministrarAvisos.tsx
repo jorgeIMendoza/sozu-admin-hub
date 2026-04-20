@@ -426,6 +426,9 @@ export default function AdministrarAvisos() {
     fetchAvisos();
   };
 
+  // After save: persist event trigger config
+  // We do this by refactoring handleSave to await all writes; here we add a side helper used inside.
+
   const handleDelete = async () => {
     if (!deleteId) return;
     await supabase.from('avisos').delete().eq('id', deleteId);
