@@ -40,6 +40,21 @@ Deno.serve(async (req) => {
     // Use the template ID from the aviso record, fallback to default
     const templateId = aviso.postmark_template_id || 36978552;
 
+    // Helper: render {{var}} in any JSON structure
+    const renderStr = (s: string, vars: Record<string, string>) =>
+      s.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_: string, k: string) => vars[k] ?? '');
+    const renderJsonTemplate = (node: any, vars: Record<string, string>): any => {
+      if (node === null || node === undefined) return node;
+      if (typeof node === 'string') return renderStr(node, vars);
+      if (Array.isArray(node)) return node.map((it) => renderJsonTemplate(it, vars));
+      if (typeof node === 'object') {
+        const out: Record<string, any> = {};
+        for (const k of Object.keys(node)) out[k] = renderJsonTemplate(node[k], vars);
+        return out;
+      }
+      return node;
+    };
+
     // Get recipients from correos JSON field
     const { data: rolesData } = await supabaseAdmin
       .from('avisos_roles_destinatarios')
@@ -124,19 +139,24 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       const batch = recipients.slice(i, i + BATCH_SIZE);
-      const messages = batch.map(recipient => ({
-        From: 'notificaciones@sozu.com',
-        To: recipient.email,
-        TemplateId: templateId,
-        TemplateModel: {
-          mensaje: {
-            nombre: recipient.nombre || '',
-            texto: aviso.mensaje_html,
-            asunto: aviso.asunto,
-          },
-        },
-        MessageStream: 'outbound',
-      }));
+      const messages = batch.map(recipient => {
+        const vars: Record<string, string> = {
+          nombre: recipient.nombre || '',
+          email: recipient.email || '',
+          asunto: aviso.asunto || '',
+          texto: aviso.mensaje_html || '',
+        };
+        const templateModel = (aviso as any).payload_postmark
+          ? renderJsonTemplate((aviso as any).payload_postmark, vars)
+          : { mensaje: { nombre: vars.nombre, texto: vars.texto, asunto: vars.asunto } };
+        return {
+          From: 'notificaciones@sozu.com',
+          To: recipient.email,
+          TemplateId: templateId,
+          TemplateModel: templateModel,
+          MessageStream: 'outbound',
+        };
+      });
 
       try {
         const res = await fetch('https://api.postmarkapp.com/email/batchWithTemplates', {

@@ -33,6 +33,19 @@ function renderTemplate(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, k) => vars[k] ?? '');
 }
 
+// Recursively render any JSON-like structure, replacing {{var}} in strings.
+function renderJsonTemplate(node: any, vars: Record<string, string>): any {
+  if (node === null || node === undefined) return node;
+  if (typeof node === 'string') return renderTemplate(node, vars);
+  if (Array.isArray(node)) return node.map((it) => renderJsonTemplate(it, vars));
+  if (typeof node === 'object') {
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(node)) out[k] = renderJsonTemplate(node[k], vars);
+    return out;
+  }
+  return node;
+}
+
 function fmtMoney(n: number): string {
   return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n || 0);
 }
@@ -62,7 +75,7 @@ Deno.serve(async (req) => {
       .from('avisos_triggers_evento')
       .select(`
         id, id_aviso, id_fuente, offsets_dias, hora_envio, canal, filtros, activo,
-        avisos:avisos!inner ( id, nombre, asunto, mensaje_html, postmark_template_id, activo, modo_trigger ),
+        avisos:avisos!inner ( id, nombre, asunto, mensaje_html, postmark_template_id, activo, modo_trigger, payload_postmark ),
         fuente:aviso_triggers_fuentes!inner ( id, clave, activo )
       `)
       .eq('activo', true);
@@ -155,15 +168,26 @@ Deno.serve(async (req) => {
           // Build template variables
           const vars: Record<string, string> = {
             nombre: persona.nombre_legal || '',
+            email: persona.email || '',
+            telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
             monto: fmtMoney(Number(ac.monto || 0)),
             fecha_pago: fmtDate(ac.fecha_pago as string),
             orden: String(ac.orden || ''),
             offset: String(offset),
             cuenta_id: String(cc.id),
+            asunto: '',
+            texto: '',
           };
 
           const renderedAsunto = renderTemplate(aviso.asunto || '', vars);
           const renderedHtml = renderTemplate(aviso.mensaje_html || '', vars);
+          vars.asunto = renderedAsunto;
+          vars.texto = renderedHtml;
+
+          // Build TemplateModel: custom payload if defined, else classic
+          const templateModel = aviso.payload_postmark
+            ? renderJsonTemplate(aviso.payload_postmark, vars)
+            : { mensaje: { nombre: persona.nombre_legal || '', texto: renderedHtml, asunto: renderedAsunto } };
 
           // Idempotent insert FIRST
           const { data: ins, error: insErr } = await supabaseAdmin
@@ -208,7 +232,7 @@ Deno.serve(async (req) => {
                     From: 'notificaciones@sozu.com',
                     To: persona.email,
                     TemplateId: templateId,
-                    TemplateModel: { mensaje: { nombre: persona.nombre_legal || '', texto: renderedHtml, asunto: renderedAsunto } },
+                    TemplateModel: templateModel,
                     MessageStream: 'outbound',
                   }),
                 });
@@ -250,7 +274,7 @@ Deno.serve(async (req) => {
           const finalEstado = (okEmail && okWa) ? 'enviado' : (okEmail || okWa ? 'parcial' : 'error');
           await supabaseAdmin
             .from('avisos_envios_evento')
-            .update({ estado: finalEstado, error: errMsg || null })
+            .update({ estado: finalEstado, error: errMsg || null, payload_enviado: templateModel })
             .eq('id', ins.id);
 
           if (finalEstado === 'enviado' || finalEstado === 'parcial') summary.sent++;
