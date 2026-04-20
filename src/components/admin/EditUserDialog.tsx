@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -59,6 +66,10 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const [nombre, setNombre] = useState(userName);
   const [email, setEmail] = useState(userEmail);
+  const [telefono, setTelefono] = useState("");
+  const [clavePaisTelefono, setClavePaisTelefono] = useState("MX");
+  const [originalTelefono, setOriginalTelefono] = useState("");
+  const [originalClavePais, setOriginalClavePais] = useState("MX");
   const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<string>("");
   const [originalInmobiliariaId, setOriginalInmobiliariaId] = useState<string>("");
   const { toast } = useToast();
