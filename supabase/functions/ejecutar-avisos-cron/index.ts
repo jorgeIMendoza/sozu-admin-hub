@@ -135,10 +135,31 @@ Deno.serve(async (req) => {
 
     console.log(`[${timeStr}] Resumen: evaluados=${avisos?.length || 0}, disparados=${matched.length}, ids=[${matched.join(',')}]`);
 
+    // Disparar también triggers basados en eventos (acuerdos de pago, etc.)
+    let eventoSummary: any = null;
+    try {
+      const evUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evaluar-triggers-evento`;
+      const evRes = await fetch(evUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const evBody = await evRes.text();
+      console.log(`[${timeStr}] evaluar-triggers-evento status=${evRes.status} body=${evBody.substring(0, 400)}`);
+      try { eventoSummary = JSON.parse(evBody); } catch { eventoSummary = { raw: evBody }; }
+    } catch (e) {
+      console.error(`[${timeStr}] error invocando evaluar-triggers-evento:`, e);
+      eventoSummary = { error: (e as Error).message };
+    }
+
     return new Response(JSON.stringify({
       evaluated: avisos?.length || 0,
       triggered: matched.length,
       aviso_ids: matched,
+      eventos: eventoSummary,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
