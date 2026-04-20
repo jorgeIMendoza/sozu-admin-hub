@@ -399,14 +399,29 @@ const NotificacionesConfig = () => {
 
               <div>
                 <Label>Plantilla de Postmark (Template ID)</Label>
-                <Input
-                  type="number"
-                  value={editItem.postmark_template_id ?? 41353048}
-                  onChange={e => setEditItem({ ...editItem, postmark_template_id: parseInt(e.target.value || '0', 10) })}
-                  placeholder="41353048"
-                />
+                <Select
+                  value={String(editItem.postmark_template_id ?? 41353048)}
+                  onValueChange={v => setEditItem({ ...editItem, postmark_template_id: parseInt(v, 10) })}
+                  disabled={loadingTemplates}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingTemplates ? 'Cargando plantillas...' : 'Selecciona una plantilla'} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {postmarkTemplates.length === 0 && !loadingTemplates && (
+                      <SelectItem value={String(editItem.postmark_template_id ?? 41353048)}>
+                        {editItem.postmark_template_id ?? 41353048} (sin lista)
+                      </SelectItem>
+                    )}
+                    {postmarkTemplates.map(t => (
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.name} <span className="text-xs text-muted-foreground ml-2">#{t.id}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ID numérico de la plantilla de Postmark a usar para este evento. Default: 41353048 (Notificaciones internas).
+                  Plantilla de Postmark a usar para este evento. Default: Notificaciones internas (41353048).
                 </p>
               </div>
 
