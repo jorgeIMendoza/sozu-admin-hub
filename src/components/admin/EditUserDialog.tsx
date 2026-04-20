@@ -221,8 +221,8 @@ export function EditUserDialog({
         .eq('email', userEmail)
         .maybeSingle();
 
-      let telefono = usuarioRow?.telefono || '';
-      let clave = usuarioRow?.clave_pais_telefono || '';
+      let telefono = (usuarioRow?.telefono || '').trim();
+      let clave = (usuarioRow?.clave_pais_telefono || '').trim();
 
       if ((!telefono || !clave) && userPersonaId) {
         const { data: personaRow } = await supabase
@@ -230,8 +230,8 @@ export function EditUserDialog({
           .select('telefono, clave_pais_telefono')
           .eq('id', userPersonaId)
           .maybeSingle();
-        if (!telefono) telefono = personaRow?.telefono || '';
-        if (!clave) clave = personaRow?.clave_pais_telefono || '';
+        if (!telefono) telefono = (personaRow?.telefono || '').trim();
+        if (!clave) clave = (personaRow?.clave_pais_telefono || '').trim();
       }
 
       return { telefono, clave_pais_telefono: clave || 'MX' };
