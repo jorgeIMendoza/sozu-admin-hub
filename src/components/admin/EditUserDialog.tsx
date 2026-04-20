@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -59,6 +66,10 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const [nombre, setNombre] = useState(userName);
   const [email, setEmail] = useState(userEmail);
+  const [telefono, setTelefono] = useState("");
+  const [clavePaisTelefono, setClavePaisTelefono] = useState("MX");
+  const [originalTelefono, setOriginalTelefono] = useState("");
+  const [originalClavePais, setOriginalClavePais] = useState("MX");
   const [selectedInmobiliariaId, setSelectedInmobiliariaId] = useState<string>("");
   const [originalInmobiliariaId, setOriginalInmobiliariaId] = useState<string>("");
   const { toast } = useToast();
@@ -185,6 +196,49 @@ export function EditUserDialog({
   const currentInmobiliaria = isAgentRole ? currentAgentInmobiliaria : currentInmobInmobiliaria;
   const isLoadingInmobiliaria = isAgentRole ? isLoadingAgentInmob : isLoadingInmobInmob;
 
+  // Fetch paises for phone country code
+  const { data: paises = [] } = useQuery({
+    queryKey: ['paises_edit_user'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('paises')
+        .select('id, nombre')
+        .eq('activo', true)
+        .order('nombre');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Fetch phone from usuarios first; fallback to personas if empty
+  const { data: phoneData } = useQuery({
+    queryKey: ['user_phone', userEmail, userPersonaId],
+    queryFn: async () => {
+      const { data: usuarioRow } = await supabase
+        .from('usuarios')
+        .select('telefono, clave_pais_telefono')
+        .eq('email', userEmail)
+        .maybeSingle();
+
+      let telefono = usuarioRow?.telefono || '';
+      let clave = usuarioRow?.clave_pais_telefono || '';
+
+      if ((!telefono || !clave) && userPersonaId) {
+        const { data: personaRow } = await supabase
+          .from('personas')
+          .select('telefono, clave_pais_telefono')
+          .eq('id', userPersonaId)
+          .maybeSingle();
+        if (!telefono) telefono = personaRow?.telefono || '';
+        if (!clave) clave = personaRow?.clave_pais_telefono || '';
+      }
+
+      return { telefono, clave_pais_telefono: clave || 'MX' };
+    },
+    enabled: open && !!userEmail,
+  });
+
   // Reset form when dialog opens with new data
   useEffect(() => {
     if (open) {
@@ -192,6 +246,16 @@ export function EditUserDialog({
       setEmail(userEmail);
     }
   }, [open, userName, userEmail]);
+
+  // Hydrate phone fields when fetched
+  useEffect(() => {
+    if (open && phoneData) {
+      setTelefono(phoneData.telefono);
+      setClavePaisTelefono(phoneData.clave_pais_telefono);
+      setOriginalTelefono(phoneData.telefono);
+      setOriginalClavePais(phoneData.clave_pais_telefono);
+    }
+  }, [open, phoneData]);
 
   // Set inmobiliaria when data is loaded
   useEffect(() => {
@@ -233,24 +297,42 @@ export function EditUserDialog({
       newEmail, 
       newNombre,
       newInmobiliariaId,
-      personaId
+      personaId,
+      newTelefono,
+      newClavePais,
     }: { 
       oldEmail: string; 
       newEmail: string; 
       newNombre: string;
       newInmobiliariaId?: number;
       personaId?: number;
+      newTelefono?: string;
+      newClavePais?: string;
     }) => {
       // Update nombre in usuarios table
       const { error: nombreError } = await supabase
         .from('usuarios')
         .update({ 
           nombre: newNombre,
+          telefono: newTelefono ?? null,
+          clave_pais_telefono: newClavePais ?? null,
           fecha_actualizacion: new Date().toISOString()
         })
         .eq('email', oldEmail);
 
       if (nombreError) throw nombreError;
+
+      // Sync phone to personas if linked
+      if (personaId) {
+        await supabase
+          .from('personas')
+          .update({
+            telefono: newTelefono ?? null,
+            clave_pais_telefono: newClavePais ?? null,
+            fecha_actualizacion: new Date().toISOString(),
+          })
+          .eq('id', personaId);
+      }
 
       // If email changed, use edge function to update both auth.users and usuarios table
       if (oldEmail !== newEmail) {
@@ -443,6 +525,7 @@ export function EditUserDialog({
       queryClient.invalidateQueries({ queryKey: ['agent_inmobiliaria'] });
       queryClient.invalidateQueries({ queryKey: ['inmob_user_inmobiliaria'] });
       queryClient.invalidateQueries({ queryKey: ['email_confirmado'] });
+      queryClient.invalidateQueries({ queryKey: ['user_phone'] });
 
       registrarActualizacion('usuario', 
         { email: data.oldEmail, nombre: userName },
@@ -492,11 +575,14 @@ export function EditUserDialog({
       newNombre: nombre.trim(),
       newInmobiliariaId: needsInmobiliaria && selectedInmobiliariaId ? parseInt(selectedInmobiliariaId) : undefined,
       personaId: userPersonaId,
+      newTelefono: telefono.trim() || undefined,
+      newClavePais: telefono.trim() ? clavePaisTelefono : undefined,
     });
   };
 
   const inmobiliariaChanged = needsInmobiliaria && selectedInmobiliariaId !== originalInmobiliariaId;
-  const hasChanges = nombre !== userName || email !== userEmail || inmobiliariaChanged;
+  const phoneChanged = telefono !== originalTelefono || clavePaisTelefono !== originalClavePais;
+  const hasChanges = nombre !== userName || email !== userEmail || inmobiliariaChanged || phoneChanged;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -573,6 +659,35 @@ export function EditUserDialog({
                 ⚠ Al cambiar el email, se requerirá nueva confirmación por correo.
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-telefono">Teléfono</Label>
+            <div className="flex gap-2">
+              <Select value={clavePaisTelefono} onValueChange={setClavePaisTelefono}>
+                <SelectTrigger className="w-24">
+                  <SelectValue placeholder="País" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paises.map((pais: any) => (
+                    <SelectItem key={pais.id} value={pais.id}>
+                      {pais.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                id="edit-telefono"
+                type="tel"
+                value={telefono}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setTelefono(v);
+                }}
+                placeholder="10 dígitos"
+                className="flex-1"
+              />
+            </div>
           </div>
 
           {/* Inmobiliaria selector - for agent and Inmobiliaria roles */}

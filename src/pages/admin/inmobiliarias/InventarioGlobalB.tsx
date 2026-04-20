@@ -581,7 +581,7 @@ const InventarioGlobalB = () => {
                 )}
               </div>
               <div className="shrink-0 px-6 py-4 border-t bg-background">
-                {canGenerateOffer ? (
+                {canGenerateOffer && (
                   <div onClick={(e) => e.stopPropagation()}>
                     <NewOfferDialog propertyId={selectedProperty.id} propertyNumber={selectedProperty.numero || `${selectedProperty.id}`} hideManualMode hidePdfOptions preSelectedSchemeId={selectedSchemeId}
                       onTrackSubmit={() => track({ page: PAGE, elementId: "btn_generar_oferta_modal", elementLabel: "Generar Oferta (Modal)", metadata: { propertyId: selectedProperty.id, schemeId: selectedSchemeId } })}
@@ -595,8 +595,6 @@ const InventarioGlobalB = () => {
                       }
                     />
                   </div>
-                ) : (
-                  <Button className="w-full gap-2 rounded-full" size="lg" disabled><FileText className="h-5 w-5" /> Sin permiso para generar oferta</Button>
                 )}
               </div>
             </>

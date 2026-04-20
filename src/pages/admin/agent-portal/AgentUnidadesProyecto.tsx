@@ -678,7 +678,7 @@ const AgentUnidadesProyecto = () => {
                 )}
               </div>
               <div className="shrink-0 px-6 py-4 border-t bg-background">
-                {canGenerateOffer ? (
+                {canGenerateOffer && (
                   isAgentRole && !hasTrainingComplete ? (
                     <Button className="w-full gap-2 rounded-full" size="lg" disabled>
                       <FileText className="h-5 w-5" /> Completa tu capacitación para generar ofertas
@@ -707,10 +707,6 @@ const AgentUnidadesProyecto = () => {
                     />
                   </div>
                   )
-                ) : (
-                  <Button className="w-full gap-2 rounded-full" size="lg" disabled>
-                    <FileText className="h-5 w-5" /> Sin permiso para generar oferta
-                  </Button>
                 )}
               </div>
             </>
