@@ -275,7 +275,12 @@ export default function AdministrarAvisos() {
       .select('*')
       .eq('activo', true)
       .order('nombre');
-    setFuentesTrigger((data as any) || []);
+    const list = (data as any[]) || [];
+    setFuentesTrigger(list);
+    // Auto-select the first available source (single conceptual source: acuerdos_pago.fecha_pago)
+    if (list.length > 0) {
+      setEventoFuenteId(prev => prev || String(list[0].id));
+    }
   };
 
   useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); fetchFuentes(); }, []);
@@ -285,7 +290,9 @@ export default function AdministrarAvisos() {
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
     setCronExpression(""); setCronError(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
     setPostmarkTemplateId("36978552"); setSelectedProyectos([]);
-    setModoTrigger('cron'); setEventoFuenteId(''); setEventoOffsets('-5,-3,-1');
+    setModoTrigger('cron');
+    setEventoFuenteId(fuentesTrigger[0] ? String(fuentesTrigger[0].id) : '');
+    setEventoOffsets('-5,-3,-1');
     setEventoHora('10:00'); setEventoCanal('email'); setEventoActivo(true);
     setDialogOpen(true);
   };
@@ -329,7 +336,8 @@ export default function AdministrarAvisos() {
       setEventoCanal(((trigData as any).canal as any) || 'email');
       setEventoActivo(!!(trigData as any).activo);
     } else {
-      setEventoFuenteId(''); setEventoOffsets('-5,-3,-1'); setEventoHora('10:00');
+      setEventoFuenteId(fuentesTrigger[0] ? String(fuentesTrigger[0].id) : '');
+      setEventoOffsets('-5,-3,-1'); setEventoHora('10:00');
       setEventoCanal('email'); setEventoActivo(true);
     }
     setDialogOpen(true);
