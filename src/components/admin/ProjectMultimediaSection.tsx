@@ -30,6 +30,7 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingYoutube, setIsAddingYoutube] = useState(false);
+  const [confirmYoutubeOpen, setConfirmYoutubeOpen] = useState(false);
   const [newMultimedia, setNewMultimedia] = useState({
     es_imagen: true,
     url: ""
