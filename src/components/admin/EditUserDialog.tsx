@@ -297,24 +297,42 @@ export function EditUserDialog({
       newEmail, 
       newNombre,
       newInmobiliariaId,
-      personaId
+      personaId,
+      newTelefono,
+      newClavePais,
     }: { 
       oldEmail: string; 
       newEmail: string; 
       newNombre: string;
       newInmobiliariaId?: number;
       personaId?: number;
+      newTelefono?: string;
+      newClavePais?: string;
     }) => {
       // Update nombre in usuarios table
       const { error: nombreError } = await supabase
         .from('usuarios')
         .update({ 
           nombre: newNombre,
+          telefono: newTelefono ?? null,
+          clave_pais_telefono: newClavePais ?? null,
           fecha_actualizacion: new Date().toISOString()
         })
         .eq('email', oldEmail);
 
       if (nombreError) throw nombreError;
+
+      // Sync phone to personas if linked
+      if (personaId) {
+        await supabase
+          .from('personas')
+          .update({
+            telefono: newTelefono ?? null,
+            clave_pais_telefono: newClavePais ?? null,
+            fecha_actualizacion: new Date().toISOString(),
+          })
+          .eq('id', personaId);
+      }
 
       // If email changed, use edge function to update both auth.users and usuarios table
       if (oldEmail !== newEmail) {
