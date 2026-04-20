@@ -115,6 +115,14 @@ export function ProjectMultimediaSection({ projectId }: ProjectMultimediaSection
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projectYoutubeVideos', projectId] });
+      // Trigger notification for "nuevo_avance_de_obra"
+      supabase.functions.invoke('notificar-agentes', {
+        body: {
+          tipo_evento: 'nuevo_avance_de_obra',
+          id_proyecto: projectId,
+          datos: { nombre_video: youtubeForm.nombre, link_video: youtubeForm.link },
+        },
+      }).catch(err => console.error('Error sending notification:', err));
       setYoutubeForm({ nombre: '', link: '' });
       setIsAddingYoutube(false);
       toast({ title: "Video de YouTube agregado exitosamente" });
