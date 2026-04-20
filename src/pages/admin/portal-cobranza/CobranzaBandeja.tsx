@@ -47,7 +47,7 @@ export default function BandejaOperativaPage() {
   const [priorityFilter, setPriorityFilter] = useState<PriorityLevel | 'all'>(() =>
     (searchParams.get('prioridad') as PriorityLevel) || 'all'
   );
-  const [tipoFilter, setTipoFilter] = useState<'all' | 'Propiedad' | 'Producto' | 'Servicio'>('all');
+  const [tipoFilter, setTipoFilter] = useState<'all' | 'Propiedad' | 'Producto'>('all');
   const [soloVencidas, setSoloVencidas] = useState(() => searchParams.get('preset') === 'critical');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -153,7 +153,6 @@ export default function BandejaOperativaPage() {
             <option value="all">Tipo</option>
             <option value="Propiedad">Propiedad</option>
             <option value="Producto">Producto</option>
-            <option value="Servicio">Servicio</option>
           </select>
           <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground cursor-pointer select-none">
             <input type="checkbox" checked={soloVencidas} onChange={e => setSoloVencidas(e.target.checked)} className="rounded border-border" />
