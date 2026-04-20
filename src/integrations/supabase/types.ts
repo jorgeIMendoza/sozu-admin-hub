@@ -348,6 +348,36 @@ export type Database = {
           },
         ]
       }
+      aviso_triggers_fuentes: {
+        Row: {
+          activo: boolean
+          clave: string
+          descripcion: string | null
+          fecha_actualizacion: string
+          fecha_creacion: string
+          id: number
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          clave: string
+          descripcion?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          clave?: string
+          descripcion?: string | null
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          id?: number
+          nombre?: string
+        }
+        Relationships: []
+      }
       avisos: {
         Row: {
           activo: boolean
@@ -357,6 +387,7 @@ export type Database = {
           fecha_creacion: string
           id: number
           mensaje_html: string
+          modo_trigger: string
           nombre: string
           postmark_template_id: number
           tipo_envio: string
@@ -369,6 +400,7 @@ export type Database = {
           fecha_creacion?: string
           id?: never
           mensaje_html: string
+          modo_trigger?: string
           nombre: string
           postmark_template_id?: number
           tipo_envio?: string
@@ -381,6 +413,7 @@ export type Database = {
           fecha_creacion?: string
           id?: never
           mensaje_html?: string
+          modo_trigger?: string
           nombre?: string
           postmark_template_id?: number
           tipo_envio?: string
@@ -430,6 +463,63 @@ export type Database = {
             columns: ["id_aviso"]
             isOneToOne: false
             referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos_envios_evento: {
+        Row: {
+          canal: string
+          clave_entidad: string
+          email_destino: string | null
+          error: string | null
+          estado: string
+          fecha_envio: string
+          fecha_objetivo: string
+          id: number
+          id_aviso: number
+          id_trigger: number
+          telefono_destino: string | null
+        }
+        Insert: {
+          canal: string
+          clave_entidad: string
+          email_destino?: string | null
+          error?: string | null
+          estado?: string
+          fecha_envio?: string
+          fecha_objetivo: string
+          id?: number
+          id_aviso: number
+          id_trigger: number
+          telefono_destino?: string | null
+        }
+        Update: {
+          canal?: string
+          clave_entidad?: string
+          email_destino?: string | null
+          error?: string | null
+          estado?: string
+          fecha_envio?: string
+          fecha_objetivo?: string
+          id?: number
+          id_aviso?: number
+          id_trigger?: number
+          telefono_destino?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_envios_evento_id_aviso_fkey"
+            columns: ["id_aviso"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_envios_evento_id_trigger_fkey"
+            columns: ["id_trigger"]
+            isOneToOne: false
+            referencedRelation: "avisos_triggers_evento"
             referencedColumns: ["id"]
           },
         ]
@@ -504,6 +594,60 @@ export type Database = {
             columns: ["id_rol"]
             isOneToOne: false
             referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos_triggers_evento: {
+        Row: {
+          activo: boolean
+          canal: string
+          fecha_actualizacion: string
+          fecha_creacion: string
+          filtros: Json | null
+          hora_envio: string
+          id: number
+          id_aviso: number
+          id_fuente: number
+          offsets_dias: number[]
+        }
+        Insert: {
+          activo?: boolean
+          canal?: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          filtros?: Json | null
+          hora_envio?: string
+          id?: number
+          id_aviso: number
+          id_fuente: number
+          offsets_dias?: number[]
+        }
+        Update: {
+          activo?: boolean
+          canal?: string
+          fecha_actualizacion?: string
+          fecha_creacion?: string
+          filtros?: Json | null
+          hora_envio?: string
+          id?: number
+          id_aviso?: number
+          id_fuente?: number
+          offsets_dias?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avisos_triggers_evento_id_aviso_fkey"
+            columns: ["id_aviso"]
+            isOneToOne: false
+            referencedRelation: "avisos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avisos_triggers_evento_id_fuente_fkey"
+            columns: ["id_fuente"]
+            isOneToOne: false
+            referencedRelation: "aviso_triggers_fuentes"
             referencedColumns: ["id"]
           },
         ]
