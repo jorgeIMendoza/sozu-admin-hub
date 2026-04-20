@@ -389,6 +389,7 @@ export type Database = {
           mensaje_html: string
           modo_trigger: string
           nombre: string
+          payload_postmark: Json | null
           postmark_template_id: number
           tipo_envio: string
         }
@@ -402,6 +403,7 @@ export type Database = {
           mensaje_html: string
           modo_trigger?: string
           nombre: string
+          payload_postmark?: Json | null
           postmark_template_id?: number
           tipo_envio?: string
         }
@@ -415,6 +417,7 @@ export type Database = {
           mensaje_html?: string
           modo_trigger?: string
           nombre?: string
+          payload_postmark?: Json | null
           postmark_template_id?: number
           tipo_envio?: string
         }
@@ -479,6 +482,7 @@ export type Database = {
           id: number
           id_aviso: number
           id_trigger: number
+          payload_enviado: Json | null
           telefono_destino: string | null
         }
         Insert: {
@@ -492,6 +496,7 @@ export type Database = {
           id?: number
           id_aviso: number
           id_trigger: number
+          payload_enviado?: Json | null
           telefono_destino?: string | null
         }
         Update: {
@@ -505,6 +510,7 @@ export type Database = {
           id?: number
           id_aviso?: number
           id_trigger?: number
+          payload_enviado?: Json | null
           telefono_destino?: string | null
         }
         Relationships: [
