@@ -41,6 +41,7 @@ interface ParsedErrorItem {
 const estadoColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   completado: 'default',
   error: 'destructive',
+  parcial: 'secondary',
 };
 
 const EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
