@@ -80,6 +80,10 @@ const NotificacionesConfig = () => {
   const [isNew, setIsNew] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<NotificacionConfig | null>(null);
+  const [templateVars, setTemplateVars] = useState<string[]>([]);
+  const [loadingVars, setLoadingVars] = useState(false);
+  const [mapeoJsonText, setMapeoJsonText] = useState<string>('{}');
+  const [mapeoJsonError, setMapeoJsonError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -125,11 +129,56 @@ const NotificacionesConfig = () => {
   const handleOpenNew = () => {
     setEditItem({ ...EMPTY_CONFIG, id: 0 } as NotificacionConfig);
     setIsNew(true);
+    setMapeoJsonText('{}');
+    setMapeoJsonError(null);
+    setTemplateVars([]);
   };
 
   const handleOpenEdit = (item: NotificacionConfig) => {
-    setEditItem({ ...item });
+    const mapeo = item.mapeo_variables_postmark || {};
+    setEditItem({ ...item, mapeo_variables_postmark: mapeo });
     setIsNew(false);
+    setMapeoJsonText(JSON.stringify(mapeo, null, 2));
+    setMapeoJsonError(null);
+    setTemplateVars([]);
+    if (item.postmark_template_id) loadTemplateVariables(item.postmark_template_id);
+  };
+
+  const loadTemplateVariables = async (templateId: number) => {
+    if (!templateId) return;
+    setLoadingVars(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('obtener-postmark-template', {
+        body: { templateId },
+      });
+      if (!error && data?.variables) {
+        setTemplateVars(data.variables);
+        // Auto-prefill missing keys in mapeo (only if value not already set)
+        setEditItem(prev => {
+          if (!prev) return prev;
+          const current = { ...(prev.mapeo_variables_postmark || {}) };
+          let changed = false;
+          for (const v of data.variables as string[]) {
+            if (current[v] === undefined) {
+              // Auto-suggest mapping if name matches a known placeholder
+              if (v === 'nombre_desarrollo') current[v] = '{nombre_desarrollo}';
+              else if (v === 'nombre_esquema') current[v] = '{nombre_esquema}';
+              else if (v === 'id_proyecto') current[v] = '{id_proyecto}';
+              else current[v] = '';
+              changed = true;
+            }
+          }
+          if (changed) {
+            setMapeoJsonText(JSON.stringify(current, null, 2));
+            return { ...prev, mapeo_variables_postmark: current };
+          }
+          return prev;
+        });
+      }
+    } catch (e) {
+      console.error('Error fetching template variables:', e);
+    }
+    setLoadingVars(false);
   };
 
   const handleSave = async () => {
