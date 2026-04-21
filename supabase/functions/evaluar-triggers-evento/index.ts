@@ -115,30 +115,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Cargar correos manuales configurados en avisos_roles_destinatarios para este aviso.
-      // Estos correos siempre reciben copia cuando hay un envío disparado por evento.
-      const { data: rolesDest } = await supabaseAdmin
-        .from('avisos_roles_destinatarios')
-        .select('correos')
-        .eq('id_aviso', aviso.id);
-      const manualEmails: { email: string; nombre: string }[] = [];
-      for (const r of rolesDest || []) {
-        const c: any = (r as any).correos;
-        const lista = Array.isArray(c) ? c : (Array.isArray(c?.destinatarios) ? c.destinatarios : []);
-        for (const d of lista) {
-          const email = typeof d === 'string' ? d : d?.email;
-          const nombre = typeof d === 'string' ? '' : (d?.nombre || '');
-          if (email && typeof email === 'string' && email.includes('@')) {
-            if (!manualEmails.some((m) => m.email.toLowerCase() === email.toLowerCase())) {
-              manualEmails.push({ email: email.trim(), nombre });
-            }
-          }
-        }
-      }
-      if (manualEmails.length > 0) {
-        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} correo(s) manual(es) recibirán copia`);
-      }
-
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
       const effectiveOffsets = overrideOffset !== null && !Number.isNaN(overrideOffset) ? [overrideOffset] : offsets;
       if (effectiveOffsets.length === 0) { summary.skipped++; continue; }
