@@ -384,34 +384,45 @@ async function generatePropertyOfferPdf(supabase: any, oferta: any, estatus_apro
     }
   }
 
-  // Fetch payment schemes WITH tramos_mensualidad
-  const { data: ofertaEsquemas } = await supabase
-    .from('ofertas_esquemas_pago')
-    .select(`
-      id_esquema_pago,
-      esquemas_pago (
-        id,
-        nombre,
-        porcentaje_enganche,
-        numero_mensualidades,
-        numero_pagos_enganche,
-        porcentaje_mensualidades,
-        porcentaje_entrega,
-        porcentaje_descuento_aumento,
-        es_manual,
-        tramos_mensualidad
-      )
-    `)
-    .eq('id_oferta', oferta.id)
-    .eq('activo', true);
+  // Fetch payment schemes for this property's project, ordered by 'orden' ascending
+  const selectedSchemeId = oferta.id_esquema_pago_seleccionado || null;
+  let paymentSchemes: any[] = [];
 
-  const paymentSchemes = ofertaEsquemas?.map((oe: any) => {
-    const s = oe.esquemas_pago;
+  if (selectedSchemeId) {
+    const { data: selectedScheme } = await supabase
+      .from('esquemas_pago')
+      .select('es_manual')
+      .eq('id', selectedSchemeId)
+      .maybeSingle();
+
+    if (selectedScheme?.es_manual) {
+      const { data: manualScheme } = await supabase
+        .from('esquemas_pago')
+        .select('*')
+        .eq('id', selectedSchemeId)
+        .eq('activo', true)
+        .maybeSingle();
+      paymentSchemes = manualScheme ? [manualScheme] : [];
+    }
+  }
+
+  if (paymentSchemes.length === 0 && proyecto?.id) {
+    const { data: schemes } = await supabase
+      .from('esquemas_pago')
+      .select('*')
+      .eq('id_proyecto', proyecto.id)
+      .eq('es_manual', false)
+      .eq('activo', true)
+      .order('orden', { ascending: true });
+    paymentSchemes = schemes || [];
+  }
+
+  paymentSchemes = paymentSchemes.map((s: any) => {
     if (s && s.tramos_mensualidad && typeof s.tramos_mensualidad === 'string') {
       try { s.tramos_mensualidad = JSON.parse(s.tramos_mensualidad); } catch { s.tramos_mensualidad = null; }
     }
     return s;
-  }).filter(Boolean) || [];
+  });
 
   // Fetch lead info
   let leadInfo: any = null;
