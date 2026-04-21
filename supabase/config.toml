@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.migrar-archivos-storage]
 verify_jwt = false
+
+[functions.get-cadenas-cep-ayer]
+verify_jwt = false
