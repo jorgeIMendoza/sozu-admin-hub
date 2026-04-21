@@ -141,6 +141,22 @@ Deno.serve(async (req) => {
     const asuntoEmail = replacePlaceholders(config.asunto_email);
     const detallesEmail = replacePlaceholders(config.plantilla_email_detalles);
 
+    // 6.b Build dynamic templateModel for Postmark from mapeo_variables_postmark
+    // mapeo_variables_postmark example: { "nombre_desarrollo": "{nombre_desarrollo}", "id_proyecto": "{id_proyecto}" }
+    const mapeoVars: Record<string, string> = (config.mapeo_variables_postmark || {}) as Record<string, string>;
+    const templateModel: Record<string, string> = {};
+    // Always include base fallbacks so legacy templates keep working
+    templateModel['nombre'] = 'Equipo';
+    templateModel['actividad'] = asuntoEmail;
+    templateModel['detalles'] = detallesEmail;
+    // Apply user-defined mapping
+    for (const [postmarkVar, valueExpr] of Object.entries(mapeoVars)) {
+      if (typeof valueExpr !== 'string') continue;
+      templateModel[postmarkVar] = replacePlaceholders(valueExpr);
+    }
+    // Provide id_proyecto as a built-in token if mapped
+    templateModel['id_proyecto'] = templateModel['id_proyecto'] || String(id_proyecto);
+
     // 7. Build email and phone lists
     const emails = filteredUsers.map(u => u.email).filter(Boolean).join(',');
 
@@ -178,6 +194,7 @@ Deno.serve(async (req) => {
         detalles: detallesEmail,
       },
       templateId: config.postmark_template_id || 41353048,
+      templateModel,
     };
 
     console.log(`Sending notification for ${tipo_evento} to ${filteredUsers.length} users`);
