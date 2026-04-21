@@ -194,6 +194,21 @@ Deno.serve(async (req) => {
     }
 
     // 8. Send notification via enviar-notificacion
+    // IMPORTANT: n8n construye el TemplateModel de Postmark de la siguiente forma:
+    //   TemplateModel = { asunto, nombre_usuario, mensaje: <campo `mensaje` del payload> }
+    // Por lo tanto, el campo `mensaje` del payload NO debe contener el templateModel completo,
+    // sino exactamente el contenido que la plantilla espera bajo {{mensaje.*}}.
+    // Si el usuario mapeó una variable raíz llamada "mensaje" (objeto), usamos ese objeto tal cual.
+    // Si no, caemos al legacy { nombre, actividad, detalles } para no romper plantillas viejas.
+    const mensajeParaN8N: Record<string, unknown> | string =
+      (templateModel['mensaje'] && typeof templateModel['mensaje'] === 'object')
+        ? (templateModel['mensaje'] as Record<string, unknown>)
+        : {
+            nombre: 'Equipo',
+            actividad: asuntoEmail,
+            detalles: detallesEmail,
+          };
+
     const notificationPayload = {
       tipo,
       from: 'Notificaciones Sozu <notificaciones@sozu.com>',
@@ -201,12 +216,10 @@ Deno.serve(async (req) => {
       telefono: telefonos || undefined,
       mensajeWA,
       asunto: asuntoEmail,
-      // IMPORTANT: `mensaje` MUST mirror `templateModel` exactly.
-      // The downstream n8n flow uses the `mensaje` field as the Postmark
-      // TemplateModel. If we send a different shape here (e.g. legacy
-      // {nombre, actividad, detalles}), nested variables like
-      // {{mensaje.proyecto}} in the Postmark template render empty.
-      mensaje: templateModel,
+      // n8n inyecta este `mensaje` directamente como TemplateModel.mensaje en Postmark.
+      // Debe ser el subobjeto plano (ej. { proyecto: "Monócolo" }) para que
+      // {{mensaje.proyecto}} en la plantilla se resuelva correctamente.
+      mensaje: mensajeParaN8N,
       templateId: config.postmark_template_id || 41353048,
       templateModel,
     };
