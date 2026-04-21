@@ -84,6 +84,12 @@ const NotificacionesConfig = () => {
   const [loadingVars, setLoadingVars] = useState(false);
   const [mapeoJsonText, setMapeoJsonText] = useState<string>('{}');
   const [mapeoJsonError, setMapeoJsonError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewValues, setPreviewValues] = useState<Record<string, string>>({
+    nombre_desarrollo: 'Torre Sozu Polanco',
+    nombre_esquema: 'Plan 60/40',
+    id_proyecto: '123',
+  });
   const { toast } = useToast();
 
   const fetchData = async () => {
