@@ -189,6 +189,21 @@ const NotificacionesConfig = () => {
       return;
     }
 
+    // Validate JSON of mapeo
+    let mapeoFinal: Record<string, string> = editItem.mapeo_variables_postmark || {};
+    try {
+      const parsed = JSON.parse(mapeoJsonText || '{}');
+      if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+        throw new Error('Debe ser un objeto JSON');
+      }
+      mapeoFinal = parsed as Record<string, string>;
+      setMapeoJsonError(null);
+    } catch (e: any) {
+      setMapeoJsonError(e.message);
+      toast({ title: "JSON inválido", description: `Mapeo de variables: ${e.message}`, variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
     if (isNew) {
@@ -205,6 +220,7 @@ const NotificacionesConfig = () => {
           plantilla_wa: editItem.plantilla_wa,
           plantilla_email_detalles: editItem.plantilla_email_detalles,
           postmark_template_id: editItem.postmark_template_id,
+          mapeo_variables_postmark: mapeoFinal,
         })
         .select()
         .single();
@@ -230,6 +246,7 @@ const NotificacionesConfig = () => {
           plantilla_wa: editItem.plantilla_wa,
           plantilla_email_detalles: editItem.plantilla_email_detalles,
           postmark_template_id: editItem.postmark_template_id,
+          mapeo_variables_postmark: mapeoFinal,
         })
         .eq('id', editItem.id);
 
@@ -454,7 +471,11 @@ const NotificacionesConfig = () => {
                 <Label>Plantilla de Postmark (Template ID)</Label>
                 <Select
                   value={String(editItem.postmark_template_id ?? 41353048)}
-                  onValueChange={v => setEditItem({ ...editItem, postmark_template_id: parseInt(v, 10) })}
+                  onValueChange={v => {
+                    const id = parseInt(v, 10);
+                    setEditItem({ ...editItem, postmark_template_id: id });
+                    loadTemplateVariables(id);
+                  }}
                   disabled={loadingTemplates}
                 >
                   <SelectTrigger>
@@ -476,6 +497,73 @@ const NotificacionesConfig = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Plantilla de Postmark a usar para este evento. Default: Notificaciones internas (41353048).
                 </p>
+              </div>
+
+              {/* Template variables + JSON mapping editor */}
+              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Mapeo de variables de la plantilla</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingVars || !editItem.postmark_template_id}
+                    onClick={() => loadTemplateVariables(editItem.postmark_template_id)}
+                  >
+                    {loadingVars ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : null}
+                    {loadingVars ? 'Detectando...' : 'Detectar variables'}
+                  </Button>
+                </div>
+
+                {templateVars.length > 0 && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">Variables que la plantilla espera:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {templateVars.map(v => (
+                        <Badge key={v} variant="secondary" className="font-mono text-xs">{`{{${v}}}`}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Placeholders del sistema que puedes usar como valor:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {SYSTEM_PLACEHOLDERS.map(p => (
+                      <Badge key={p} variant="outline" className="font-mono text-xs">{p}</Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs">Mapeo (JSON)</Label>
+                  <Textarea
+                    value={mapeoJsonText}
+                    onChange={e => {
+                      setMapeoJsonText(e.target.value);
+                      try {
+                        const parsed = JSON.parse(e.target.value || '{}');
+                        if (typeof parsed === 'object' && !Array.isArray(parsed) && parsed !== null) {
+                          setMapeoJsonError(null);
+                          setEditItem(prev => prev ? { ...prev, mapeo_variables_postmark: parsed } : prev);
+                        }
+                      } catch (err: any) {
+                        setMapeoJsonError(err.message);
+                      }
+                    }}
+                    rows={6}
+                    className="font-mono text-xs"
+                    placeholder={`{\n  "nombre_desarrollo": "{nombre_desarrollo}"\n}`}
+                  />
+                  {mapeoJsonError && (
+                    <p className="text-xs text-destructive mt-1">JSON inválido: {mapeoJsonError}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Llave = nombre exacto de la variable en Postmark. Valor = placeholder del sistema o texto fijo.
+                  </p>
+                </div>
               </div>
 
               <div>
