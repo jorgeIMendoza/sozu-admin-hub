@@ -651,6 +651,7 @@ const NotificacionesConfig = () => {
                 <div>
                   <Label className="text-xs">Mapeo (JSON)</Label>
                   <Textarea
+                    ref={mapeoTextareaRef}
                     value={mapeoJsonText}
                     onChange={e => {
                       setMapeoJsonText(e.target.value);
