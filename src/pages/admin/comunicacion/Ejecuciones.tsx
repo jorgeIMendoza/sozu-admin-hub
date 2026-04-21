@@ -140,11 +140,13 @@ export default function Ejecuciones() {
       supabase.from('avisos_envios_evento').select('id, id_aviso, id_trigger, fecha_envio, fecha_objetivo, estado, email_destino, error, avisos:avisos!avisos_envios_evento_id_aviso_fkey(nombre)').order('fecha_envio', { ascending: false }).limit(2000),
     ]);
 
-    // Agrupar envíos por evento por (id_aviso, id_trigger, fecha_envio::date) y construir ejecuciones sintéticas
+    // Agrupar envíos por evento por (id_aviso, id_trigger, fecha_envio truncada al minuto)
+    // de modo que cada corrida del cron aparezca como una ejecución independiente.
     const eventosAgrupados = new Map<string, Ejecucion>();
     (evData || []).forEach((row: any) => {
-      const fechaDia = row.fecha_envio?.slice(0, 10) || '';
-      const key = `evt-${row.id_aviso}-${row.id_trigger}-${fechaDia}`;
+      // truncar a minuto: YYYY-MM-DDTHH:MM
+      const fechaMin = (row.fecha_envio || '').slice(0, 16);
+      const key = `evt-${row.id_aviso}-${row.id_trigger}-${fechaMin}`;
       const existing = eventosAgrupados.get(key);
       if (existing) {
         existing.total_destinatarios = (existing.total_destinatarios || 0) + 1;

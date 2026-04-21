@@ -132,8 +132,9 @@ Deno.serve(async (req) => {
       }
 
       // Cargar destinatarios manuales configurados en la UI (avisos_roles_destinatarios.correos).
-      // Los correos manuales son ADICIONALES al cliente real: por cada acuerdo que cumpla la
-      // condición, se envía al cliente real Y a cada correo manual (copia/auditoría).
+      // Los correos manuales REEMPLAZAN al cliente real: si hay al menos un manual configurado,
+      // el envío se hace ÚNICAMENTE a esos correos manuales (modo prueba/auditoría).
+      // Si no hay manuales, se envía al cliente real.
       const { data: rolesDest } = await supabaseAdmin
         .from('avisos_roles_destinatarios')
         .select('correos')
@@ -153,7 +154,7 @@ Deno.serve(async (req) => {
       }
       if (manualEmails.length > 0) {
         const conTel = manualEmails.filter(m => m.telefono).length;
-        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → copia adicional al cliente real`);
+        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → REEMPLAZAN al cliente real`);
       }
 
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
@@ -265,24 +266,24 @@ Deno.serve(async (req) => {
           // Cada destinatario tiene su propia clave de idempotencia para no duplicar envíos.
           type Dest = { email: string | null; nombre: string; telefono: string; tipo: 'cliente' | 'manual'; claveEntidad: string };
           const destinatarios: Dest[] = [];
-          if (emailReal) {
+          if (manualEmails.length > 0) {
+            // Modo manual: SOLO a los correos configurados, NO al cliente real.
+            for (const m of manualEmails) {
+              destinatarios.push({
+                email: m.email,
+                nombre: m.nombre || persona.nombre_legal || '',
+                telefono: m.telefono || '',
+                tipo: 'manual',
+                claveEntidad: `acuerdo:${ac.id}:offset:${offset}:manual:${m.email}`,
+              });
+            }
+          } else if (emailReal) {
             destinatarios.push({
               email: emailReal,
               nombre: persona.nombre_legal || '',
               telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
               tipo: 'cliente',
               claveEntidad: `acuerdo:${ac.id}:offset:${offset}`,
-            });
-          }
-          for (const m of manualEmails) {
-            // Evitar duplicar si el manual coincide con el cliente real
-            if (emailReal && m.email.toLowerCase() === emailReal.toLowerCase()) continue;
-            destinatarios.push({
-              email: m.email,
-              nombre: m.nombre || persona.nombre_legal || '',
-              telefono: m.telefono || '',
-              tipo: 'manual',
-              claveEntidad: `acuerdo:${ac.id}:offset:${offset}:manual:${m.email}`,
             });
           }
 
