@@ -477,6 +477,176 @@ Deno.serve(async (req) => {
             summary.details.push({ trigger_id: trig.id, clave_entidad: dest.claveEntidad, estado: finalEstado, tipo: dest.tipo });
           }
         }
+
+        // ============================================================
+        // ENVÍO CONSOLIDADO MODO MANUAL
+        // Si hubo destinatarios manuales acumulados, mandamos UNA sola
+        // petición a n8n con TODOS los emails y teléfonos separados por
+        // coma. Generamos UN registro de auditoría por destinatario único
+        // (con clave por trigger+offset+manual_email para idempotencia).
+        // ============================================================
+        if (manualAccum.size > 0 && (rows?.length || 0) > 0) {
+          const channel = trig.canal as string;
+          const destinatariosManual = Array.from(manualAccum.values());
+
+          // Insertar registros de auditoría (uno por destinatario único).
+          // Si el unique constraint los rechaza, significa que ya se envió
+          // este lote: omitimos todo el bloque.
+          const insertedIds: number[] = [];
+          let yaEnviado = false;
+          for (const d of destinatariosManual) {
+            const { data: ins, error: insErr } = await supabaseAdmin
+              .from('avisos_envios_evento')
+              .insert({
+                id_aviso: aviso.id,
+                id_trigger: trig.id,
+                clave_entidad: d.claveEntidad,
+                fecha_objetivo: fechaObjetivo,
+                email_destino: d.email,
+                telefono_destino: d.telefono ? normalizarTelefonoWA(d.telefono) : null,
+                canal: channel,
+                estado: 'enviando',
+              })
+              .select('id')
+              .single();
+            if (insErr) {
+              if ((insErr as any).code === '23505') {
+                console.log(`${tag} ${d.claveEntidad}: ya enviado, omitiendo lote consolidado`);
+                yaEnviado = true;
+                break;
+              }
+              console.error(`${tag} insert error ${d.claveEntidad}:`, insErr);
+              summary.errors++;
+              continue;
+            }
+            insertedIds.push(ins.id);
+          }
+
+          if (!yaEnviado && insertedIds.length > 0) {
+            // Construir listas separadas por coma
+            const emailsCSV = destinatariosManual
+              .map(d => d.email)
+              .filter(Boolean)
+              .join(',');
+            const telefonosCSV = destinatariosManual
+              .map(d => telefonoConPlus(normalizarTelefonoWA(d.telefono || '')))
+              .filter(t => t && t.length > 1)
+              .join(',');
+
+            // Plantilla del lote: usamos el primer destinatario como "base"
+            // (el contenido es el mismo para un aviso administrativo).
+            const base = destinatariosManual[0];
+
+            // Determinar canal final n8n con degradación graceful
+            let tipoN8N: 'wa' | 'email' | 'ambos' | null = null;
+            if (channel === 'ambos') {
+              if (emailsCSV && telefonosCSV) tipoN8N = 'ambos';
+              else if (emailsCSV) tipoN8N = 'email';
+              else if (telefonosCSV) tipoN8N = 'wa';
+            } else if (channel === 'whatsapp') {
+              if (telefonosCSV) tipoN8N = 'wa';
+            } else if (channel === 'email') {
+              if (emailsCSV) tipoN8N = 'email';
+            }
+
+            let okBatch = true;
+            let errMsgBatch = '';
+            let payloadN8N: Record<string, unknown> | null = null;
+
+            if (!tipoN8N) {
+              okBatch = false;
+              errMsgBatch = `sin destino válido (canal=${channel}, emails=${!!emailsCSV}, tels=${!!telefonosCSV})`;
+            } else if (dryRun) {
+              // En dry_run no enviamos pero registramos el payload simulado
+              payloadN8N = {
+                tipo: tipoN8N,
+                email: emailsCSV || null,
+                telefono: telefonosCSV || null,
+                asunto: base.asunto,
+                mensaje: base.templateModel?.mensaje ?? base.templateModel,
+                mensajeWA: base.textoPlano,
+                origen: 'aviso_evento_consolidado',
+                aviso_id: aviso.id,
+                trigger_id: trig.id,
+                total_destinatarios: destinatariosManual.length,
+              };
+              for (const id of insertedIds) {
+                await supabaseAdmin
+                  .from('avisos_envios_evento')
+                  .update({ estado: 'simulado', error: 'dry_run', payload_enviado: payloadN8N as any })
+                  .eq('id', id);
+              }
+              summary.sent += insertedIds.length;
+            } else {
+              try {
+                const waToken = Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN') || '';
+                const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/enviar-notificacion`;
+                const templateId = aviso.postmark_template_id || 36978552;
+
+                payloadN8N = {
+                  tipo: tipoN8N,
+                  from: 'Notificaciones Sozu <notificaciones@sozu.com>',
+                  templateId,
+                  asunto: base.asunto,
+                  mensaje: base.templateModel?.mensaje ?? base.templateModel,
+                  mensajeWA: base.textoPlano,
+                  // Listas separadas por coma → n8n las divide internamente
+                  email: emailsCSV || null,
+                  telefono: telefonosCSV || null,
+                  cc: bccList.length > 0 ? bccList.join(',') : null,
+                  origen: 'aviso_evento_consolidado',
+                  aviso_id: aviso.id,
+                  trigger_id: trig.id,
+                  total_destinatarios: destinatariosManual.length,
+                  total_acuerdos: rows?.length || 0,
+                  nombre_usuario: base.nombre,
+                };
+
+                const r = await fetch(fnUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'apikey': waToken,
+                  },
+                  body: JSON.stringify(payloadN8N),
+                });
+                if (!r.ok) {
+                  const txt = await r.text().catch(() => '');
+                  okBatch = false;
+                  errMsgBatch = `n8n ${tipoN8N}: ${r.status} ${txt.slice(0, 200)}`;
+                }
+              } catch (e) {
+                okBatch = false;
+                errMsgBatch = `n8n red: ${(e as Error).message}`;
+              }
+
+              const estadoFinal = okBatch ? 'enviado' : 'error';
+              for (const id of insertedIds) {
+                await supabaseAdmin
+                  .from('avisos_envios_evento')
+                  .update({
+                    estado: estadoFinal,
+                    error: errMsgBatch || null,
+                    payload_enviado: payloadN8N as any,
+                  })
+                  .eq('id', id);
+              }
+              if (okBatch) summary.sent += insertedIds.length;
+              else summary.errors += insertedIds.length;
+            }
+
+            console.log(`${tag} envío consolidado: ${destinatariosManual.length} destinatario(s) manual(es), ${rows?.length || 0} acuerdo(s), tipo=${tipoN8N}, ok=${okBatch}`);
+            summary.details.push({
+              trigger_id: trig.id,
+              consolidado: true,
+              destinatarios_manual: destinatariosManual.length,
+              acuerdos: rows?.length || 0,
+              tipo: tipoN8N,
+              ok: okBatch,
+            });
+          }
+        }
       }
     }
 
