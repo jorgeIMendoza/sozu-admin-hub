@@ -944,23 +944,27 @@ export default function AdministrarAvisos() {
                 {detailRoles.length === 0 ? (
                   <p className="text-muted-foreground italic">Sin roles configurados (los destinatarios se calculan dinámicamente según la fuente del evento).</p>
                 ) : (
-                  <ul className="space-y-1 text-sm">
-                    {detailRoles.map((r) => {
-                      const rolNombre = roles.find(x => x.id === r.id_rol)?.nombre || `Rol ${r.id_rol}`;
-                      const correosArr = Array.isArray(r.correos) ? r.correos : [];
-                      return (
-                        <li key={r.id_rol} className="flex items-start gap-2">
+                  (() => {
+                    const totalCorreos = detailRoles.reduce((acc, r) => acc + (Array.isArray(r.correos) ? r.correos.length : 0), 0);
+                    const rolesNombres = detailRoles.map(r => roles.find(x => x.id === r.id_rol)?.nombre || `Rol ${r.id_rol}`);
+                    return (
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start gap-2">
                           <Mail className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                           <span>
-                            <strong>{rolNombre}</strong>
-                            {correosArr.length > 0 && (
-                              <span className="text-muted-foreground"> — {correosArr.length} correo{correosArr.length === 1 ? '' : 's'} adicional{correosArr.length === 1 ? '' : 'es'}</span>
+                            <strong>{detailRoles.length}</strong> rol{detailRoles.length === 1 ? '' : 'es'}
+                            {totalCorreos > 0 && (
+                              <> y <strong>{totalCorreos}</strong> correo{totalCorreos === 1 ? '' : 's'} adicional{totalCorreos === 1 ? '' : 'es'}</>
                             )}
                           </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {rolesNombres.slice(0, 3).join(', ')}
+                          {rolesNombres.length > 3 && ` y ${rolesNombres.length - 3} más`}
+                        </p>
+                      </div>
+                    );
+                  })()
                 )}
               </div>
             </div>
