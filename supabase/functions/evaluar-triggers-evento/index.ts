@@ -61,6 +61,7 @@ function fmtDate(s: string): string {
 //   - Si quedan 10 dígitos, asume México móvil → antepone '521'
 //   - Si empieza con '52' y la posición 2 no es '1' y total es 12 dígitos, antepone el '1' (52 + 1 + 10)
 //   - En otros casos, deja los dígitos tal cual
+// El workflow de n8n requiere el formato "+<digitos>" (ej. +5217221514185).
 function normalizarTelefonoWA(raw: string): string {
   if (!raw) return '';
   const digits = String(raw).replace(/\D/g, '');
@@ -70,6 +71,13 @@ function normalizarTelefonoWA(raw: string): string {
     return `521${digits.slice(2)}`;
   }
   return digits;
+}
+
+// El workflow de n8n exige formato internacional con '+' al inicio
+// (regex: /^\+\d{11,15}$/). Esta función agrega el '+' a un número ya normalizado.
+function telefonoConPlus(digits: string): string {
+  if (!digits) return '';
+  return digits.startsWith('+') ? digits : `+${digits}`;
 }
 
 Deno.serve(async (req) => {
