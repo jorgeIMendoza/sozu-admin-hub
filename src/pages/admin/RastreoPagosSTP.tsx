@@ -150,6 +150,9 @@ export default function RastreoPagosSTP() {
         evidencia_url: evidenciaMap[pago.claverastreo] ?? null,
       })) as PagoSTP[];
     },
+    refetchInterval: 15000, // Auto-refresh cada 15 segundos
+    refetchOnWindowFocus: true, // Refrescar al regresar a la pestaña
+    refetchOnMount: "always",
   });
 
   const handleClearFilters = () => {
