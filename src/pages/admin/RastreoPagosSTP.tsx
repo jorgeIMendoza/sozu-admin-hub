@@ -13,6 +13,7 @@ import { Search, X, RefreshCw, Eye, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { PdfViewerDialog } from "@/components/admin/PdfViewerDialog";
 
 interface PagoSTP {
   id: number;
@@ -29,6 +30,7 @@ interface PagoSTP {
   id_tipo_pago: number;
   tipo_pago_nombre?: string;
   tipo_real?: string; // Determined by cuenta_cobranza -> oferta relationship
+  evidencia_url?: string | null;
 }
 
 const TIPOS_PAGO: Record<number, string> = {
