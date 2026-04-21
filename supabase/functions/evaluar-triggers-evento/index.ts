@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (!withinSendWindow(trig.hora_envio as string, mexNow)) {
+      if (!ignoreWindow && !withinSendWindow(trig.hora_envio as string, mexNow)) {
         console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): fuera de ventana hora_envio=${trig.hora_envio}`);
         summary.skipped++;
         continue;
