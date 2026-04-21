@@ -185,7 +185,7 @@ export function AvisoDestinatariosSection({
       const merged: PoolItem[] = [];
 
       for (const d of destinatarios) {
-        merged.push({ ...d, rolIds: [] });
+        merged.push({ nombre: d.nombre, email: d.email, telefono: (d as any).telefono || "", rolIds: [] });
       }
 
       if (selectedRoles.length > 0) {
@@ -569,6 +569,9 @@ export function AvisoDestinatariosSection({
                     <span className="truncate flex-1">
                       <span className="font-medium">{d.nombre}</span>
                       <span className="text-muted-foreground ml-1 text-xs">({d.email})</span>
+                      {d.telefono && (
+                        <span className="text-muted-foreground ml-1 text-[10px]">📱 {d.telefono}</span>
+                      )}
                       {clientProjects && clientProjects.length > 0 && (
                         <span className="text-muted-foreground ml-1 text-[10px]">
                           — {clientProjects.join(", ")}
