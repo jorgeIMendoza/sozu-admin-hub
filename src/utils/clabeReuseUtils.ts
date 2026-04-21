@@ -114,13 +114,13 @@ export async function clearSourceOfferClabes(sourceOfferIds: number[]): Promise<
   console.log('🧹 Limpiando CLABEs de ofertas fuente:', sourceOfferIds);
   const { error } = await supabase
     .from('ofertas')
-    .update({ clabe_stp_tmp_producto: null })
+    .update({ clabe_stp_tmp_producto: null, url: null })
     .in('id', sourceOfferIds);
   
   if (error) {
     console.error('❌ Error limpiando CLABEs de ofertas fuente:', error);
     // No lanzamos error aquí porque la oferta nueva ya se guardó correctamente
   } else {
-    console.log('✅ CLABEs de ofertas fuente limpiadas');
+    console.log('✅ CLABEs y URLs de PDF de ofertas fuente limpiadas');
   }
 }

@@ -698,6 +698,14 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         console.log('ℹ️ Sin esquema seleccionado - no se genera CLABE');
       }
 
+      // Step 3.5: Liberar la CLABE de las ofertas fuente ANTES del INSERT para
+      // evitar violación del UNIQUE constraint (clabe_stp_tmp_producto).
+      // Esto también limpia la URL del PDF de las ofertas fuente para forzar regeneración.
+      if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
+        const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
+        await clearSourceOfferClabes(clabeResult.sourceOfferIds);
+      }
+
       // Step 4: Create offer and get the created offer ID
       const { data: ofertaData, error: ofertaError } = await supabase
         .from('ofertas')
@@ -713,12 +721,6 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         .single();
       
       if (ofertaError) throw ofertaError;
-
-      // Limpiar CLABEs de ofertas fuente SOLO después de crear exitosamente
-      if (clabeResult && clabeResult.sourceOfferIds.length > 0) {
-        const { clearSourceOfferClabes } = await import('@/utils/clabeReuseUtils');
-        await clearSourceOfferClabes(clabeResult.sourceOfferIds);
-      }
 
       // Assign prospect to the offer creator agent in entidades_relacionadas
       const creatorPersonaId = (() => {
