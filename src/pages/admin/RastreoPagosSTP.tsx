@@ -13,6 +13,7 @@ import { Search, X, RefreshCw, Eye, Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { PdfViewerDialog } from "@/components/admin/PdfViewerDialog";
 
 interface PagoSTP {
   id: number;
@@ -29,6 +30,7 @@ interface PagoSTP {
   id_tipo_pago: number;
   tipo_pago_nombre?: string;
   tipo_real?: string; // Determined by cuenta_cobranza -> oferta relationship
+  evidencia_url?: string | null;
 }
 
 const TIPOS_PAGO: Record<number, string> = {
@@ -42,6 +44,7 @@ const TIPOS_PAGO: Record<number, string> = {
 export default function RastreoPagosSTP() {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [evidenciaUrl, setEvidenciaUrl] = useState<string | null>(null);
   const [filters, setFilters] = useState({
     claveRastreo: "",
     clabeStp: "",
@@ -123,9 +126,28 @@ export default function RastreoPagosSTP() {
       }
       
       // Enrich pagos with real type
-      return (data || []).map(pago => ({
+      // Fetch evidence URLs (url_cep / url_recibo) from pagos by clave_rastreo
+      const claveRastreos = [...new Set((data || []).map((p) => p.claverastreo).filter(Boolean))];
+      const evidenciaMap: Record<string, string | null> = {};
+      if (claveRastreos.length > 0) {
+        const { data: pagosData } = await supabase
+          .from("pagos")
+          .select("clave_rastreo, url_cep, url_recibo")
+          .in("clave_rastreo", claveRastreos);
+        if (pagosData) {
+          for (const p of pagosData) {
+            if (!p.clave_rastreo) continue;
+            if (evidenciaMap[p.clave_rastreo]) continue; // keep first match
+            const url = (p.url_cep && p.url_cep.trim()) || (p.url_recibo && p.url_recibo.trim()) || null;
+            evidenciaMap[p.clave_rastreo] = url;
+          }
+        }
+      }
+
+      return (data || []).map((pago) => ({
         ...pago,
-        tipo_real: clabeTypeMap[pago.cuenta_beneficiario] || TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`
+        tipo_real: clabeTypeMap[pago.cuenta_beneficiario] || TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`,
+        evidencia_url: evidenciaMap[pago.claverastreo] ?? null,
       })) as PagoSTP[];
     },
   });
@@ -331,12 +353,13 @@ export default function RastreoPagosSTP() {
                   <TableHead>Razón Rechazo</TableHead>
                   <TableHead>Fecha Creación</TableHead>
                   <TableHead>Tipo de Pago</TableHead>
+                  <TableHead>Evidencia</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
+                    <TableCell colSpan={12} className="text-center py-8">
                       <div className="flex items-center justify-center">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                         <span className="ml-2">Cargando...</span>
@@ -345,7 +368,7 @@ export default function RastreoPagosSTP() {
                   </TableRow>
                 ) : pagos?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       No se encontraron pagos con los filtros aplicados
                     </TableCell>
                   </TableRow>
@@ -455,6 +478,21 @@ export default function RastreoPagosSTP() {
                           {pago.tipo_real || TIPOS_PAGO[pago.id_tipo_pago] || `Tipo ${pago.id_tipo_pago}`}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        {pago.evidencia_url ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setEvidenciaUrl(pago.evidencia_url!)}
+                            title="Ver evidencia"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Aún sin CEP</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -469,6 +507,13 @@ export default function RastreoPagosSTP() {
           Mostrando los últimos 50 registros. Usa los filtros para refinar tu búsqueda.
         </p>
       )}
+
+      <PdfViewerDialog
+        open={!!evidenciaUrl}
+        onOpenChange={(open) => !open && setEvidenciaUrl(null)}
+        url={evidenciaUrl || ""}
+        title="Evidencia de Pago"
+      />
     </div>
   );
 }
