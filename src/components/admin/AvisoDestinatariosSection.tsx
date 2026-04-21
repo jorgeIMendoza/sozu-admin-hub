@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Destinatario {
   nombre: string;
   email: string;
+  telefono?: string;
 }
 
 interface PoolItem {
@@ -20,6 +21,7 @@ interface PoolItem {
   email: string;
   rolIds: number[];
   proyectos?: string[]; // project names for Cliente users
+  telefono?: string;
 }
 
 interface Rol {
@@ -52,6 +54,7 @@ export function AvisoDestinatariosSection({
   const [loadingRolId, setLoadingRolId] = useState<number | null>(null);
   const [manualNombre, setManualNombre] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  const [manualTelefono, setManualTelefono] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "selected" | "unselected">("all");
@@ -182,7 +185,7 @@ export function AvisoDestinatariosSection({
       const merged: PoolItem[] = [];
 
       for (const d of destinatarios) {
-        merged.push({ ...d, rolIds: [] });
+        merged.push({ nombre: d.nombre, email: d.email, telefono: (d as any).telefono || "", rolIds: [] });
       }
 
       if (selectedRoles.length > 0) {
@@ -225,7 +228,7 @@ export function AvisoDestinatariosSection({
   const notifyParent = useCallback((newSelected: Set<string>, currentPool: PoolItem[]) => {
     const selected = currentPool
       .filter(d => newSelected.has(d.email))
-      .map(d => ({ nombre: d.nombre, email: d.email }));
+      .map(d => ({ nombre: d.nombre, email: d.email, telefono: d.telefono || "" }));
     onDestinatariosChange(selected);
   }, [onDestinatariosChange]);
 
@@ -344,7 +347,12 @@ export function AvisoDestinatariosSection({
       toast({ title: "Error", description: "Este email ya está en la lista", variant: "destructive" });
       return;
     }
-    const newItem: PoolItem = { nombre: manualNombre.trim() || manualEmail.trim(), email: manualEmail.trim(), rolIds: [] };
+    const newItem: PoolItem = {
+      nombre: manualNombre.trim() || manualEmail.trim(),
+      email: manualEmail.trim(),
+      telefono: manualTelefono.trim(),
+      rolIds: [],
+    };
     const updatedPool = [...pool, newItem];
     setPool(updatedPool);
     const newSelected = new Set(selectedEmails);
@@ -353,6 +361,7 @@ export function AvisoDestinatariosSection({
     notifyParent(newSelected, updatedPool);
     setManualNombre("");
     setManualEmail("");
+    setManualTelefono("");
   };
 
   const rolesInPool = roles.filter(r => pool.some(p => p.rolIds.includes(r.id)));
@@ -449,9 +458,15 @@ export function AvisoDestinatariosSection({
       {/* Manual add */}
       <div>
         <Label>Agregar destinatario manual</Label>
+        <p className="text-xs text-muted-foreground mb-1">
+          El teléfono es opcional y solo se usa si el aviso envía por WhatsApp. Acepta formato libre
+          (ej. <code>+5217221514185</code> o <code>7221514185</code>); se normaliza automáticamente.
+        </p>
         <div className="flex gap-2 mt-1">
           <Input placeholder="Nombre" value={manualNombre} onChange={(e) => setManualNombre(e.target.value)} className="flex-1" />
           <Input placeholder="Email *" type="email" value={manualEmail} onChange={(e) => setManualEmail(e.target.value)} className="flex-1"
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addManual())} />
+          <Input placeholder="Teléfono (opc.)" value={manualTelefono} onChange={(e) => setManualTelefono(e.target.value)} className="flex-1"
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addManual())} />
           <Button type="button" size="icon" variant="outline" onClick={addManual}>
             <Plus className="h-4 w-4" />
@@ -554,6 +569,9 @@ export function AvisoDestinatariosSection({
                     <span className="truncate flex-1">
                       <span className="font-medium">{d.nombre}</span>
                       <span className="text-muted-foreground ml-1 text-xs">({d.email})</span>
+                      {d.telefono && (
+                        <span className="text-muted-foreground ml-1 text-[10px]">📱 {d.telefono}</span>
+                      )}
                       {clientProjects && clientProjects.length > 0 && (
                         <span className="text-muted-foreground ml-1 text-[10px]">
                           — {clientProjects.join(", ")}

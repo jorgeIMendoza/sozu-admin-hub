@@ -47,6 +47,7 @@ interface Rol {
 interface Destinatario {
   nombre: string;
   email: string;
+  telefono?: string;
 }
 
 interface FuenteTrigger {

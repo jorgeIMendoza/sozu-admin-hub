@@ -56,6 +56,22 @@ function fmtDate(s: string): string {
   catch { return s; }
 }
 
+// Normaliza un teléfono al formato que espera la API de WhatsApp (Evolution):
+//   - Quita todo lo que no sea dígito (espacios, guiones, paréntesis, '+')
+//   - Si quedan 10 dígitos, asume México móvil → antepone '521'
+//   - Si empieza con '52' y la posición 2 no es '1' y total es 12 dígitos, antepone el '1' (52 + 1 + 10)
+//   - En otros casos, deja los dígitos tal cual
+function normalizarTelefonoWA(raw: string): string {
+  if (!raw) return '';
+  const digits = String(raw).replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 10) return `521${digits}`;
+  if (digits.length === 12 && digits.startsWith('52') && digits[2] !== '1') {
+    return `521${digits.slice(2)}`;
+  }
+  return digits;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -123,17 +139,21 @@ Deno.serve(async (req) => {
         .select('correos')
         .eq('id_aviso', aviso.id);
 
-      const manualEmails: { email: string; nombre: string }[] = [];
+      const manualEmails: { email: string; nombre: string; telefono: string }[] = [];
       for (const rd of rolesDest || []) {
         const correos: any = (rd as any).correos;
         const lista: any[] = Array.isArray(correos?.destinatarios) ? correos.destinatarios : [];
         for (const it of lista) {
           const em = typeof it?.email === 'string' ? it.email.trim() : '';
-          if (em.includes('@')) manualEmails.push({ email: em, nombre: it?.nombre || '' });
+          if (em.includes('@')) {
+            const tel = typeof it?.telefono === 'string' ? it.telefono.trim() : '';
+            manualEmails.push({ email: em, nombre: it?.nombre || '', telefono: tel });
+          }
         }
       }
       if (manualEmails.length > 0) {
-        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} correo(s) manual(es) → se enviarán como copia adicional al cliente real`);
+        const conTel = manualEmails.filter(m => m.telefono).length;
+        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → copia adicional al cliente real`);
       }
 
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
@@ -243,12 +263,13 @@ Deno.serve(async (req) => {
           //   1) Cliente real (o email_override si está en filtros) — siempre que tenga email
           //   2) Cada correo manual configurado en la UI (adicionales / copia)
           // Cada destinatario tiene su propia clave de idempotencia para no duplicar envíos.
-          type Dest = { email: string | null; nombre: string; tipo: 'cliente' | 'manual'; claveEntidad: string };
+          type Dest = { email: string | null; nombre: string; telefono: string; tipo: 'cliente' | 'manual'; claveEntidad: string };
           const destinatarios: Dest[] = [];
           if (emailReal) {
             destinatarios.push({
               email: emailReal,
               nombre: persona.nombre_legal || '',
+              telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
               tipo: 'cliente',
               claveEntidad: `acuerdo:${ac.id}:offset:${offset}`,
             });
@@ -259,6 +280,7 @@ Deno.serve(async (req) => {
             destinatarios.push({
               email: m.email,
               nombre: m.nombre || persona.nombre_legal || '',
+              telefono: m.telefono || '',
               tipo: 'manual',
               claveEntidad: `acuerdo:${ac.id}:offset:${offset}:manual:${m.email}`,
             });
@@ -274,7 +296,7 @@ Deno.serve(async (req) => {
                 clave_entidad: dest.claveEntidad,
                 fecha_objetivo: fechaObjetivo,
                 email_destino: dest.email,
-                telefono_destino: dest.tipo === 'cliente' && persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : null,
+                telefono_destino: dest.telefono ? normalizarTelefonoWA(dest.telefono) : null,
                 canal: channel,
                 estado: 'enviando',
               })
@@ -342,8 +364,10 @@ Deno.serve(async (req) => {
               }
             }
 
-            // WHATSAPP via enviar-notificacion — solo para cliente real (los manuales son solo email)
-            if (dest.tipo === 'cliente' && (channel === 'whatsapp' || channel === 'ambos') && persona.telefono) {
+            // WHATSAPP via enviar-notificacion — para cliente real Y manuales que tengan teléfono.
+            // El cuerpo del WA es el "Contenido del mensaje" (mensaje_html) sin etiquetas, con placeholders renderizados.
+            const telWA = normalizarTelefonoWA(dest.telefono || '');
+            if ((channel === 'whatsapp' || channel === 'ambos') && telWA) {
               try {
                 const waToken = Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN') || '';
                 const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/enviar-notificacion`;
@@ -356,12 +380,13 @@ Deno.serve(async (req) => {
                   },
                   body: JSON.stringify({
                     tipo: 'whatsapp',
-                    telefono: `${persona.clave_pais_telefono || ''}${persona.telefono}`.replace(/\D/g, ''),
+                    telefono: telWA,
                     mensaje: destHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
                     origen: 'aviso_evento',
                     aviso_id: aviso.id,
                     trigger_id: trig.id,
                     clave_entidad: dest.claveEntidad,
+                    destinatario_tipo: dest.tipo,
                   }),
                 });
                 if (!r.ok) { okWa = false; errMsg += `wa: ${r.status}; `; }
