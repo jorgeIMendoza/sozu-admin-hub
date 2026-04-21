@@ -20,13 +20,14 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// Within ±5 min of hora_envio (HH:MM:SS in Mexico time)
-function withinSendWindow(horaEnvio: string, mexNow: Date, toleranceMin = 5): boolean {
+// Solo dispara DESDE hora_envio hasta hora_envio + toleranceMin minutos.
+// Nunca antes de la hora configurada.
+function withinSendWindow(horaEnvio: string, mexNow: Date, toleranceMin = 2): boolean {
   const [h, m] = horaEnvio.split(':').map(Number);
   const target = new Date(mexNow);
   target.setHours(h, m || 0, 0, 0);
-  const diffMin = Math.abs((mexNow.getTime() - target.getTime()) / 60000);
-  return diffMin <= toleranceMin;
+  const diffMin = (mexNow.getTime() - target.getTime()) / 60000;
+  return diffMin >= 0 && diffMin <= toleranceMin;
 }
 
 function renderTemplate(tpl: string, vars: Record<string, string>): string {
@@ -162,6 +163,16 @@ Deno.serve(async (req) => {
           q = q.in('id_concepto', filtros.id_concepto);
         }
 
+        // Modo prueba/auditoría:
+        //   filtros.email_override: redirige TODOS los envíos a ese correo (ignora email del cliente)
+        //   filtros.bcc: lista de correos en copia oculta
+        const emailOverride: string | null = typeof filtros.email_override === 'string' && filtros.email_override.includes('@')
+          ? filtros.email_override.trim()
+          : null;
+        const bccList: string[] = Array.isArray(filtros.bcc)
+          ? filtros.bcc.filter((e: any) => typeof e === 'string' && e.includes('@'))
+          : (typeof filtros.bcc === 'string' && filtros.bcc.includes('@') ? [filtros.bcc] : []);
+
         const { data: rows, error: qErr } = await q;
         if (qErr) {
           console.error(`${tag} trigger ${trig.id} offset ${offset}: query error`, qErr);
@@ -179,6 +190,9 @@ Deno.serve(async (req) => {
 
           const claveEntidad = `acuerdo:${ac.id}:offset:${offset}`;
           const channel = trig.canal as string;
+
+          // Resolver destinatario real considerando override
+          const emailReal = emailOverride || persona.email || null;
 
           // Build template variables
           const vars: Record<string, string> = {
@@ -212,7 +226,7 @@ Deno.serve(async (req) => {
               id_trigger: trig.id,
               clave_entidad: claveEntidad,
               fecha_objetivo: fechaObjetivo,
-              email_destino: persona.email || null,
+              email_destino: emailReal,
               telefono_destino: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : null,
               canal: channel,
               estado: 'enviando',
@@ -239,27 +253,29 @@ Deno.serve(async (req) => {
               .from('avisos_envios_evento')
               .update({ estado: 'simulado', error: 'dry_run', payload_enviado: templateModel })
               .eq('id', ins.id);
-            summary.details.push({ trigger_id: trig.id, clave_entidad: claveEntidad, estado: 'simulado', email: persona.email, telefono: persona.telefono });
+            summary.details.push({ trigger_id: trig.id, clave_entidad: claveEntidad, estado: 'simulado', email: emailReal, telefono: persona.telefono, override: !!emailOverride, bcc: bccList });
             summary.sent++;
             continue;
           }
 
           // EMAIL
-          if ((channel === 'email' || channel === 'ambos') && persona.email) {
+          if ((channel === 'email' || channel === 'ambos') && emailReal) {
             if (!POSTMARK_TOKEN) { okEmail = false; errMsg += 'POSTMARK_SERVER_TOKEN faltante; '; }
             else {
               try {
                 const templateId = aviso.postmark_template_id || 36978552;
+                const postmarkBody: any = {
+                  From: 'notificaciones@sozu.com',
+                  To: emailReal,
+                  TemplateId: templateId,
+                  TemplateModel: templateModel,
+                  MessageStream: 'outbound',
+                };
+                if (bccList.length > 0) postmarkBody.Bcc = bccList.join(',');
                 const res = await fetch('https://api.postmarkapp.com/email/withTemplate', {
                   method: 'POST',
                   headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Postmark-Server-Token': POSTMARK_TOKEN },
-                  body: JSON.stringify({
-                    From: 'notificaciones@sozu.com',
-                    To: persona.email,
-                    TemplateId: templateId,
-                    TemplateModel: templateModel,
-                    MessageStream: 'outbound',
-                  }),
+                  body: JSON.stringify(postmarkBody),
                 });
                 const body = await res.json();
                 if (!res.ok || (body?.ErrorCode && body.ErrorCode !== 0)) {
