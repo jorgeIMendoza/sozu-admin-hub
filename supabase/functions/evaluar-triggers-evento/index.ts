@@ -115,6 +115,28 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Cargar destinatarios manuales configurados en la UI (avisos_roles_destinatarios.correos)
+      // Si hay correos manuales, REEMPLAZAN al cliente real (modo prueba/segmentación dirigida).
+      // Solo se envía 1 correo por acuerdo que cumpla la condición, a cada correo manual.
+      const { data: rolesDest } = await supabaseAdmin
+        .from('avisos_roles_destinatarios')
+        .select('correos')
+        .eq('id_aviso', aviso.id);
+
+      const manualEmails: { email: string; nombre: string }[] = [];
+      for (const rd of rolesDest || []) {
+        const correos: any = (rd as any).correos;
+        const lista: any[] = Array.isArray(correos?.destinatarios) ? correos.destinatarios : [];
+        for (const it of lista) {
+          const em = typeof it?.email === 'string' ? it.email.trim() : '';
+          if (em.includes('@')) manualEmails.push({ email: em, nombre: it?.nombre || '' });
+        }
+      }
+      const tieneManuales = manualEmails.length > 0;
+      if (tieneManuales) {
+        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} correo(s) manual(es) → reemplazan al cliente real`);
+      }
+
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
       const effectiveOffsets = overrideOffset !== null && !Number.isNaN(overrideOffset) ? [overrideOffset] : offsets;
       if (effectiveOffsets.length === 0) { summary.skipped++; continue; }
@@ -218,10 +240,21 @@ Deno.serve(async (req) => {
             ? renderJsonTemplate(aviso.payload_postmark, vars)
             : { mensaje: { nombre: persona.nombre_legal || '', texto: renderedHtml, asunto: renderedAsunto } };
 
-          // Destinatario único por acuerdo: el cliente real (o el override de prueba si está configurado)
-          type Dest = { email: string | null; nombre: string; tipo: 'cliente'; claveEntidad: string };
+          // Destinatarios por acuerdo:
+          //   - Si hay correos manuales en avisos_roles_destinatarios → reemplazan al cliente real
+          //   - Si no, se envía al cliente real (o al email_override si está en filtros)
+          type Dest = { email: string | null; nombre: string; tipo: 'cliente' | 'manual'; claveEntidad: string };
           const destinatarios: Dest[] = [];
-          if (emailReal) {
+          if (tieneManuales) {
+            for (const m of manualEmails) {
+              destinatarios.push({
+                email: m.email,
+                nombre: m.nombre || persona.nombre_legal || '',
+                tipo: 'manual',
+                claveEntidad: `acuerdo:${ac.id}:offset:${offset}:manual:${m.email}`,
+              });
+            }
+          } else if (emailReal) {
             destinatarios.push({
               email: emailReal,
               nombre: persona.nombre_legal || '',
