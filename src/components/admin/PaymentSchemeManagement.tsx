@@ -364,3 +364,75 @@ export const PaymentSchemeManagement = ({ projectId, canCreate = true, canUpdate
     </div>
   );
 };
+
+// ----------------------------------------------------------------------------
+// Sortable card component
+// ----------------------------------------------------------------------------
+interface SortablePaymentSchemeCardProps {
+  scheme: any;
+  displayOrder: number;
+  canUpdate: boolean;
+  onUpdated: () => void;
+  DetailsDialog: React.ComponentType<{ scheme: any }>;
+  DeleteDialog: React.ComponentType<{ scheme: any }>;
+}
+
+const SortablePaymentSchemeCard = ({
+  scheme,
+  displayOrder,
+  canUpdate,
+  onUpdated,
+  DetailsDialog,
+  DeleteDialog,
+}: SortablePaymentSchemeCardProps) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: scheme.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : "auto",
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className="relative">
+        <Badge
+          variant="secondary"
+          className="absolute top-2 right-2 h-6 min-w-6 px-2 flex items-center justify-center text-xs font-semibold"
+        >
+          #{displayOrder}
+        </Badge>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center justify-between pr-10">
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                className="cursor-grab active:cursor-grabbing touch-none p-1 -ml-1 rounded hover:bg-muted text-muted-foreground"
+                aria-label="Arrastrar para reordenar"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
+              <CreditCard className="h-4 w-4" />
+              <span>{scheme.nombre}</span>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex space-x-2">
+            <DetailsDialog scheme={scheme} />
+            <EditPaymentSchemeDialog
+              scheme={scheme}
+              onSchemeUpdated={onUpdated}
+              canUpdate={canUpdate}
+            />
+            <DeleteDialog scheme={scheme} />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
