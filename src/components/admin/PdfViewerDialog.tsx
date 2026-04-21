@@ -86,8 +86,9 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
       .then(({ data, error: err }) => {
         if (err || !data?.signedUrl) {
           console.error("[PdfViewerDialog] Error creating signed URL:", err, "bucket:", storageInfo.bucket, "path:", storageInfo.path);
-          setError("No se pudo generar un enlace seguro para el PDF.");
-          setSignedUrl(null);
+          // Fallback: use the original URL directly (public buckets work without signing)
+          console.warn("[PdfViewerDialog] Falling back to original URL");
+          setSignedUrl(url);
         } else {
           console.log("[PdfViewerDialog] Signed URL generated successfully");
           setSignedUrl(data.signedUrl);
@@ -98,6 +99,8 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
 
   const effectiveUrl = signedUrl || "";
 
+  const isImage = /\.(jpe?g|png|gif|webp|bmp|svg)(\?|$)/i.test(url);
+
   const content = (
     <div className="flex-1 flex flex-col overflow-hidden">
       {loading ? (
@@ -107,6 +110,10 @@ export function PdfViewerDialog({ open, onOpenChange, url, title = "Documento PD
       ) : error ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
           {error}
+        </div>
+      ) : isImage ? (
+        <div className="flex-1 w-full overflow-auto rounded border bg-muted/20 flex items-center justify-center">
+          <img src={effectiveUrl} alt={title} className="max-w-full max-h-full object-contain" />
         </div>
       ) : (
         <iframe src={effectiveUrl} className="flex-1 w-full rounded border" title={title} />
