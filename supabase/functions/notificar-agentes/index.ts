@@ -142,17 +142,30 @@ Deno.serve(async (req) => {
     const detallesEmail = replacePlaceholders(config.plantilla_email_detalles);
 
     // 6.b Build dynamic templateModel for Postmark from mapeo_variables_postmark
-    // mapeo_variables_postmark example: { "nombre_desarrollo": "{nombre_desarrollo}", "id_proyecto": "{id_proyecto}" }
-    const mapeoVars: Record<string, string> = (config.mapeo_variables_postmark || {}) as Record<string, string>;
-    const templateModel: Record<string, string> = {};
+    // mapeo_variables_postmark example (supports nested objects to mirror Postmark template structure):
+    //   { "mensaje": { "proyecto": "{nombre_desarrollo}" }, "id_proyecto": "{id_proyecto}" }
+    const mapeoVars: Record<string, unknown> = (config.mapeo_variables_postmark || {}) as Record<string, unknown>;
+    // Recursively resolve placeholders preserving the nested object shape.
+    const resolveMapping = (value: unknown): unknown => {
+      if (typeof value === 'string') return replacePlaceholders(value);
+      if (Array.isArray(value)) return value.map(resolveMapping);
+      if (value && typeof value === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          out[k] = resolveMapping(v);
+        }
+        return out;
+      }
+      return value;
+    };
+    const templateModel: Record<string, unknown> = {};
     // Always include base fallbacks so legacy templates keep working
     templateModel['nombre'] = 'Equipo';
     templateModel['actividad'] = asuntoEmail;
     templateModel['detalles'] = detallesEmail;
-    // Apply user-defined mapping
+    // Apply user-defined mapping (supports nested objects)
     for (const [postmarkVar, valueExpr] of Object.entries(mapeoVars)) {
-      if (typeof valueExpr !== 'string') continue;
-      templateModel[postmarkVar] = replacePlaceholders(valueExpr);
+      templateModel[postmarkVar] = resolveMapping(valueExpr);
     }
     // Provide id_proyecto as a built-in token if mapped
     templateModel['id_proyecto'] = templateModel['id_proyecto'] || String(id_proyecto);

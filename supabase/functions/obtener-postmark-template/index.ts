@@ -4,6 +4,7 @@ const corsHeaders = {
 };
 
 // Extract {{ variableName }} placeholders from Postmark template content (Mustachio syntax)
+// Returns FULL paths (e.g. "mensaje.proyecto") so the UI can build a properly nested mapping.
 function extractVariables(text: string): string[] {
   if (!text) return [];
   const found = new Set<string>();
@@ -15,9 +16,9 @@ function extractVariables(text: string): string[] {
     const name = m[2];
     // Skip helpers/sections (#each, /each, ^if). Only collect plain vars.
     if (prefix) continue;
-    // Take the root key only (e.g. "user.name" -> "user")
-    const root = name.split('.')[0];
-    if (root && root !== 'this') found.add(root);
+    if (!name || name === 'this') continue;
+    // Keep the FULL dotted path (e.g. "mensaje.proyecto") so the UI can build nested JSON.
+    found.add(name);
   }
   return Array.from(found);
 }
