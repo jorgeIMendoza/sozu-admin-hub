@@ -170,6 +170,29 @@ Deno.serve(async (req) => {
     // Provide id_proyecto as a built-in token if mapped
     templateModel['id_proyecto'] = templateModel['id_proyecto'] || String(id_proyecto);
 
+    // 6.c Auto-fill empty values inside the mapped `mensaje` object using the
+    // configured fallbacks. This handles the common case where the user defines
+    // { "mensaje": { "proyecto": "{nombre_desarrollo}", "detalles": "" } }
+    // and expects `detalles` to be populated from `plantilla_email_detalles`,
+    // and `asunto` from `asunto_email`.
+    if (templateModel['mensaje'] && typeof templateModel['mensaje'] === 'object') {
+      const mensajeObj = templateModel['mensaje'] as Record<string, unknown>;
+      const fallbacks: Record<string, string> = {
+        detalles: detallesEmail,
+        asunto: asuntoEmail,
+        actividad: asuntoEmail,
+        nombre: 'Equipo',
+      };
+      for (const [key, fallbackValue] of Object.entries(fallbacks)) {
+        if (key in mensajeObj) {
+          const current = mensajeObj[key];
+          if (current === '' || current === null || current === undefined) {
+            mensajeObj[key] = fallbackValue;
+          }
+        }
+      }
+    }
+
     // 7. Build email and phone lists
     const emails = filteredUsers.map(u => u.email).filter(Boolean).join(',');
 
