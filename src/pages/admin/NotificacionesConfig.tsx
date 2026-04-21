@@ -616,10 +616,16 @@ const NotificacionesConfig = () => {
 
                 {templateVars.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1">Variables que la plantilla espera:</p>
+                    <p className="text-xs text-muted-foreground mb-1">Variables que la plantilla espera (click para ir a la key en el JSON):</p>
                     <div className="flex flex-wrap gap-1">
                       {templateVars.map(v => (
-                        <Badge key={v} variant="secondary" className="font-mono text-xs">{`{{${v}}}`}</Badge>
+                        <Badge
+                          key={v}
+                          variant="secondary"
+                          className="font-mono text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                          onClick={() => jumpToJsonKey(v)}
+                          title="Click para ubicar la key en el JSON"
+                        >{`{{${v}}}`}</Badge>
                       ))}
                     </div>
                   </div>
