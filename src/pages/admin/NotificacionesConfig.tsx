@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Bell, Save, Loader2, Plus, Trash2 } from "lucide-react";
+import { Bell, Save, Loader2, Plus, Trash2, ChevronDown, ChevronRight, Eye } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,12 @@ const NotificacionesConfig = () => {
   const [loadingVars, setLoadingVars] = useState(false);
   const [mapeoJsonText, setMapeoJsonText] = useState<string>('{}');
   const [mapeoJsonError, setMapeoJsonError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewValues, setPreviewValues] = useState<Record<string, string>>({
+    nombre_desarrollo: 'Torre Sozu Polanco',
+    nombre_esquema: 'Plan 60/40',
+    id_proyecto: '123',
+  });
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -582,8 +588,105 @@ const NotificacionesConfig = () => {
                     <p className="text-xs text-destructive mt-1">JSON inválido: {mapeoJsonError}</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Llave = nombre exacto de la variable en Postmark. Si la plantilla usa <code>{`{{mensaje.proyecto}}`}</code>, anida el JSON como <code>{`{ "mensaje": { "proyecto": "..." } }`}</code>. Valor = placeholder del sistema o texto fijo.
+                    <strong>Importante:</strong> los placeholders del sistema van <strong>entre comillas</strong> como cualquier texto JSON, ej. <code>{`"{nombre_desarrollo}"`}</code>. El sistema los detecta y reemplaza automáticamente al enviar. Si la plantilla usa <code>{`{{mensaje.proyecto}}`}</code>, anida el JSON como <code>{`{ "mensaje": { "proyecto": "{nombre_desarrollo}" } }`}</code>.
                   </p>
+                </div>
+
+                {/* Preview expandible */}
+                <div className="border-t pt-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewOpen(o => !o)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                  >
+                    {previewOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    <Eye className="h-3.5 w-3.5" />
+                    Vista previa con valores de prueba
+                  </button>
+
+                  {previewOpen && (() => {
+                    // Build live preview from current mapeo + previewValues
+                    const replacePh = (s: string) =>
+                      s
+                        .replace(/\{nombre_desarrollo\}/g, previewValues.nombre_desarrollo || '')
+                        .replace(/\{nombre_esquema\}/g, previewValues.nombre_esquema || '')
+                        .replace(/\{id_proyecto\}/g, previewValues.id_proyecto || '');
+                    const resolveMapping = (value: any): any => {
+                      if (typeof value === 'string') return replacePh(value);
+                      if (Array.isArray(value)) return value.map(resolveMapping);
+                      if (value && typeof value === 'object') {
+                        const out: Record<string, any> = {};
+                        for (const [k, v] of Object.entries(value)) out[k] = resolveMapping(v);
+                        return out;
+                      }
+                      return value;
+                    };
+                    let resolvedJson: any = {};
+                    try {
+                      const parsed = JSON.parse(mapeoJsonText || '{}');
+                      resolvedJson = resolveMapping(parsed);
+                    } catch {
+                      resolvedJson = { error: 'JSON inválido — corrige arriba' };
+                    }
+                    const asuntoPreview = replacePh(editItem.asunto_email || '');
+                    const detallesPreview = replacePh(editItem.plantilla_email_detalles || '');
+                    const waPreview = replacePh(editItem.plantilla_wa || '');
+                    return (
+                      <div className="mt-3 space-y-3 bg-background border rounded-md p-3">
+                        {/* Editable values per placeholder */}
+                        <div>
+                          <p className="text-xs font-semibold mb-1.5">Valores de prueba para placeholders:</p>
+                          <div className="space-y-1.5">
+                            {SYSTEM_PLACEHOLDERS.map(ph => {
+                              const key = ph.replace(/[{}]/g, '');
+                              return (
+                                <div key={key} className="flex items-center gap-2">
+                                  <code className="text-[11px] font-mono bg-muted px-1.5 py-0.5 rounded shrink-0 w-40">{ph}</code>
+                                  <Input
+                                    value={previewValues[key] || ''}
+                                    onChange={e => setPreviewValues(v => ({ ...v, [key]: e.target.value }))}
+                                    className="h-7 text-xs"
+                                    placeholder="Valor de prueba"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold mb-1">templateModel resuelto (lo que recibirá Postmark):</p>
+                          <pre className="text-[11px] bg-muted rounded p-2 overflow-x-auto font-mono">
+{JSON.stringify(resolvedJson, null, 2)}
+                          </pre>
+                        </div>
+
+                        {asuntoPreview && (
+                          <div>
+                            <p className="text-xs font-semibold mb-1">Asunto del email:</p>
+                            <div className="text-xs bg-muted rounded p-2">{asuntoPreview}</div>
+                          </div>
+                        )}
+
+                        {detallesPreview && (
+                          <div>
+                            <p className="text-xs font-semibold mb-1">Detalles del email (HTML):</p>
+                            <div
+                              className="text-xs bg-muted rounded p-2 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: detallesPreview }}
+                            />
+                          </div>
+                        )}
+
+                        {waPreview && (
+                          <div>
+                            <p className="text-xs font-semibold mb-1">Mensaje WhatsApp:</p>
+                            <div className="text-xs bg-muted rounded p-2 whitespace-pre-wrap">{waPreview}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
