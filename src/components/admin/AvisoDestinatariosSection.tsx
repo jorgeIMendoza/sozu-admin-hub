@@ -54,6 +54,7 @@ export function AvisoDestinatariosSection({
   const [loadingRolId, setLoadingRolId] = useState<number | null>(null);
   const [manualNombre, setManualNombre] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  const [manualTelefono, setManualTelefono] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "selected" | "unselected">("all");
@@ -227,7 +228,7 @@ export function AvisoDestinatariosSection({
   const notifyParent = useCallback((newSelected: Set<string>, currentPool: PoolItem[]) => {
     const selected = currentPool
       .filter(d => newSelected.has(d.email))
-      .map(d => ({ nombre: d.nombre, email: d.email }));
+      .map(d => ({ nombre: d.nombre, email: d.email, telefono: d.telefono || "" }));
     onDestinatariosChange(selected);
   }, [onDestinatariosChange]);
 
