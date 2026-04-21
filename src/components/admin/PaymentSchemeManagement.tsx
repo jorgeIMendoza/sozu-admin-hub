@@ -316,41 +316,41 @@ export const PaymentSchemeManagement = ({ projectId, canCreate = true, canUpdate
       />
       </div>
 
-      {schemes && schemes.length > 0 ? (
+      {orderedSchemes && orderedSchemes.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {schemes.length} esquema{schemes.length !== 1 ? 's' : ''} encontrado{schemes.length !== 1 ? 's' : ''}
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {schemes.map((scheme) => {
-              const totalPercentage = scheme.porcentaje_enganche + scheme.porcentaje_mensualidades + scheme.porcentaje_entrega;
-              const isValidScheme = totalPercentage === 100;
-
-              return (
-                <Card key={scheme.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="h-4 w-4" />
-                        <span>{scheme.nombre}</span>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex space-x-2">
-                      <PaymentSchemeDetailsDialog scheme={scheme} />
-                      <EditPaymentSchemeDialog 
-                        scheme={scheme} 
-                        onSchemeUpdated={handleSchemeAdded}
-                        canUpdate={canUpdate}
-                      />
-                      <DeletePaymentSchemeDialog scheme={scheme} />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {orderedSchemes.length} esquema{orderedSchemes.length !== 1 ? 's' : ''} encontrado{orderedSchemes.length !== 1 ? 's' : ''}
+              <span className="ml-2 text-xs italic">(arrastra las tarjetas para reordenar)</span>
+            </p>
+            {isSavingOrder && (
+              <span className="text-xs text-muted-foreground">Guardando orden…</span>
+            )}
           </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={orderedSchemes.map((s) => s.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {orderedSchemes.map((scheme, idx) => (
+                  <SortablePaymentSchemeCard
+                    key={scheme.id}
+                    scheme={scheme}
+                    displayOrder={idx + 1}
+                    canUpdate={canUpdate}
+                    onUpdated={handleSchemeAdded}
+                    DetailsDialog={PaymentSchemeDetailsDialog}
+                    DeleteDialog={DeletePaymentSchemeDialog}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
       ) : (
         <Card>
