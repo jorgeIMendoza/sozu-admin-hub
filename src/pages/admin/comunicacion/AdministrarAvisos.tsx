@@ -961,18 +961,19 @@ export default function AdministrarAvisos() {
                       correos: extraerCorreos(r.correos),
                     }));
                     const totalCorreos = rolesConCorreos.reduce((acc, r) => acc + r.correos.length, 0);
-                    // Modo A: solo correos específicos (sin envío al rol completo)
-                    // Modo B: envío al rol entero (sin correos específicos)
-                    // Heurística: si hay correos específicos, son los destinatarios reales
-                    if (totalCorreos > 0) {
-                      const todos = rolesConCorreos.flatMap(r => r.correos);
-                      const mostrar = todos.slice(0, 5);
+                    const esEvento = detailAviso.modo_trigger === 'evento';
+                    const todosCorreos = rolesConCorreos.flatMap(r => r.correos);
+
+                    // CASO 1: Aviso por evento con correos específicos
+                    // → Solo se envía a esos correos manuales (modo prueba/auditoría)
+                    if (esEvento && totalCorreos > 0) {
+                      const mostrar = todosCorreos.slice(0, 5);
                       return (
                         <div className="space-y-2 text-sm">
                           <div className="flex items-start gap-2">
                             <Mail className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                             <span>
-                              Se envía a <strong>{totalCorreos}</strong> destinatario{totalCorreos === 1 ? '' : 's'} específico{totalCorreos === 1 ? '' : 's'}
+                              Solo a <strong>{totalCorreos}</strong> correo{totalCorreos === 1 ? '' : 's'} específico{totalCorreos === 1 ? '' : 's'} (modo prueba)
                             </span>
                           </div>
                           <ul className="text-xs text-muted-foreground space-y-0.5 pl-5">
@@ -982,24 +983,47 @@ export default function AdministrarAvisos() {
                                 {c.email}
                               </li>
                             ))}
-                            {todos.length > mostrar.length && (
-                              <li className="italic">y {todos.length - mostrar.length} más…</li>
+                            {todosCorreos.length > mostrar.length && (
+                              <li className="italic">y {todosCorreos.length - mostrar.length} más…</li>
                             )}
                           </ul>
-                          <p className="text-[11px] text-muted-foreground italic pl-5">
-                            Asociado al rol: {rolesConCorreos.map(r => r.rolNombre).join(', ')}
+                        </div>
+                      );
+                    }
+
+                    // CASO 2: Aviso por evento SIN correos específicos
+                    // → Se envía dinámicamente a las personas que cumplan la condición del evento
+                    if (esEvento) {
+                      return (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-start gap-2">
+                            <Mail className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+                            <span>
+                              A las personas que cumplan la condición del evento en cada ejecución
+                              {detailRoles.length > 0 && (
+                                <> (filtrado por: <strong>{rolesConCorreos.map(r => r.rolNombre).join(', ')}</strong>)</>
+                              )}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground pl-5 italic">
+                            Ejemplo: si solo 3 de 100 clientes tienen pago próximo, solo se envía a esos 3.
                           </p>
                         </div>
                       );
                     }
-                    // Sin correos específicos: se envía a todos los usuarios con ese rol
+
+                    // CASO 3: Aviso manual o automático cron
+                    // → Se envía a todos los usuarios del rol + correos adicionales
                     return (
                       <div className="space-y-2 text-sm">
                         <div className="flex items-start gap-2">
                           <Mail className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                           <span>
-                            Se envía a todos los usuarios con {detailRoles.length === 1 ? 'el rol' : 'los roles'}:{' '}
+                            A todos los usuarios con {detailRoles.length === 1 ? 'el rol' : 'los roles'}:{' '}
                             <strong>{rolesConCorreos.map(r => r.rolNombre).join(', ')}</strong>
+                            {totalCorreos > 0 && (
+                              <> + <strong>{totalCorreos}</strong> correo{totalCorreos === 1 ? '' : 's'} adicional{totalCorreos === 1 ? '' : 'es'}</>
+                            )}
                           </span>
                         </div>
                       </div>
