@@ -163,6 +163,16 @@ Deno.serve(async (req) => {
           q = q.in('id_concepto', filtros.id_concepto);
         }
 
+        // Modo prueba/auditoría:
+        //   filtros.email_override: redirige TODOS los envíos a ese correo (ignora email del cliente)
+        //   filtros.bcc: lista de correos en copia oculta
+        const emailOverride: string | null = typeof filtros.email_override === 'string' && filtros.email_override.includes('@')
+          ? filtros.email_override.trim()
+          : null;
+        const bccList: string[] = Array.isArray(filtros.bcc)
+          ? filtros.bcc.filter((e: any) => typeof e === 'string' && e.includes('@'))
+          : (typeof filtros.bcc === 'string' && filtros.bcc.includes('@') ? [filtros.bcc] : []);
+
         const { data: rows, error: qErr } = await q;
         if (qErr) {
           console.error(`${tag} trigger ${trig.id} offset ${offset}: query error`, qErr);
