@@ -132,8 +132,9 @@ Deno.serve(async (req) => {
       }
 
       // Cargar destinatarios manuales configurados en la UI (avisos_roles_destinatarios.correos).
-      // Los correos manuales son ADICIONALES al cliente real: por cada acuerdo que cumpla la
-      // condición, se envía al cliente real Y a cada correo manual (copia/auditoría).
+      // Los correos manuales REEMPLAZAN al cliente real: si hay al menos un manual configurado,
+      // el envío se hace ÚNICAMENTE a esos correos manuales (modo prueba/auditoría).
+      // Si no hay manuales, se envía al cliente real.
       const { data: rolesDest } = await supabaseAdmin
         .from('avisos_roles_destinatarios')
         .select('correos')
@@ -153,7 +154,7 @@ Deno.serve(async (req) => {
       }
       if (manualEmails.length > 0) {
         const conTel = manualEmails.filter(m => m.telefono).length;
-        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → copia adicional al cliente real`);
+        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → REEMPLAZAN al cliente real`);
       }
 
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
