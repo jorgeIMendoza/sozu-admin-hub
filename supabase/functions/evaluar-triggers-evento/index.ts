@@ -72,6 +72,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const ignoreWindow = url.searchParams.get('ignore_window') === '1';
     const dryRun = url.searchParams.get('dry_run') === '1';
+    const overrideOffsetParam = url.searchParams.get('override_offset');
+    const overrideOffset = overrideOffsetParam !== null ? Number(overrideOffsetParam) : null;
 
     const mexNow = getMexicoTime();
     const tag = `[${fmtTime(mexNow)} MX]`;
@@ -113,9 +115,10 @@ Deno.serve(async (req) => {
       }
 
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
-      if (offsets.length === 0) { summary.skipped++; continue; }
+      const effectiveOffsets = overrideOffset !== null && !Number.isNaN(overrideOffset) ? [overrideOffset] : offsets;
+      if (effectiveOffsets.length === 0) { summary.skipped++; continue; }
 
-      for (const offset of offsets) {
+      for (const offset of effectiveOffsets) {
         // UI semantics: negative offset = send N days BEFORE the due date (reminders),
         // positive offset = send N days AFTER the due date (overdue notices).
         // Therefore fecha_objetivo = today - offset
