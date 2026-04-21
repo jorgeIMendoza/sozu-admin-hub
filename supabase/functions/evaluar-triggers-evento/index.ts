@@ -191,6 +191,9 @@ Deno.serve(async (req) => {
           const claveEntidad = `acuerdo:${ac.id}:offset:${offset}`;
           const channel = trig.canal as string;
 
+          // Resolver destinatario real considerando override
+          const emailReal = emailOverride || persona.email || null;
+
           // Build template variables
           const vars: Record<string, string> = {
             nombre: persona.nombre_legal || '',
