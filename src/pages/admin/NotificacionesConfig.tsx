@@ -156,17 +156,38 @@ const NotificacionesConfig = () => {
         // Auto-prefill missing keys in mapeo (only if value not already set)
         setEditItem(prev => {
           if (!prev) return prev;
-          const current = { ...(prev.mapeo_variables_postmark || {}) };
+          // Build nested structure honoring dotted paths (e.g. "mensaje.proyecto" -> { mensaje: { proyecto: "" } })
+          const current: Record<string, any> = JSON.parse(JSON.stringify(prev.mapeo_variables_postmark || {}));
           let changed = false;
-          for (const v of data.variables as string[]) {
-            if (current[v] === undefined) {
-              // Auto-suggest mapping if name matches a known placeholder
-              if (v === 'nombre_desarrollo') current[v] = '{nombre_desarrollo}';
-              else if (v === 'nombre_esquema') current[v] = '{nombre_esquema}';
-              else if (v === 'id_proyecto') current[v] = '{id_proyecto}';
-              else current[v] = '';
-              changed = true;
+          const suggestForLeaf = (leaf: string): string => {
+            if (leaf === 'nombre_desarrollo') return '{nombre_desarrollo}';
+            if (leaf === 'nombre_esquema') return '{nombre_esquema}';
+            if (leaf === 'id_proyecto') return '{id_proyecto}';
+            if (leaf === 'proyecto') return '{nombre_desarrollo}';
+            if (leaf === 'esquema') return '{nombre_esquema}';
+            return '';
+          };
+          const setNested = (obj: Record<string, any>, path: string[]): boolean => {
+            const [head, ...rest] = path;
+            if (!head) return false;
+            if (rest.length === 0) {
+              if (obj[head] === undefined) {
+                obj[head] = suggestForLeaf(head);
+                return true;
+              }
+              return false;
             }
+            if (typeof obj[head] !== 'object' || obj[head] === null || Array.isArray(obj[head])) {
+              obj[head] = {};
+              // continue, will fill below
+            }
+            return setNested(obj[head], rest);
+          };
+          for (const v of data.variables as string[]) {
+            const path = v.split('.').filter(Boolean);
+            if (path.length === 0) continue;
+            const wasChanged = setNested(current, path);
+            if (wasChanged) changed = true;
           }
           if (changed) {
             setMapeoJsonText(JSON.stringify(current, null, 2));
