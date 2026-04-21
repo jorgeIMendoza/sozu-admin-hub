@@ -134,11 +134,60 @@ export default function Ejecuciones() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [{ data: ejData }, { data: avData }] = await Promise.all([
+    const [{ data: ejData }, { data: avData }, { data: evData }] = await Promise.all([
       supabase.from('avisos_ejecuciones').select('*, avisos(nombre)').order('fecha_ejecucion', { ascending: false }).limit(200),
       supabase.from('avisos').select('id, nombre').order('nombre'),
+      supabase.from('avisos_envios_evento').select('id, id_aviso, id_trigger, fecha_envio, fecha_objetivo, estado, email_destino, error, avisos:avisos!avisos_envios_evento_id_aviso_fkey(nombre)').order('fecha_envio', { ascending: false }).limit(2000),
     ]);
-    setEjecuciones((ejData as any) || []);
+
+    // Agrupar envíos por evento por (id_aviso, id_trigger, fecha_envio::date) y construir ejecuciones sintéticas
+    const eventosAgrupados = new Map<string, Ejecucion>();
+    (evData || []).forEach((row: any) => {
+      const fechaDia = row.fecha_envio?.slice(0, 10) || '';
+      const key = `evt-${row.id_aviso}-${row.id_trigger}-${fechaDia}`;
+      const existing = eventosAgrupados.get(key);
+      if (existing) {
+        existing.total_destinatarios = (existing.total_destinatarios || 0) + 1;
+        if (row.estado === 'enviado') existing.total_enviados = (existing.total_enviados || 0) + 1;
+        if (row.estado === 'error') {
+          existing.total_errores = (existing.total_errores || 0) + 1;
+          const detalle = `${row.email_destino || 'sin email'}: ${row.error || 'error desconocido'}`;
+          existing.detalle_error = existing.detalle_error
+            ? `${existing.detalle_error} | ${detalle}`
+            : detalle;
+        }
+      } else {
+        const isError = row.estado === 'error';
+        const isSent = row.estado === 'enviado';
+        eventosAgrupados.set(key, {
+          id: -row.id, // negativo para evitar colisión con avisos_ejecuciones
+          id_aviso: row.id_aviso,
+          fecha_ejecucion: row.fecha_envio,
+          tipo_trigger: 'evento',
+          total_destinatarios: 1,
+          total_enviados: isSent ? 1 : 0,
+          total_errores: isError ? 1 : 0,
+          estado: 'completado',
+          detalle_error: isError ? `${row.email_destino || 'sin email'}: ${row.error || 'error desconocido'}` : null,
+          avisos: row.avisos || null,
+        });
+      }
+    });
+
+    // Calcular estado final por grupo
+    eventosAgrupados.forEach((ej) => {
+      const errores = ej.total_errores || 0;
+      const enviados = ej.total_enviados || 0;
+      const total = ej.total_destinatarios || 0;
+      if (errores === total && total > 0) ej.estado = 'error';
+      else if (errores > 0) ej.estado = 'parcial';
+      else ej.estado = 'completado';
+    });
+
+    const todos = [...((ejData as any) || []), ...Array.from(eventosAgrupados.values())].sort(
+      (a, b) => new Date(b.fecha_ejecucion).getTime() - new Date(a.fecha_ejecucion).getTime()
+    );
+    setEjecuciones(todos);
     setAvisos(avData || []);
     setIsLoading(false);
   };
