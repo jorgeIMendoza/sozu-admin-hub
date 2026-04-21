@@ -923,7 +923,7 @@ export default function MisPropiedades() {
       .eq('id_proyecto', projectId)
       .eq('es_manual', false)
       .eq('activo', true)
-      .order('nombre');
+      .order('orden', { ascending: true });
     
     if (error) {
       console.error('Error fetching schemes:', error);

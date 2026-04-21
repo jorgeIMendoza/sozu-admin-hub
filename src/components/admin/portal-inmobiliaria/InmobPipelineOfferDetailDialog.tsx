@@ -150,7 +150,7 @@ export function InmobPipelineOfferDetailDialog({ open, onOpenChange, card, stage
         .eq("id_proyecto", projectId)
         .eq("activo", true)
         .eq("es_manual", false)
-        .order("nombre");
+        .order("orden", { ascending: true });
 
       return nonManual || [];
     },

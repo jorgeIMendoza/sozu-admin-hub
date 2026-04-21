@@ -288,7 +288,8 @@ export class PDFGenerationService {
       .select('*')
       .eq('id_proyecto', entidadData.id_proyecto)
       .eq('activo', true)
-      .eq('es_manual', false); // Solo esquemas no manuales
+      .eq('es_manual', false)
+      .order('orden', { ascending: true }); // Solo esquemas no manuales, ordenados
 
     if (error) throw error;
     return data || [];

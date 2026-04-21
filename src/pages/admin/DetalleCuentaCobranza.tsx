@@ -863,7 +863,7 @@ export default function DetalleCuentaCobranza() {
         .eq('id_proyecto', cuentaDetalle.proyecto_id)
         .eq('es_manual', false)
         .eq('activo', true)
-        .order('nombre');
+        .order('orden', { ascending: true });
 
       if (error) throw error;
       return schemes || [];

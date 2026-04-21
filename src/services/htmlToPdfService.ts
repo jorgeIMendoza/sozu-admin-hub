@@ -261,7 +261,7 @@ class HTMLToPDFService {
         .select('*')
         .eq('id_producto', offerData.productId)
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('orden', { ascending: true });
 
       const normalizedPaymentSchemes = (paymentSchemes || []).map((scheme) =>
         this.normalizePaymentSchemeTramos(scheme)
@@ -1079,7 +1079,7 @@ class HTMLToPDFService {
           .eq('id_proyecto', projectId)
           .eq('es_manual', false)
           .eq('activo', true)
-          .order('id');
+          .order('orden', { ascending: true });
 
         if (error) {
           console.error('Error fetching non-manual payment schemes:', error);
@@ -1096,7 +1096,7 @@ class HTMLToPDFService {
         .eq('id_proyecto', projectId)
         .eq('es_manual', false)
         .eq('activo', true)
-        .order('id');
+        .order('orden', { ascending: true });
 
       if (error) {
         console.error('Error fetching all payment schemes:', error);
@@ -2175,7 +2175,7 @@ export const generateOfferPDFAsBase64 = async (offerData: OfferData): Promise<{ 
       .select('*')
       .eq('id_producto', offerData.productId)
       .eq('activo', true)
-      .order('nombre', { ascending: true });
+      .order('orden', { ascending: true });
 
     const normalizedPaymentSchemes = (paymentSchemes || []).map((scheme) =>
       service.normalizePaymentSchemeTramos(scheme)

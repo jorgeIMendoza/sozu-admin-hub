@@ -104,7 +104,7 @@ const EsquemasPagoCell = ({ projectId }: { projectId: number }) => {
         .is('id_producto', null)
         .eq('es_manual', false)
         .eq('activo', true)
-        .order('nombre');
+        .order('orden', { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -3428,7 +3428,7 @@ const Propiedades = () => {
       .eq('id_proyecto', projectId)
       .eq('es_manual', false)
       .eq('activo', true)
-      .order('nombre');
+      .order('orden', { ascending: true });
     
     if (error) {
       console.error('Error fetching schemes:', error);
@@ -6430,7 +6430,7 @@ const Propiedades = () => {
                                     .eq('id_producto', offer.id_producto)
                                     .eq('activo', true)
                                     .eq('es_manual', false)
-                                    .order('nombre');
+                                    .order('orden', { ascending: true });
                                   if (!error && data) {
                                     setProductSchemes(data);
                                   }

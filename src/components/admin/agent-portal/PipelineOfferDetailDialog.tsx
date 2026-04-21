@@ -105,7 +105,7 @@ export function PipelineOfferDetailDialog({
           .eq('id_proyecto', prod.id_proyecto)
           .eq('activo', true)
           .eq('es_manual', false)
-          .order('nombre');
+          .order('orden', { ascending: true });
         return data || [];
       }
 
@@ -132,7 +132,7 @@ export function PipelineOfferDetailDialog({
         .eq('id_proyecto', edificio.id_proyecto)
         .eq('activo', true)
         .eq('es_manual', false)
-        .order('nombre');
+        .order('orden', { ascending: true });
       return data || [];
     },
     enabled: open && (isProducto ? !!oferta?.id_producto : !!propertyDetail?.id_edificio_modelo),

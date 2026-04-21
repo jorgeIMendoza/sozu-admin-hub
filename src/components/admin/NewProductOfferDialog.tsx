@@ -402,7 +402,7 @@ export function NewProductOfferDialog({ propertyId, property, onSuccess }: NewPr
         .eq('id_producto', selectedProduct)
         .eq('activo', true)
         .eq('es_manual', false)
-        .order('nombre');
+        .order('orden', { ascending: true });
       if (error) throw error;
       return data || [];
     },

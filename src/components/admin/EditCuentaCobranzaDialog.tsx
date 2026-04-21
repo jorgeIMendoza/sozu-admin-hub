@@ -964,7 +964,7 @@ export function EditCuentaCobranzaDialog({ cuenta, onClose, onUpdate }: EditCuen
         .eq('id_proyecto', entidad.id_proyecto)
         .eq('es_manual', false)
         .eq('activo', true)
-        .order('nombre', { ascending: true });
+        .order('orden', { ascending: true });
 
       return data || [];
     },
