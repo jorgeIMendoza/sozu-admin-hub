@@ -109,9 +109,13 @@ Deno.serve(async (req) => {
       if (offsets.length === 0) { summary.skipped++; continue; }
 
       for (const offset of offsets) {
-        // fecha_objetivo = today + offset (so reminder fires when today + offset === fecha_pago)
+        // UI semantics: negative offset = send N days BEFORE the due date (reminders),
+        // positive offset = send N days AFTER the due date (overdue notices).
+        // Therefore fecha_objetivo = today - offset
+        //   offset = -3 → fecha_pago = today + 3 (reminder 3 days before)
+        //   offset = +5 → fecha_pago = today - 5 (overdue 5 days after)
         const target = new Date(mexNow);
-        target.setDate(target.getDate() + offset);
+        target.setDate(target.getDate() - offset);
         const fechaObjetivo = ymd(target);
         summary.evaluated++;
 
@@ -130,7 +134,7 @@ Deno.serve(async (req) => {
           .from('acuerdos_pago')
           .select(`
             id, fecha_pago, monto, orden, id_concepto, id_cuenta_cobranza, activo, pago_completado,
-            cuentas_cobranza:cuentas_cobranza!inner (
+            cuentas_cobranza:cuentas_cobranza!fk_acpago_cuenta!inner (
               id,
               ofertas:ofertas!inner (
                 id,
