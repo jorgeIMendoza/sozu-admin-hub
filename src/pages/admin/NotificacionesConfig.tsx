@@ -713,6 +713,34 @@ const NotificacionesConfig = () => {
                 </div>
               </div>
 
+              {!mapeoHasPath('asunto') && (
+                <div>
+                  <Label>Asunto del email</Label>
+                  <Input
+                    value={editItem.asunto_email}
+                    onChange={e => setEditItem({ ...editItem, asunto_email: e.target.value })}
+                    placeholder="Asunto..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Placeholders: {'{nombre_desarrollo}'}, {'{nombre_esquema}'}. Se oculta si lo defines en el mapeo como <code>"asunto"</code>.
+                  </p>
+                </div>
+              )}
+
+              {!mapeoHasPath('mensaje.detalles') && (
+                <div>
+                  <Label>Detalles del email (HTML)</Label>
+                  <Textarea
+                    value={editItem.plantilla_email_detalles}
+                    onChange={e => setEditItem({ ...editItem, plantilla_email_detalles: e.target.value })}
+                    rows={4}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Se oculta si lo defines en el mapeo como <code>"mensaje.detalles"</code>.
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label>Mensaje WhatsApp</Label>
                 <Textarea
@@ -721,15 +749,6 @@ const NotificacionesConfig = () => {
                   rows={3}
                 />
                 <p className="text-xs text-muted-foreground mt-1">Usa *texto* para negritas en WhatsApp</p>
-              </div>
-
-              <div>
-                <Label>Detalles del email (HTML)</Label>
-                <Textarea
-                  value={editItem.plantilla_email_detalles}
-                  onChange={e => setEditItem({ ...editItem, plantilla_email_detalles: e.target.value })}
-                  rows={4}
-                />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
