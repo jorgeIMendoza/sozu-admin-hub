@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
           .from('acuerdos_pago')
           .select(`
             id, fecha_pago, monto, orden, id_concepto, id_cuenta_cobranza, activo, pago_completado,
-            cuentas_cobranza:cuentas_cobranza!inner (
+            cuentas_cobranza:cuentas_cobranza!fk_acpago_cuenta!inner (
               id,
               ofertas:ofertas!inner (
                 id,
