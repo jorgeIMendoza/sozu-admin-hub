@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Destinatario {
   nombre: string;
   email: string;
+  telefono?: string;
 }
 
 interface PoolItem {
@@ -20,6 +21,7 @@ interface PoolItem {
   email: string;
   rolIds: number[];
   proyectos?: string[]; // project names for Cliente users
+  telefono?: string;
 }
 
 interface Rol {
