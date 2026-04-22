@@ -309,7 +309,7 @@ export default function RastreoPagosSTP() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fechaDesde">Fecha Desde</Label>
+              <Label htmlFor="fechaDesde">Desde (Fecha de pago)</Label>
               <Input
                 id="fechaDesde"
                 type="date"
@@ -319,7 +319,7 @@ export default function RastreoPagosSTP() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fechaHasta">Fecha Hasta</Label>
+              <Label htmlFor="fechaHasta">Hasta (Fecha de pago)</Label>
               <Input
                 id="fechaHasta"
                 type="date"
