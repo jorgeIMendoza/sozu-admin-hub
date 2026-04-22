@@ -89,7 +89,13 @@ export default function RastreoPagosSTP() {
         query = query.gte(campoFecha, filters.fechaDesde);
       }
       if (filters.fechaHasta) {
-        query = query.lte(campoFecha, `${filters.fechaHasta}T23:59:59`);
+        // fecha_operacion es DATE → comparar solo por fecha.
+        // fecha_creacion es TIMESTAMP → incluir hasta el final del día.
+        const valorHasta =
+          campoFecha === "fecha_operacion"
+            ? filters.fechaHasta
+            : `${filters.fechaHasta}T23:59:59`;
+        query = query.lte(campoFecha, valorHasta);
       }
 
       const { data, error } = await query;
