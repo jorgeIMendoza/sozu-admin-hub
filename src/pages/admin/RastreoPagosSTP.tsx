@@ -54,6 +54,7 @@ export default function RastreoPagosSTP() {
     estatus: "all",
     fechaDesde: "",
     fechaHasta: "",
+    tipoFecha: "fecha_creacion" as "fecha_creacion" | "fecha_operacion",
   });
 
   const { data: pagos, isLoading, refetch, isFetching } = useQuery({
@@ -83,11 +84,12 @@ export default function RastreoPagosSTP() {
       if (filters.estatus !== "all") {
         query = query.eq("es_pago_aplicado", filters.estatus === "aplicado");
       }
+      const campoFecha = filters.tipoFecha;
       if (filters.fechaDesde) {
-        query = query.gte("fecha_creacion", filters.fechaDesde);
+        query = query.gte(campoFecha, filters.fechaDesde);
       }
       if (filters.fechaHasta) {
-        query = query.lte("fecha_creacion", `${filters.fechaHasta}T23:59:59`);
+        query = query.lte(campoFecha, `${filters.fechaHasta}T23:59:59`);
       }
 
       const { data, error } = await query;
@@ -165,6 +167,7 @@ export default function RastreoPagosSTP() {
       estatus: "all",
       fechaDesde: "",
       fechaHasta: "",
+      tipoFecha: "fecha_creacion",
     });
   };
 
@@ -309,7 +312,27 @@ export default function RastreoPagosSTP() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fechaDesde">Desde (Fecha de pago)</Label>
+              <Label htmlFor="tipoFecha">Filtrar fechas por</Label>
+              <Select
+                value={filters.tipoFecha}
+                onValueChange={(value: "fecha_creacion" | "fecha_operacion") =>
+                  setFilters({ ...filters, tipoFecha: value })
+                }
+              >
+                <SelectTrigger id="tipoFecha">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fecha_creacion">Fecha de pago</SelectItem>
+                  <SelectItem value="fecha_operacion">Fecha de operación</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fechaDesde">
+                Desde ({filters.tipoFecha === "fecha_operacion" ? "Fecha de operación" : "Fecha de pago"})
+              </Label>
               <Input
                 id="fechaDesde"
                 type="date"
@@ -319,7 +342,9 @@ export default function RastreoPagosSTP() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fechaHasta">Hasta (Fecha de pago)</Label>
+              <Label htmlFor="fechaHasta">
+                Hasta ({filters.tipoFecha === "fecha_operacion" ? "Fecha de operación" : "Fecha de pago"})
+              </Label>
               <Input
                 id="fechaHasta"
                 type="date"
