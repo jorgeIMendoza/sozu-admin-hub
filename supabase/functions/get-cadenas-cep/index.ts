@@ -58,10 +58,13 @@ Deno.serve(async (req) => {
     console.log(`[get-cadenas-cep] method=${req.method} fecha_operacion=${fechaOperacion}`);
 
     // Equivalente al SQL:
-    // SELECT t.fecha_operacion, p.clave_rastreo, p.url_cep, t.fecha_actualizacion
+    // SELECT t.fecha_operacion, p.clave_rastreo, p.url_cep, t.fecha_creacion AS fecha_actualizacion
     // FROM tabla_datos_cep t
     // JOIN pagos p ON p.clave_rastreo = t.claverastreo
     // WHERE t.fecha_operacion = $1;
+    //
+    // Nota: tabla_datos_cep no tiene fecha_actualizacion; usamos fecha_creacion
+    // y la exponemos en la respuesta como fecha_actualizacion para compatibilidad.
     //
     // Como no existe FK entre tabla_datos_cep.claverastreo y pagos.clave_rastreo,
     // hacemos el "join" manualmente en dos consultas.
@@ -69,7 +72,7 @@ Deno.serve(async (req) => {
     // 1) Traer filas de tabla_datos_cep para la fecha
     const { data: cepRows, error: cepError } = await supabase
       .from("tabla_datos_cep")
-      .select("fecha_operacion, fecha_actualizacion, claverastreo")
+      .select("fecha_operacion, fecha_creacion, claverastreo")
       .eq("fecha_operacion", fechaOperacion);
 
     if (cepError) {
@@ -131,7 +134,7 @@ Deno.serve(async (req) => {
         fecha_operacion: r.fecha_operacion ?? null,
         clave_rastreo: pago.clave_rastreo,
         url_cep: pago.url_cep,
-        fecha_actualizacion: r.fecha_actualizacion ?? null,
+        fecha_actualizacion: r.fecha_creacion ?? null,
       });
     }
 
