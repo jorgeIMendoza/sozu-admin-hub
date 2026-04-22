@@ -68,34 +68,47 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "No tienes permisos para consultar usuarios del sistema" }, 403);
     }
 
-    let query = supabaseAdmin
-      .from("usuarios")
-      .select(`
-        email,
-        nombre,
-        rol_id,
-        activo,
-        auth_user_id,
-        id_persona,
-        debe_cambiar_password,
-        email_confirmado,
-        roles!inner (nombre, es_rol_interno),
-        personas (nombre_legal, email)
-      `)
-      .eq("roles.es_rol_interno", true)
-      .order("nombre", { ascending: true });
+    const pageSize = 1000;
+    const allUsers: unknown[] = [];
 
-    if (requester.rol_id === ROLE_ADMINISTRADOR_PROYECTO) {
-      query = query.in("rol_id", [ROLE_AGENTE_INMOBILIARIO, ROLE_INMOBILIARIA]);
+    for (let from = 0; ; from += pageSize) {
+      let query = supabaseAdmin
+        .from("usuarios")
+        .select(`
+          email,
+          nombre,
+          rol_id,
+          activo,
+          auth_user_id,
+          id_persona,
+          debe_cambiar_password,
+          email_confirmado,
+          roles!inner (nombre, es_rol_interno),
+          personas (nombre_legal, email)
+        `)
+        .eq("roles.es_rol_interno", true)
+        .order("nombre", { ascending: true })
+        .order("email", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (requester.rol_id === ROLE_ADMINISTRADOR_PROYECTO) {
+        query = query.in("rol_id", [ROLE_AGENTE_INMOBILIARIO, ROLE_INMOBILIARIA]);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error("Error fetching system users:", error);
+        return jsonResponse({ error: "No se pudieron consultar los usuarios" }, 500);
+      }
+
+      allUsers.push(...(data ?? []));
+
+      if (!data || data.length < pageSize) {
+        break;
+      }
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error("Error fetching system users:", error);
-      return jsonResponse({ error: "No se pudieron consultar los usuarios" }, 500);
-    }
-
-    return jsonResponse({ data: data ?? [] });
+    return jsonResponse({ data: allUsers });
   } catch (error) {
     console.error("Unexpected error in list-system-users:", error);
     return jsonResponse({ error: error instanceof Error ? error.message : "Error inesperado" }, 500);
