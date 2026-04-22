@@ -1,57 +1,152 @@
 
+## Diagnóstico
 
-## Corregir error al liberar propiedad en juicio terminado
+El usuario `contacto@vivaltainmobiliaria.com` sí existe correctamente en la base de datos como:
 
-### Qué está pasando
+- `usuarios.email = contacto@vivaltainmobiliaria.com`
+- `usuarios.rol_id = 4`
+- rol `Inmobiliaria`
+- `roles.es_rol_interno = true`
+- `usuarios.activo = true`
+- `usuarios.id_persona = 1876`
 
-En el flujo **Juicio Terminado → Liberar propiedad**, el código intenta registrar la devolución al cliente como un **acuerdo de pago con monto negativo** (concepto 9 - "Devolución de pago"):
+Y además su persona sí está ligada como inmobiliaria real:
+
+- `personas.id = 1876`
+- `entidades_relacionadas.id_tipo_entidad = 5` (`Inmobiliaria`)
+- nombre comercial: `VIVALTA`
+
+## Qué está pasando
+
+La inconsistencia no viene de los datos; viene de que ambas pantallas leen fuentes distintas y con reglas distintas:
+
+### 1) Pantalla Inmobiliarias
+`src/pages/admin/Inmobiliarias.tsx`
+
+Esta pantalla arma la lista desde:
+
+- `personas`
+- `entidades_relacionadas` con `id_tipo_entidad = 5`
+
+Por eso ahí sí aparece `VIVALTA` y se muestra el email `contacto@vivaltainmobiliaria.com`.
+
+### 2) Pantalla Usuarios del Sistema
+`src/pages/admin/Usuarios.tsx`
+
+Esta pantalla consulta directamente `usuarios` con join a `roles`:
 
 ```ts
-// JuicioTerminadoDialog.tsx, línea 155
-monto: -montoDevolucion,  // -1,243,715.03
+.from('usuarios')
+.select(`
+  email,
+  nombre,
+  rol_id,
+  activo,
+  auth_user_id,
+  id_persona,
+  debe_cambiar_password,
+  email_confirmado,
+  roles!inner (nombre, es_rol_interno),
+  personas (nombre_legal, email)
+`)
+.eq('roles.es_rol_interno', true)
 ```
 
-Pero la tabla `acuerdos_pago` tiene una restricción en la base de datos:
+Con ese query, el usuario sí debería salir.
+
+## La causa real de la inconsistencia
+
+El problema muy probablemente es **RLS / visibilidad del `SELECT` sobre `usuarios`**.
+
+La política actual encontrada para `usuarios` permite:
+
+- cada usuario ver solo su propio registro
+- solo el `Super Administrador` ver todos los usuarios
+
+No existe una política equivalente para que otros perfiles administrativos vean el universo necesario en “Usuarios del Sistema”.
+
+La migración actual define esto:
 
 ```sql
-CHECK (monto >= 0 AND monto = round(monto, 2))
+CREATE POLICY "Users can view own record" ON usuarios FOR SELECT
+  USING (auth_user_id = auth.uid());
+
+CREATE POLICY "Admins can view all users" ON usuarios FOR SELECT
+  USING (EXISTS (
+    SELECT 1
+    FROM usuarios u
+    JOIN roles r ON u.rol_id = r.id
+    WHERE u.auth_user_id = auth.uid()
+      AND r.nombre = 'Super Administrador'
+  ));
 ```
 
-Es decir, **no se permiten montos negativos** en `acuerdos_pago`. Por eso PostgreSQL rechaza el INSERT con el error 23514 (`chk_acpago_monto_positivo`) y la transacción aborta. Como además todo se ejecuta sin transacción explícita, lo que ya se insertó antes (los documentos del juicio y posiblemente el acuerdo de cancelación con monto positivo) queda en la base, dejando datos basura.
+## Por qué eso coincide con tu síntoma
 
-Esto también explica por qué la imagen muestra "Devolución al cliente: $1,243,715.03" en verde — el cálculo está correcto, pero la forma de persistirlo viola las reglas del esquema.
+Si quien está viendo la pantalla **no es Super Administrador**, el query de `Usuarios del Sistema` no recibe todos los registros, aunque la UI sí exista y aunque en `Inmobiliarias` sí se vea la agencia.
 
-### Solución propuesta
+Entonces ocurre esto:
 
-Alinear el flujo de "Juicio Terminado → Liberar" con el patrón ya usado en cancelaciones normales (`CancelCuentaDialog`), que sí respeta la convención de la BD: **las devoluciones se registran como pagos con monto positivo y un concepto que las distingue** (concepto 9 - Devolución), no como acuerdos negativos.
+- En `Inmobiliarias`: sí aparece porque se lee desde `personas`/`entidades_relacionadas`
+- En `Usuarios del Sistema`: no aparece porque esa lista depende de `usuarios` y RLS la está recortando
 
-**Cambios en `src/components/admin/JuicioTerminadoDialog.tsx`** (función `agregarPagosCancelacionYDevolucion`):
+Eso explica perfectamente que al buscar `contacto@vivaltainmobiliaria.com` te muestre `0` resultados aunque el usuario sí exista.
 
-1. **Acuerdo de cancelación (concepto 7)**: se mantiene igual — INSERT en `acuerdos_pago` con `monto = montoCancelacion` (positivo). ✓
-2. **Devolución al cliente (concepto 9)**: en lugar de insertar un `acuerdos_pago` con monto negativo, se hará lo mismo que hace el flujo de cancelación estándar:
-   - Verificar el patrón exacto en `CancelCuentaDialog.tsx` (registro como `pagos` con concepto 9, o como ajuste a aplicaciones existentes — confirmar al implementar).
-   - Replicar ese mismo mecanismo aquí para que la devolución quede trazada correctamente sin violar la restricción.
-3. **Robustez**: envolver el bloque "documentos + acuerdos + actualización de cuenta + actualización de propiedad" para que, si una etapa falla, no queden documentos huérfanos. Como Supabase JS no permite transacciones multi-tabla desde el cliente, se mover la lógica de inserción de acuerdos **antes** de subir los registros de documentos a la BD (los archivos en Storage ya están subidos antes de confirmar, eso no cambia), o bien implementar limpieza compensatoria si falla el paso crítico.
+## Qué corregir
 
-### Verificación post-cambio
+### Opción recomendada
+No abrir más el `SELECT` directo sobre `usuarios` para todos. En su lugar:
 
-- Reabrir el diálogo "Juicio Terminado" sobre la cuenta 318 (la del error).
-- Seleccionar "Liberar propiedad" + "Rescisión por demanda", monto cancelación 366,247.88.
-- Confirmar que:
-  - Se registra el acuerdo de cancelación por $366,247.88 (concepto 7).
-  - Se registra la devolución de $1,243,715.03 conforme al estándar de cancelaciones (concepto 9, monto positivo).
-  - La cuenta queda `activo = false`, tipo cancelación = 2.
-  - La propiedad pasa a estatus 2 (Disponible) con nueva CLABE generada.
-  - No aparece el error de constraint.
+1. Crear una función SQL o Edge Function de lectura controlada para “Usuarios del Sistema”.
+2. Hacer que esa función aplique la misma lógica de negocio de la UI:
+   - `Super Administrador`: puede ver todos
+   - `Administrador de Proyecto`: solo roles permitidos (`Agente Inmobiliario` e `Inmobiliaria`)
+   - otros roles: sin acceso
+3. Cambiar `src/pages/admin/Usuarios.tsx` para consumir esa fuente segura en vez de leer la tabla `usuarios` directamente.
 
-### Archivos afectados
+### Opción mínima
+Ajustar RLS de `usuarios` para permitir lectura adicional a `Administrador de Proyecto`, pero solo para roles administrables. Esto es más delicado porque la tabla contiene información sensible y puede terminar sobreexponiendo datos.
 
-- `src/components/admin/JuicioTerminadoDialog.tsx` — único archivo a modificar.
-- Sin migraciones de BD (la restricción `chk_acpago_monto_positivo` es correcta y debe respetarse).
-- Sin cambios en RLS.
+## Implementación propuesta
 
-### Notas
+1. Revisar los permisos reales esperados para `/admin/usuarios`.
+2. Crear una rutina segura de lectura:
+   - idealmente `SECURITY DEFINER`
+   - usando `is_super_admin()` para validación global
+   - respetando que rol 2 solo vea roles 3 y 4
+3. Sustituir en `src/pages/admin/Usuarios.tsx` el query directo a `usuarios` por esa rutina.
+4. Mantener la lógica actual de enriquecimiento de inmobiliaria (`proyectos_acceso`, `entidades_relacionadas`) encima del resultado.
+5. Verificar que la búsqueda por email `contacto@vivaltainmobiliaria.com` ya lo devuelva.
+6. Probar ambos escenarios:
+   - Super Admin
+   - Administrador de Proyecto
 
-- El mismo bug podría existir si alguien volvió a procesar liberaciones desde otra UI; por eso conviene dejar la lógica alineada al estándar global de cancelaciones (memoria `collection-accounts/cancellation-data-standard`).
-- El monto en la imagen (`-1243715.03`) confirma exactamente el cálculo `totalPagado - montoCancelacion = 1,609,962.91 - 366,247.88 = 1,243,715.03`, multiplicado por -1 al insertar.
+## Resultado esperado
 
+Después del ajuste:
+
+- el usuario `contacto@vivaltainmobiliaria.com` seguirá apareciendo en `Inmobiliarias`
+- también aparecerá en `Sistema → Usuarios del Sistema`
+- la visibilidad quedará consistente con el rol del usuario que consulta
+- se evitará romper seguridad abriendo de más la tabla `usuarios`
+
+## Detalles técnicos
+
+- Evidencia en código:
+  - `src/pages/admin/Usuarios.tsx` filtra por `roles.es_rol_interno = true`
+  - el rol `Inmobiliaria` (`id = 4`) sí tiene `es_rol_interno = true`
+- Evidencia en datos:
+  - el registro existe y está activo
+  - la persona está ligada a entidad tipo `Inmobiliaria`
+- Causa más probable:
+  - recorte por RLS en `usuarios`, no problema de alta ni de sincronización
+
+## Nota importante
+
+No parece ser un problema de:
+- email mal guardado
+- rol incorrecto
+- usuario inactivo
+- falta de relación con inmobiliaria
+
+Los datos están bien; la inconsistencia está en la capa de lectura/autorización entre ambas vistas.
