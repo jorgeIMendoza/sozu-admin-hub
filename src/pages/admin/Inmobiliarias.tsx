@@ -332,16 +332,22 @@ export default function Inmobiliarias() {
     enabled: !!selectedInmobiliariaForAgentes && isAgentesDialogOpen,
   });
 
+  const normalizedSearchTerm = searchTerm.toLowerCase().trim();
+
+  const matchesInmobiliariaSearch = (inmob: Inmobiliaria) =>
+    !normalizedSearchTerm ||
+    inmob.nombre_legal?.toLowerCase().includes(normalizedSearchTerm) ||
+    inmob.nombre_comercial?.toLowerCase().includes(normalizedSearchTerm) ||
+    inmob.rfc?.toLowerCase().includes(normalizedSearchTerm) ||
+    inmob.email?.toLowerCase().includes(normalizedSearchTerm) ||
+    inmob.usuario_email?.toLowerCase().includes(normalizedSearchTerm);
+
   const inmobiliarias = activeTab === 'active' 
     ? activeInmobiliarias 
     : activeTab === 'draft' 
       ? draftInmobiliarias 
       : deletedInmobiliarias;
-  const filteredInmobiliarias = inmobiliarias.filter(inmob => 
-    inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredInmobiliarias = inmobiliarias.filter(matchesInmobiliariaSearch);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredInmobiliarias.length / itemsPerPage);
@@ -1538,27 +1544,15 @@ export default function Inmobiliarias() {
           <Tabs defaultValue="active" value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className={`grid w-full mb-6 ${(canDelete || isSuperAdmin) ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <TabsTrigger value="active">
-                Activos ({searchTerm ? `${activeInmobiliarias.filter(inmob => 
-                  inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-                ).length} de ${activeInmobiliarias.length}` : activeInmobiliarias.length})
+                Activos ({searchTerm ? `${activeInmobiliarias.filter(matchesInmobiliariaSearch).length} de ${activeInmobiliarias.length}` : activeInmobiliarias.length})
               </TabsTrigger>
               <TabsTrigger value="draft">
                 <FileCheck className="w-4 h-4 mr-1" />
-                Draft ({searchTerm ? `${draftInmobiliarias.filter(inmob => 
-                  inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-                ).length} de ${draftInmobiliarias.length}` : draftInmobiliarias.length})
+                Draft ({searchTerm ? `${draftInmobiliarias.filter(matchesInmobiliariaSearch).length} de ${draftInmobiliarias.length}` : draftInmobiliarias.length})
               </TabsTrigger>
               {(canDelete || isSuperAdmin) && (
                 <TabsTrigger value="deleted">
-                  Eliminados ({searchTerm ? `${deletedInmobiliarias.filter(inmob => 
-                    inmob.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    inmob.nombre_comercial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    inmob.rfc?.toLowerCase().includes(searchTerm.toLowerCase())
-                  ).length} de ${deletedInmobiliarias.length}` : deletedInmobiliarias.length})
+                  Eliminados ({searchTerm ? `${deletedInmobiliarias.filter(matchesInmobiliariaSearch).length} de ${deletedInmobiliarias.length}` : deletedInmobiliarias.length})
                 </TabsTrigger>
               )}
             </TabsList>
@@ -1568,7 +1562,7 @@ export default function Inmobiliarias() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   type="text"
-                  placeholder="Buscar por nombre, RFC..."
+                  placeholder="Buscar por nombre, correo o RFC..."
                   value={searchTerm}
                   onChange={handleSearchChange}
                   className="pl-10 border-border focus:ring-primary/20"

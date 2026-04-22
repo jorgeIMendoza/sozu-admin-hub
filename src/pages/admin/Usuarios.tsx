@@ -339,12 +339,12 @@ export default function Usuarios() {
   const isAdministradorProyecto = currentUserRoleId === ROLE_ADMINISTRADOR_PROYECTO;
 
   // Fetch users with their inmobiliaria info from entidades_relacionadas
-  const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
+  const { data: usuarios = [], isLoading: isLoadingUsuarios, isError: isUsuariosError, error: usuariosError } = useQuery({
     queryKey: ['usuarios'],
     queryFn: async () => {
       const response = await supabase.functions.invoke('list-system-users');
 
-      if (response.error) throw response.error;
+      if (response.error) throw new Error(response.error.message || 'No se pudo consultar la función de usuarios');
       if (response.data?.error) throw new Error(response.data.error);
 
       const data = response.data?.data || [];
@@ -755,7 +755,10 @@ export default function Usuarios() {
     const matchesSearch = 
       usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       usuario.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      usuario.roles?.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+      usuario.roles?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      usuario.personas?.nombre_legal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      usuario.personas?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      usuario.inmobiliaria_nombre?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = selectedRoleFilter === "all" || 
       usuario.rol_id?.toString() === selectedRoleFilter;
@@ -1191,6 +1194,21 @@ export default function Usuarios() {
           {isLoadingUsuarios ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : isUsuariosError ? (
+            <div className="text-center py-12">
+              <div className="text-destructive text-lg mb-2">
+                No se pudieron cargar los usuarios del sistema
+              </div>
+              <p className="text-muted-foreground/80 mb-4">
+                {usuariosError instanceof Error ? usuariosError.message : 'Ocurrió un error al consultar la lista de usuarios.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['usuarios'] })}
+              >
+                Reintentar
+              </Button>
             </div>
           ) : usuarios.length === 0 ? (
             <div className="text-center py-12">
