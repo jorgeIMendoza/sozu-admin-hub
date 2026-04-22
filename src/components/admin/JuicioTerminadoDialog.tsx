@@ -293,24 +293,29 @@ export function JuicioTerminadoDialog({
 
         if (cuentaError) throw cuentaError;
 
-        // Cancelar cuentas de productos relacionadas
-        const { data: ofertaData } = await supabase
+        // Cancelar cuentas de productos relacionadas para todas las ofertas de la propiedad
+        const { data: ofertasRelacionadas, error: ofertasError } = await supabase
           .from('ofertas')
           .select('id')
-          .eq('id_propiedad', propiedadId)
-          .single();
+          .eq('id_propiedad', propiedadId);
 
-        if (ofertaData?.id) {
-          const { data: cuentasProducto } = await supabase
+        if (ofertasError) throw ofertasError;
+
+        const ofertasIds = ofertasRelacionadas?.map((oferta) => oferta.id) ?? [];
+
+        if (ofertasIds.length > 0) {
+          const { data: cuentasProducto, error: cuentasProductoError } = await supabase
             .from('cuentas_cobranza')
             .select('id')
-            .eq('id_oferta', ofertaData.id)
+            .in('id_oferta', ofertasIds)
             .eq('activo', true)
             .neq('id', cuentaCobranzaId);
 
+          if (cuentasProductoError) throw cuentasProductoError;
+
           if (cuentasProducto && cuentasProducto.length > 0) {
             const ids = cuentasProducto.map(c => c.id);
-            await supabase
+            const { error: cuentasRelacionadasError } = await supabase
               .from('cuentas_cobranza')
               .update({ 
                 activo: false, 
@@ -318,6 +323,8 @@ export function JuicioTerminadoDialog({
                 fecha_actualizacion: new Date().toISOString() 
               })
               .in('id', ids);
+
+            if (cuentasRelacionadasError) throw cuentasRelacionadasError;
           }
         }
 
