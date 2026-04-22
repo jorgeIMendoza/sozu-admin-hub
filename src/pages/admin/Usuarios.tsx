@@ -342,24 +342,12 @@ export default function Usuarios() {
   const { data: usuarios = [], isLoading: isLoadingUsuarios } = useQuery({
     queryKey: ['usuarios'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select(`
-          email,
-          nombre,
-          rol_id,
-          activo,
-          auth_user_id,
-          id_persona,
-          debe_cambiar_password,
-          email_confirmado,
-          roles!inner (nombre, es_rol_interno),
-          personas (nombre_legal, email)
-        `)
-        .eq('roles.es_rol_interno', true)
-        .order('nombre', { ascending: true });
-      
-      if (error) throw error;
+      const response = await supabase.functions.invoke('list-system-users');
+
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+
+      const data = response.data?.data || [];
       
       // Get inmobiliaria info for agents (rol 3 and 9) and secondary Inmobiliaria users (rol 4) from entidades_relacionadas
       const personaIdsForLookup = (data || [])
@@ -614,13 +602,9 @@ export default function Usuarios() {
       if (error) throw error;
 
       // Get all users with Inmobiliaria role (4) to check for principal users
-      const { data: usuariosInmobiliaria, error: usuariosError } = await supabase
-        .from('usuarios')
-        .select('email, id_persona, personas!inner(email)')
-        .eq('rol_id', 4)
-        .eq('activo', true);
-
-      if (usuariosError) throw usuariosError;
+      const usuariosInmobiliaria = usuarios.filter(
+        (u) => u.rol_id === ROLE_INMOBILIARIA && u.activo
+      );
 
       // Create a set of persona IDs that have a principal user
       const personasConPrincipal = new Set<number>();
