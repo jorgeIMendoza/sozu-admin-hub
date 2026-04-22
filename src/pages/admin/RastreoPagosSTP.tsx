@@ -85,17 +85,30 @@ export default function RastreoPagosSTP() {
         query = query.eq("es_pago_aplicado", filters.estatus === "aplicado");
       }
       const campoFecha = filters.tipoFecha;
-      if (filters.fechaDesde) {
-        query = query.gte(campoFecha, filters.fechaDesde);
-      }
-      if (filters.fechaHasta) {
-        // fecha_operacion es DATE → comparar solo por fecha.
-        // fecha_creacion es TIMESTAMP → incluir hasta el final del día.
-        const valorHasta =
-          campoFecha === "fecha_operacion"
-            ? filters.fechaHasta
-            : `${filters.fechaHasta}T23:59:59`;
-        query = query.lte(campoFecha, valorHasta);
+      if (campoFecha === "fecha_operacion") {
+        const desdeCompacta = filters.fechaDesde.replace(/-/g, "");
+        const hastaCompacta = filters.fechaHasta.replace(/-/g, "");
+        const condicionesFechaOperacion: string[] = [];
+
+        const buildRange = (desde: string, hasta: string) => {
+          const parts: string[] = [];
+          if (filters.fechaDesde) parts.push(`fecha_operacion.gte.${desde}`);
+          if (filters.fechaHasta) parts.push(`fecha_operacion.lte.${hasta}`);
+          return parts.length > 1 ? `and(${parts.join(",")})` : parts[0];
+        };
+
+        if (filters.fechaDesde || filters.fechaHasta) {
+          condicionesFechaOperacion.push(buildRange(desdeCompacta, hastaCompacta));
+          condicionesFechaOperacion.push(buildRange(filters.fechaDesde, filters.fechaHasta));
+          query = query.or(condicionesFechaOperacion.filter(Boolean).join(","));
+        }
+      } else {
+        if (filters.fechaDesde) {
+          query = query.gte(campoFecha, filters.fechaDesde);
+        }
+        if (filters.fechaHasta) {
+          query = query.lte(campoFecha, `${filters.fechaHasta}T23:59:59`);
+        }
       }
 
       const { data, error } = await query;
