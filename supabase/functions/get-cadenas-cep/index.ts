@@ -62,20 +62,61 @@ Deno.serve(async (req) => {
     // FROM tabla_datos_cep t
     // JOIN pagos p ON p.clave_rastreo = t.claverastreo
     // WHERE t.fecha_operacion = $1;
-    const { data, error } = await supabase
+    //
+    // Como no existe FK entre tabla_datos_cep.claverastreo y pagos.clave_rastreo,
+    // hacemos el "join" manualmente en dos consultas.
+
+    // 1) Traer filas de tabla_datos_cep para la fecha
+    const { data: cepRows, error: cepError } = await supabase
       .from("tabla_datos_cep")
-      .select("fecha_operacion, fecha_actualizacion, claverastreo, pagos!inner(clave_rastreo, url_cep)")
+      .select("fecha_operacion, fecha_actualizacion, claverastreo")
       .eq("fecha_operacion", fechaOperacion);
 
-    if (error) {
-      console.error("Error consultando tabla_datos_cep:", error);
+    if (cepError) {
+      console.error("Error consultando tabla_datos_cep:", cepError);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: cepError.message }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Aplanar el resultado del join (una fila por cada pago coincidente)
+    const claves = Array.from(
+      new Set(
+        (cepRows ?? [])
+          .map((r: any) => r.claverastreo)
+          .filter((v: any) => typeof v === "string" && v.length > 0)
+      )
+    );
+
+    // 2) Traer pagos cuyas clave_rastreo coincidan (en lotes para evitar URLs gigantes)
+    const pagosMap = new Map<string, { clave_rastreo: string; url_cep: string | null }>();
+    const CHUNK = 500;
+    for (let i = 0; i < claves.length; i += CHUNK) {
+      const slice = claves.slice(i, i + CHUNK);
+      const { data: pagosRows, error: pagosError } = await supabase
+        .from("pagos")
+        .select("clave_rastreo, url_cep")
+        .in("clave_rastreo", slice);
+
+      if (pagosError) {
+        console.error("Error consultando pagos:", pagosError);
+        return new Response(
+          JSON.stringify({ error: pagosError.message }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      for (const p of (pagosRows ?? []) as any[]) {
+        if (p.clave_rastreo) {
+          pagosMap.set(p.clave_rastreo, {
+            clave_rastreo: p.clave_rastreo,
+            url_cep: p.url_cep ?? null,
+          });
+        }
+      }
+    }
+
+    // 3) Aplanar resultados (INNER JOIN: solo filas con pago coincidente)
     const rows: Array<{
       fecha_operacion: string | null;
       clave_rastreo: string | null;
@@ -83,16 +124,15 @@ Deno.serve(async (req) => {
       fecha_actualizacion: string | null;
     }> = [];
 
-    for (const r of (data ?? []) as any[]) {
-      const pagos = Array.isArray(r.pagos) ? r.pagos : (r.pagos ? [r.pagos] : []);
-      for (const p of pagos) {
-        rows.push({
-          fecha_operacion: r.fecha_operacion ?? null,
-          clave_rastreo: p.clave_rastreo ?? null,
-          url_cep: p.url_cep ?? null,
-          fecha_actualizacion: r.fecha_actualizacion ?? null,
-        });
-      }
+    for (const r of (cepRows ?? []) as any[]) {
+      const pago = r.claverastreo ? pagosMap.get(r.claverastreo) : undefined;
+      if (!pago) continue;
+      rows.push({
+        fecha_operacion: r.fecha_operacion ?? null,
+        clave_rastreo: pago.clave_rastreo,
+        url_cep: pago.url_cep,
+        fecha_actualizacion: r.fecha_actualizacion ?? null,
+      });
     }
 
     return new Response(
