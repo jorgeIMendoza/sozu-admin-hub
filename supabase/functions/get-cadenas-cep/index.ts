@@ -12,12 +12,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Leer el parámetro numero_dias_atras (default 1 = ayer)
-    // Acepta: body JSON (cualquier método incluido GET con body), o query string ?numero_dias_atras=N
-    let numeroDiasAtras = 1;
-    let parsed: number | null = null;
+    // Leer el parámetro fecha_operacion (formato YYYY-MM-DD)
+    // Acepta: body JSON o query string ?fecha_operacion=YYYY-MM-DD
+    let fechaOperacion: string | null = null;
 
-    // 1) Intentar leer del body (independiente del método HTTP)
+    // 1) Intentar leer del body
     try {
       const ct = req.headers.get("content-type") || "";
       const cl = req.headers.get("content-length");
@@ -26,44 +25,47 @@ Deno.serve(async (req) => {
         const raw = await req.text();
         if (raw && raw.trim().length > 0) {
           const body = JSON.parse(raw);
-          if (body && typeof body.numero_dias_atras !== "undefined") {
-            parsed = Number(body.numero_dias_atras);
+          if (body && typeof body.fecha_operacion === "string") {
+            fechaOperacion = body.fecha_operacion.trim();
           }
         }
       }
     } catch (_) {
-      // body inválido → seguir con query string / default
+      // body inválido → intentar query string
     }
 
     // 2) Si no vino en body, intentar query string
-    if (parsed === null) {
+    if (!fechaOperacion) {
       const url = new URL(req.url);
-      const q = url.searchParams.get("numero_dias_atras");
-      if (q !== null) parsed = Number(q);
+      const q = url.searchParams.get("fecha_operacion");
+      if (q) fechaOperacion = q.trim();
     }
 
-    // 3) Validar
-    if (parsed !== null) {
-      if (!Number.isFinite(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
-        return new Response(
-          JSON.stringify({ error: "numero_dias_atras debe ser un entero >= 0" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      numeroDiasAtras = parsed;
+    // 3) Validar formato YYYY-MM-DD
+    if (!fechaOperacion) {
+      return new Response(
+        JSON.stringify({ error: "Parámetro 'fecha_operacion' requerido en formato YYYY-MM-DD" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaOperacion)) {
+      return new Response(
+        JSON.stringify({ error: "fecha_operacion debe tener el formato YYYY-MM-DD" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    console.log(`[get-cadenas-cep] method=${req.method} numero_dias_atras=${numeroDiasAtras}`);
+    console.log(`[get-cadenas-cep] method=${req.method} fecha_operacion=${fechaOperacion}`);
 
-    // Calcular fecha objetivo en formato YYYY-MM-DD
-    const fecha = new Date();
-    fecha.setDate(fecha.getDate() - numeroDiasAtras);
-    const fechaObjetivo = fecha.toISOString().split("T")[0];
-
+    // Equivalente al SQL:
+    // SELECT t.fecha_operacion, p.clave_rastreo, p.url_cep, t.fecha_actualizacion
+    // FROM tabla_datos_cep t
+    // JOIN pagos p ON p.clave_rastreo = t.claverastreo
+    // WHERE t.fecha_operacion = $1;
     const { data, error } = await supabase
       .from("tabla_datos_cep")
-      .select("cadena")
-      .eq("fecha_operacion", fechaObjetivo);
+      .select("fecha_operacion, fecha_actualizacion, claverastreo, pagos!inner(clave_rastreo, url_cep)")
+      .eq("fecha_operacion", fechaOperacion);
 
     if (error) {
       console.error("Error consultando tabla_datos_cep:", error);
@@ -73,12 +75,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Aplanar el resultado del join (una fila por cada pago coincidente)
+    const rows: Array<{
+      fecha_operacion: string | null;
+      clave_rastreo: string | null;
+      url_cep: string | null;
+      fecha_actualizacion: string | null;
+    }> = [];
+
+    for (const r of (data ?? []) as any[]) {
+      const pagos = Array.isArray(r.pagos) ? r.pagos : (r.pagos ? [r.pagos] : []);
+      for (const p of pagos) {
+        rows.push({
+          fecha_operacion: r.fecha_operacion ?? null,
+          clave_rastreo: p.clave_rastreo ?? null,
+          url_cep: p.url_cep ?? null,
+          fecha_actualizacion: r.fecha_actualizacion ?? null,
+        });
+      }
+    }
+
     return new Response(
       JSON.stringify({
-        numero_dias_atras: numeroDiasAtras,
-        fecha_operacion: fechaObjetivo,
-        total: data?.length ?? 0,
-        data,
+        fecha_operacion: fechaOperacion,
+        total: rows.length,
+        data: rows,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
