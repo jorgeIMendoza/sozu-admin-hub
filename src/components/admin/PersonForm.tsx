@@ -832,14 +832,20 @@ export function PersonForm({ onSubmit, initialData, isLoading, onCancel, entityT
       handleCreatePerson();
     } else {
       // Add entity-specific data (only representativeId, parent components handle entityType)
+      const porcentajeComisionValue =
+        entityType === 'inmobiliaria'
+          ? parseFloat(porcentajeComision) || 2.0
+          : entityType === 'agente'
+            ? parseFloat(porcentajeComision) || 0
+            : null;
+
       const extendedFormData = {
         ...formData,
         entityType: idTipoEntidad,
         representativeId: idRepresentanteLegal === 'none' || !idRepresentanteLegal ? null : parseInt(idRepresentanteLegal),
         commercialRepresentativeId: idRepresentanteComercial === 'none' || !idRepresentanteComercial ? null : parseInt(idRepresentanteComercial),
         inmobiliariaId: entityType === 'agente' && idInmobiliaria && idInmobiliaria !== 'none' ? parseInt(idInmobiliaria) : null,
-        porcentaje_comision: entityType === 'inmobiliaria' ? parseFloat(porcentajeComision) || 2.00 : 
-          entityType === 'agente' ? parseFloat(porcentajeComision) || 0 : undefined,
+        ...(porcentajeComisionValue !== null ? { porcentaje_comision: porcentajeComisionValue } : {}),
       };
       onSubmit(extendedFormData);
     }
