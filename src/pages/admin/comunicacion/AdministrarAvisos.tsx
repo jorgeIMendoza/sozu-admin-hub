@@ -312,6 +312,7 @@ export default function AdministrarAvisos() {
   const [eventoHora, setEventoHora] = useState<string>('10:00');
   const [eventoCanal, setEventoCanal] = useState<'email' | 'whatsapp' | 'ambos'>('email');
   const [eventoActivo, setEventoActivo] = useState<boolean>(true);
+  const [tiposPagoNotificables, setTiposPagoNotificables] = useState<number[]>(DEFAULT_TIPOS_PAGO);
 
   // Payload Postmark personalizado
   const [payloadEnabled, setPayloadEnabled] = useState<boolean>(false);
@@ -425,6 +426,7 @@ export default function AdministrarAvisos() {
     setEventoFuenteId(fuentesTrigger[0] ? String(fuentesTrigger[0].id) : '');
     setEventoOffsets('-5,-3,-1');
     setEventoHora('10:00'); setEventoCanal('email'); setEventoActivo(true);
+    setTiposPagoNotificables(DEFAULT_TIPOS_PAGO);
     setPayloadEnabled(false);
     setPayloadJson("");
     setDialogOpen(true);
@@ -440,6 +442,11 @@ export default function AdministrarAvisos() {
       ? [...aviso.mensajes_whatsapp.slice(0, 3), ...Array(Math.max(0, 3 - aviso.mensajes_whatsapp.length)).fill("")]
       : ["", "", ""]);
     setModoTrigger((aviso.modo_trigger as any) || 'cron');
+    setTiposPagoNotificables(
+      Array.isArray(aviso.tipos_pago_notificables) && aviso.tipos_pago_notificables.length > 0
+        ? aviso.tipos_pago_notificables
+        : DEFAULT_TIPOS_PAGO
+    );
 
     // Load payload personalizado
     if (aviso.payload_postmark) {
@@ -580,6 +587,7 @@ export default function AdministrarAvisos() {
       postmark_template_id: templateId,
       modo_trigger: tipoEnvio === 'automatico' ? modoTrigger : 'cron',
       payload_postmark: payloadPostmark,
+      tipos_pago_notificables: tiposPagoNotificables.length > 0 ? tiposPagoNotificables : DEFAULT_TIPOS_PAGO,
     };
 
     let avisoId: number;
