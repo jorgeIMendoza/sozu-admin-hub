@@ -221,6 +221,16 @@ async function createExecutionLog(supabaseAdmin: any, avisoId: number, execution
   return data?.id ?? null;
 }
 
+async function ensureExecutionLog(
+  supabaseAdmin: any,
+  executionId: number | null,
+  avisoId: number,
+  executionOrigin: ExecutionOrigin,
+) {
+  if (executionId) return executionId;
+  return await createExecutionLog(supabaseAdmin, avisoId, executionOrigin);
+}
+
 async function finalizeExecutionLog(supabaseAdmin: any, executionId: number | null, metrics: ExecutionMetrics) {
   if (!executionId) return;
 
@@ -337,8 +347,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-          executionId = await createExecutionLog(supabaseAdmin, aviso.id, executionOrigin);
-
         if (selectedProjectIds.length === 0) {
           console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): sin desarrollos habilitados`);
           addMotivo(metrics, 'Sin desarrollos habilitados');
@@ -351,6 +359,7 @@ Deno.serve(async (req) => {
           console.log(`${tag} fuente "${fuente.clave}" no soportada en V1`);
           addMotivo(metrics, `Fuente no soportada: ${fuente.clave}`);
           metrics.errores++;
+          executionId = await ensureExecutionLog(supabaseAdmin, executionId, aviso.id, executionOrigin);
           await finalizeExecutionLog(supabaseAdmin, executionId, metrics);
           summary.errors++;
           continue;
@@ -394,6 +403,7 @@ Deno.serve(async (req) => {
           metrics.errores++;
           summary.details.push({ trigger_id: trig.id, offset, fecha_objetivo: fechaObjetivo, query_error: (qErr as any).message || String(qErr), code: (qErr as any).code || null });
           summary.errors++;
+          executionId = await ensureExecutionLog(supabaseAdmin, executionId, aviso.id, executionOrigin);
           await finalizeExecutionLog(supabaseAdmin, executionId, metrics);
           continue;
         }
@@ -473,7 +483,7 @@ Deno.serve(async (req) => {
           email: string;
           nombre: string;
           telefono: string;
-          claveEntidad: string;
+          claveEntidadBase: string;
           asunto: string;
           html: string;
           textoPlano: string;
@@ -537,7 +547,7 @@ Deno.serve(async (req) => {
                 email: m.email,
                 nombre: m.nombre || persona.nombre_legal || '',
                 telefono: m.telefono || '',
-                claveEntidad: buildManualEntityKey(claveEntidadManualBase, executionOrigin, executionId),
+                claveEntidadBase: claveEntidadManualBase,
                 asunto: destAsunto,
                 html: destHtml,
                 textoPlano,
