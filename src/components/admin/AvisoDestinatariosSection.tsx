@@ -37,9 +37,9 @@ interface Props {
   onToggleRole: (rolId: number) => void;
   destinatarios: Destinatario[];
   onDestinatariosChange: (destinatarios: Destinatario[]) => void;
-  selectedProyectos?: number[];
-  onSelectedProyectosChange?: (proyectos: number[]) => void;
-  availableProjectOptions?: Array<{ id: number; nombre: string }>;
+  selectedProyectos?: string[];
+  onSelectedProyectosChange?: (proyectos: string[]) => void;
+  availableProjectOptions?: string[];
 }
 
 export function AvisoDestinatariosSection({
@@ -287,9 +287,7 @@ export function AvisoDestinatariosSection({
   useEffect(() => {
     if (!isClienteSelected || selectedProyectos.length === 0) return;
 
-    const selectedProjectNames = availableProjectOptions
-      .filter((project) => selectedProyectos.includes(project.id))
-      .map((project) => project.nombre);
+    const selectedProjectNames = selectedProyectos;
 
     // Filter: keep only clients that belong to at least one selected project
     const newSelected = new Set(selectedEmails);
@@ -317,7 +315,7 @@ export function AvisoDestinatariosSection({
       setSelectedEmails(newSelected);
       notifyParent(newSelected, pool);
     }
-  }, [selectedProyectos, availableProjectOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedProyectos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleEmail = (email: string) => {
     const newSelected = new Set(selectedEmails);
@@ -373,9 +371,7 @@ export function AvisoDestinatariosSection({
     return pool.filter(d => {
       // When projects are selected, hide clients that don't belong to any selected project
       if (isClienteSelected && selectedProyectos.length > 0 && d.rolIds.includes(CLIENTE_ROL_ID)) {
-        const selectedProjectNames = availableProjectOptions
-          .filter((project) => selectedProyectos.includes(project.id))
-          .map((project) => project.nombre);
+        const selectedProjectNames = selectedProyectos;
         const clientProjects = clienteProyectoMap.get(d.email) || [];
         const matchesProject = selectedProjectNames.some((p) => clientProjects.includes(p));
         // If user is ONLY a client and doesn't match project, hide completely
@@ -450,9 +446,9 @@ export function AvisoDestinatariosSection({
             Selecciona los desarrollos publicados por Sozu donde este aviso estará activo.
           </p>
           <MultiSelectFilter
-            values={selectedProyectos.map(String)}
-            onValuesChange={(vals) => onSelectedProyectosChange?.(vals.map(Number))}
-            options={availableProjectOptions.map((project) => String(project.id))}
+            values={selectedProyectos}
+            onValuesChange={(vals) => onSelectedProyectosChange?.(vals)}
+            options={availableProjectOptions}
             placeholder="Todos los desarrollos publicados"
             searchPlaceholder="Buscar desarrollo..."
             icon={<Building2 className="h-4 w-4" />}
