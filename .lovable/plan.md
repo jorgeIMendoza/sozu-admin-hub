@@ -1,113 +1,82 @@
 
-## Objetivo
+Objetivo: hacer que el aviso de “Recordatorio de pago” genere un registro nuevo en el log cada vez que corre el proceso, aunque el envío real quede omitido por idempotencia, para que la vista de Ejecuciones refleje cada corrida y no parezca que “se reemplaza” por la última.
 
-Corregir que `contacto@vivaltainmobiliaria.com` sí aparezca en `Sistema → Usuarios del Sistema` y agregar búsqueda por correo en la vista de `Inmobiliarias`.
+Diagnóstico confirmado
+- La vista `Ejecuciones.tsx` hoy no muestra una bitácora real de corridas de avisos por evento; reconstruye filas “sintéticas” agrupando `avisos_envios_evento` por minuto.
+- En `evaluar-triggers-evento`, la tabla `avisos_envios_evento` tiene un `UNIQUE (id_trigger, clave_entidad)`.
+- Para el aviso de recordatorio, `clave_entidad` es estable:
+  - cliente real: `acuerdo:{id}:offset:{offset}`
+  - modo manual consolidado: `trigger:{id}:offset:{offset}:fecha:{fechaObjetivo}:manual:{email}`
+- Resultado:
+  - la primera corrida inserta el registro;
+  - las siguientes corridas dentro del mismo escenario ya no insertan nada y solo loguean “ya enviado, omitiendo”;
+  - como la UI depende de nuevos inserts en `avisos_envios_evento`, no aparece una nueva fila por ejecución.
 
-## Diagnóstico actualizado
+Qué se va a construir
+1. Registrar cada corrida de aviso por evento en `avisos_ejecuciones`
+- Crear un registro explícito al inicio de cada ejecución de trigger/offset en `avisos_ejecuciones`.
+- Guardar:
+  - `id_aviso`
+  - `tipo_trigger = 'evento'`
+  - `fecha_ejecucion`
+  - totales
+  - estado final
+  - detalle del resultado
+- Ese registro debe existir aunque:
+  - no haya acuerdos,
+  - esté fuera de ventana,
+  - ya se hubiera enviado antes,
+  - todos los destinatarios sean omitidos por duplicado.
 
-Ya confirmé que en base de datos el usuario sí existe y está correcto:
+2. Mantener `avisos_envios_evento` solo para auditoría de destinatarios/envíos
+- Conservar la protección anti-duplicado actual para no reenviar el mismo aviso varias veces al mismo destinatario.
+- No usar esa tabla como fuente principal de “corridas” en la pantalla de Ejecuciones.
+- Seguir guardando ahí el detalle por destinatario y payload enviado.
 
-- `usuarios.email = contacto@vivaltainmobiliaria.com`
-- `rol_id = 4` (`Inmobiliaria`)
-- `activo = true`
-- `roles.es_rol_interno = true`
-- `id_persona = 1876`
-- la persona ligada también tiene el mismo correo
+3. Ajustar la lógica de `evaluar-triggers-evento`
+- Crear un acumulador por corrida con contadores claros:
+  - acuerdos encontrados
+  - destinatarios evaluados
+  - enviados
+  - omitidos por idempotencia
+  - errores
+  - motivo principal
+- Al finalizar cada trigger/offset:
+  - actualizar el registro de `avisos_ejecuciones` con estado consistente:
+    - `completado`
+    - `parcial`
+    - `error`
+    - o equivalente legible si fue “omitido/ya enviado”
+- Incluir en `detalle_error` o en un resumen textual mensajes como:
+  - “Ya enviado previamente; ejecución omitida”
+  - “Sin acuerdos elegibles”
+  - “Fuera de ventana de envío”
 
-Además, el código actual de `src/pages/admin/Usuarios.tsx` sí intenta consumir la Edge Function `list-system-users`, y la función en el repositorio sí debería devolver usuarios con rol 4.
+4. Corregir la vista `Ejecuciones.tsx`
+- Dejar de sintetizar las ejecuciones de evento desde `avisos_envios_evento`.
+- Tomar `avisos_ejecuciones` como fuente principal del listado.
+- Si hace falta, usar `avisos_envios_evento` solo para abrir detalle fino por destinatario o enriquecer datos secundarios.
+- Mostrar filas separadas por cada corrida real, incluso si dos corridas del mismo aviso ocurrieron con un minuto de diferencia.
 
-Eso significa que el problema ya no apunta a “datos mal capturados”, sino a una discrepancia entre lo que está en BD y lo que realmente está llegando a la UI. Las causas más probables son:
+5. Homologar lo que verá el usuario
+- Cuando una corrida no envíe nada porque ya había sido enviada, debe verse como una fila nueva con su hora real.
+- Esa fila debe explicar el motivo, en lugar de desaparecer del log.
+- Así el historial mostrará algo como:
+  - 21:50 enviado
+  - 21:51 omitido por ya enviado
+  - 21:52 fuera de ventana
+  en vez de aparentar una sola ejecución.
 
-1. la función desplegada no coincide con el código actual,
-2. el frontend publicado/preview no está consumiendo la versión correcta,
-3. falta visibilidad de error en la pantalla y el resultado se queda en un estado “vacío” sin explicar qué falló.
+Archivos a modificar
+- `supabase/functions/evaluar-triggers-evento/index.ts`
+- `src/pages/admin/comunicacion/Ejecuciones.tsx`
 
-## Cambios a implementar
+Trabajo de base de datos requerido
+- Revisar si `avisos_ejecuciones` ya tiene columnas suficientes para guardar motivo/resumen de una corrida de evento.
+- Si no las tiene, agregar por migración los campos mínimos necesarios para auditoría clara.
+- No se eliminará el `UNIQUE` de `avisos_envios_evento`, porque sigue siendo útil para evitar reenvíos duplicados.
 
-### 1) Corregir definitivamente `Usuarios del Sistema`
-Haré el ajuste en dos capas:
-
-- Validar y alinear la fuente real que usa la tabla:
-  - asegurar que `src/pages/admin/Usuarios.tsx` consuma la respuesta correcta de `list-system-users`,
-  - redeploy de la Edge Function para garantizar que el código en Supabase sea el mismo que ya está en el repositorio,
-  - verificar la respuesta real de la función con el usuario autenticado.
-
-- Endurecer la UI para que no oculte el problema:
-  - agregar manejo explícito de error en la consulta de usuarios,
-  - mostrar mensaje de error si la función devuelve 401/403/500,
-  - evitar que un fallo termine viéndose como “0 resultados”.
-
-- Revisar el filtrado en cliente:
-  - confirmar que el usuario rol 4 no sea descartado por filtros adicionales,
-  - mantener la lógica de `Administrador de Proyecto` solo para roles 3 y 4,
-  - conservar búsqueda por nombre/email/rol.
-
-### 2) Agregar búsqueda por correo en `Inmobiliarias`
-Modificaré el filtro actual de `src/pages/admin/Inmobiliarias.tsx` para que también busque por:
-
-- `personas.email` de la inmobiliaria,
-- `usuario_email` del usuario principal ligado a la inmobiliaria, cuando exista.
-
-También actualizaré:
-
-- placeholder del buscador para reflejar que ya acepta correo,
-- conteos por pestaña (`Activos`, `Draft`, `Eliminados`) para que usen el mismo criterio nuevo y no queden inconsistentes.
-
-## Resultado esperado
-
-Después del ajuste:
-
-### En `Usuarios del Sistema`
-Si buscas `contacto@vivaltainmobiliaria.com`:
-
-- debe aparecer en la tabla,
-- debe mostrarse con rol `Inmobiliaria`,
-- debe seguir respetando permisos según el usuario que consulta.
-
-### En `Inmobiliarias`
-La búsqueda deberá encontrar registros por:
-
-- nombre legal,
-- nombre comercial,
-- RFC,
-- correo de la inmobiliaria,
-- correo del usuario ligado.
-
-## Verificaciones que haré
-
-1. Buscar `contacto@vivaltainmobiliaria.com` en `Usuarios del Sistema` y confirmar que aparezca.
-2. Confirmar que el conteo de `Activos` deje de ser `0` para esa búsqueda.
-3. Buscar el mismo correo en `Inmobiliarias` y confirmar coincidencia.
-4. Probar una búsqueda por nombre/RFC para asegurar que no se rompa el comportamiento actual.
-5. Validar escenario con rol administrativo permitido y sin abrir permisos de más.
-
-## Detalles técnicos
-
-### Archivos involucrados
-- `src/pages/admin/Usuarios.tsx`
-- `src/pages/admin/Inmobiliarias.tsx`
-- `supabase/functions/list-system-users/index.ts`
-
-### Ajuste técnico en Usuarios
-- agregar estado de error del `useQuery`,
-- mostrar error real en vez de presentar vacío,
-- validar/redeploy de la Edge Function para eliminar discrepancia entre código y entorno desplegado.
-
-### Ajuste técnico en Inmobiliarias
-El filtro pasará de esto:
-
-```ts
-nombre_legal || nombre_comercial || rfc
-```
-
-a incluir también:
-
-```ts
-email || usuario_email
-```
-
-y los contadores por tab usarán exactamente el mismo predicado de búsqueda.
-
-## Nota importante
-
-La evidencia actual indica que el registro sí existe correctamente en BD; por eso la corrección debe enfocarse en la capa de lectura/despliegue y no en recrear o editar el usuario.
+Resultado esperado
+- Cada vez que el cron ejecute el aviso de recordatorio, aparecerá una nueva fila en el log.
+- El sistema no volverá a mandar el mismo aviso solo por crear la bitácora.
+- La pantalla dejará de dar la impresión de que el aviso “se reemplaza por el último” y mostrará la historia real de ejecuciones con su motivo.
