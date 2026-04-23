@@ -31,7 +31,7 @@ interface Aviso {
   nombre: string;
   asunto: string;
   mensaje_html: string;
-  mensajes_whatsapp?: string[] | null;
+  mensajes_whatsapp?: any;
   tipo_envio: string;
   cron_expression: string | null;
   activo: boolean;
@@ -264,7 +264,7 @@ export default function AdministrarAvisos() {
   const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
-  const [selectedProyectos, setSelectedProyectos] = useState<number[]>([]);
+  const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
   const [proyectosPublicados, setProyectosPublicados] = useState<ProyectoPublicado[]>([]);
   const [mensajesWhatsapp, setMensajesWhatsapp] = useState<string[]>(["", "", ""]);
   const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
@@ -342,13 +342,24 @@ export default function AdministrarAvisos() {
     }
   };
 
-  useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); fetchFuentes(); }, []);
+  const fetchProyectosPublicados = async () => {
+    const { data } = await supabase
+      .from('proyectos')
+      .select('id, nombre')
+      .eq('activo', true)
+      .eq('publicar', true)
+      .order('nombre');
+    setProyectosPublicados((data as ProyectoPublicado[]) || []);
+  };
+
+  useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); fetchFuentes(); fetchProyectosPublicados(); }, []);
 
   const openCreate = () => {
     setEditingAviso(null);
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
     setCronExpression(""); setCronError(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
-    setPostmarkTemplateId("36978552"); setSelectedProyectos([]);
+    setPostmarkTemplateId("36978552"); setSelectedProyectos(proyectosPublicados.map((p) => p.nombre));
+    setMensajesWhatsapp(["", "", ""]);
     setModoTrigger('cron');
     setEventoFuenteId(fuentesTrigger[0] ? String(fuentesTrigger[0].id) : '');
     setEventoOffsets('-5,-3,-1');
@@ -364,7 +375,9 @@ export default function AdministrarAvisos() {
     setTipoEnvio(aviso.tipo_envio); setCronExpression(aviso.cron_expression || "");
     setActivo(aviso.activo);
     setPostmarkTemplateId(String(aviso.postmark_template_id || 36978552));
-    setSelectedProyectos([]);
+    setMensajesWhatsapp(Array.isArray(aviso.mensajes_whatsapp)
+      ? [...aviso.mensajes_whatsapp.slice(0, 3), ...Array(Math.max(0, 3 - aviso.mensajes_whatsapp.length)).fill("")]
+      : ["", "", ""]);
     setModoTrigger((aviso.modo_trigger as any) || 'cron');
 
     // Load payload personalizado
@@ -378,7 +391,10 @@ export default function AdministrarAvisos() {
     }
 
     // Load existing roles and their correos
-    const { data } = await supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id);
+    const [{ data }, { data: avisoProyectos }] = await Promise.all([
+      supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id),
+      supabase.from('avisos_proyectos').select('id_proyecto').eq('id_aviso', aviso.id).eq('activo', true),
+    ]);
     const rolIds: number[] = [];
     const allDests: Destinatario[] = [];
     data?.forEach(r => {
@@ -393,6 +409,13 @@ export default function AdministrarAvisos() {
     });
     setSelectedRoles(rolIds);
     setDestinatarios(allDests);
+    setSelectedProyectos(
+      avisoProyectos && avisoProyectos.length > 0
+        ? avisoProyectos
+            .map((item: any) => proyectosPublicados.find((proyecto) => proyecto.id === item.id_proyecto)?.nombre)
+            .filter(Boolean)
+        : proyectosPublicados.map((proyecto) => proyecto.nombre)
+    );
 
     // Load existing event trigger config (single row per aviso in V1)
     const { data: trigData } = await supabase
