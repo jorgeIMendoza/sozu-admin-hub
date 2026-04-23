@@ -18,6 +18,120 @@ Deno.serve(async (req) => {
   try {
     const { aviso_id, ejecutado_por, tipo_trigger = 'manual' } = await req.json();
 
+    const getSelectedProjectIds = async (idAviso: number): Promise<number[]> => {
+      const { data } = await supabaseAdmin
+        .from('avisos_proyectos')
+        .select('id_proyecto')
+        .eq('id_aviso', idAviso)
+        .eq('activo', true);
+
+      return (data || []).map((item: any) => item.id_proyecto).filter((id: unknown): id is number => typeof id === 'number');
+    };
+
+    const filterRecipientsBySelectedProjects = async (
+      rawRecipients: { nombre: string; email: string }[],
+      selectedProjectIds: number[],
+    ) => {
+      if (rawRecipients.length === 0 || selectedProjectIds.length === 0) return rawRecipients;
+
+      const recipientEmails = [...new Set(rawRecipients.map((recipient) => recipient.email).filter(Boolean))];
+      const { data: usuariosCliente } = await supabaseAdmin
+        .from('usuarios')
+        .select('email, id_persona')
+        .eq('rol_id', 23)
+        .eq('activo', true)
+        .in('email', recipientEmails)
+        .not('id_persona', 'is', null);
+
+      if (!usuariosCliente || usuariosCliente.length === 0) return rawRecipients;
+
+      const personaByEmail = new Map<string, number>();
+      const personaIds = [...new Set(
+        usuariosCliente
+          .filter((usuario: any) => usuario.email && usuario.id_persona)
+          .map((usuario: any) => {
+            personaByEmail.set(usuario.email, usuario.id_persona);
+            return usuario.id_persona;
+          })
+      )];
+
+      if (personaIds.length === 0) return rawRecipients;
+
+      const { data: ofertas } = await supabaseAdmin
+        .from('ofertas')
+        .select('id, id_persona_lead')
+        .in('id_persona_lead', personaIds);
+
+      if (!ofertas || ofertas.length === 0) return rawRecipients.filter((recipient) => !personaByEmail.has(recipient.email));
+
+      const personaByOferta = new Map<number, number>(ofertas.map((oferta: any) => [oferta.id, oferta.id_persona_lead]));
+      const ofertaIds = ofertas.map((oferta: any) => oferta.id);
+
+      const { data: cuentas } = await supabaseAdmin
+        .from('cuentas_cobranza')
+        .select('id_oferta, id_propiedad')
+        .in('id_oferta', ofertaIds)
+        .eq('activo', true)
+        .not('id_propiedad', 'is', null);
+
+      if (!cuentas || cuentas.length === 0) return rawRecipients.filter((recipient) => !personaByEmail.has(recipient.email));
+
+      const propiedadIds = [...new Set(cuentas.map((cuenta: any) => cuenta.id_propiedad).filter(Boolean))];
+      const { data: propiedades } = await supabaseAdmin
+        .from('propiedades')
+        .select('id, id_edificio_modelo')
+        .in('id', propiedadIds);
+
+      if (!propiedades || propiedades.length === 0) return rawRecipients.filter((recipient) => !personaByEmail.has(recipient.email));
+
+      const edificioModeloByPropiedad = new Map<number, number>(
+        propiedades
+          .filter((propiedad: any) => propiedad.id && propiedad.id_edificio_modelo)
+          .map((propiedad: any) => [propiedad.id, propiedad.id_edificio_modelo])
+      );
+
+      const edificioModeloIds = [...new Set(propiedades.map((propiedad: any) => propiedad.id_edificio_modelo).filter(Boolean))];
+      const { data: edificiosModelos } = await supabaseAdmin
+        .from('edificios_modelos')
+        .select('id, id_edificio')
+        .in('id', edificioModeloIds);
+
+      if (!edificiosModelos || edificiosModelos.length === 0) return rawRecipients.filter((recipient) => !personaByEmail.has(recipient.email));
+
+      const edificioByModelo = new Map<number, number>(edificiosModelos.map((modelo: any) => [modelo.id, modelo.id_edificio]));
+      const edificioIds = [...new Set(edificiosModelos.map((modelo: any) => modelo.id_edificio).filter(Boolean))];
+      const { data: edificios } = await supabaseAdmin
+        .from('edificios')
+        .select('id, id_proyecto')
+        .in('id', edificioIds);
+
+      if (!edificios || edificios.length === 0) return rawRecipients.filter((recipient) => !personaByEmail.has(recipient.email));
+
+      const proyectoByEdificio = new Map<number, number>(
+        edificios
+          .filter((edificio: any) => edificio.id && edificio.id_proyecto)
+          .map((edificio: any) => [edificio.id, edificio.id_proyecto])
+      );
+
+      const allowedEmails = new Set<string>();
+      for (const cuenta of cuentas) {
+        const personaId = personaByOferta.get(cuenta.id_oferta);
+        const propiedadEdificioModeloId = edificioModeloByPropiedad.get(cuenta.id_propiedad);
+        const edificioId = propiedadEdificioModeloId ? edificioByModelo.get(propiedadEdificioModeloId) : undefined;
+        const proyectoId = edificioId ? proyectoByEdificio.get(edificioId) : undefined;
+        if (!personaId || !proyectoId || !selectedProjectIds.includes(proyectoId)) continue;
+
+        for (const [email, mappedPersonaId] of personaByEmail.entries()) {
+          if (mappedPersonaId === personaId) allowedEmails.add(email);
+        }
+      }
+
+      return rawRecipients.filter((recipient) => {
+        if (!personaByEmail.has(recipient.email)) return true;
+        return allowedEmails.has(recipient.email);
+      });
+    };
+
     if (!aviso_id) {
       return new Response(JSON.stringify({ error: 'aviso_id requerido' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -75,6 +189,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const selectedProjectIds = await getSelectedProjectIds(aviso_id);
+
     // Extract unique recipients from correos JSON
     const emailSet = new Set<string>();
     const recipients: { nombre: string; email: string }[] = [];
@@ -90,6 +206,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    const filteredRecipients = await filterRecipientsBySelectedProjects(recipients, selectedProjectIds);
+
     // Create ejecucion record
     const { data: ejecucion, error: ejErr } = await supabaseAdmin
       .from('avisos_ejecuciones')
@@ -97,7 +215,7 @@ Deno.serve(async (req) => {
         id_aviso: aviso_id,
         tipo_trigger,
         ejecutado_por: ejecutado_por || null,
-        total_destinatarios: recipients.length,
+        total_destinatarios: filteredRecipients.length,
         estado: 'enviando',
       })
       .select('id')
@@ -110,7 +228,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (recipients.length === 0) {
+    if (filteredRecipients.length === 0) {
       await supabaseAdmin
         .from('avisos_ejecuciones')
         .update({ 
@@ -122,7 +240,7 @@ Deno.serve(async (req) => {
         .eq('id', ejecucion.id);
 
       console.error(`Aviso ${aviso_id}: No hay destinatarios configurados`);
-      return new Response(JSON.stringify({ error: 'No hay destinatarios configurados', ejecucion_id: ejecucion.id }), {
+      return new Response(JSON.stringify({ error: 'No hay destinatarios configurados para los desarrollos seleccionados', ejecucion_id: ejecucion.id }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -145,8 +263,8 @@ Deno.serve(async (req) => {
     const errorMessages: string[] = [];
     const BATCH_SIZE = 500;
 
-    for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-      const batch = recipients.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < filteredRecipients.length; i += BATCH_SIZE) {
+      const batch = filteredRecipients.slice(i, i + BATCH_SIZE);
       const messages = batch.map(recipient => {
         const vars: Record<string, string> = {
           nombre: recipient.nombre || '',
@@ -230,7 +348,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ejecucion_id: ejecucion.id,
-      total_destinatarios: recipients.length,
+        total_destinatarios: filteredRecipients.length,
       total_enviados: totalEnviados,
       total_errores: totalErrores,
     }), {
