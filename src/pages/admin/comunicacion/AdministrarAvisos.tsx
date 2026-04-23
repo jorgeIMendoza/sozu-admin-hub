@@ -95,6 +95,11 @@ const TIPOS_PAGO_OPTIONS = [
 
 const DEFAULT_TIPOS_PAGO = TIPOS_PAGO_OPTIONS.map((item) => item.id);
 
+const getTiposPagoSeleccionados = (tipos?: number[] | null) => {
+  const seleccionados = Array.isArray(tipos) && tipos.length > 0 ? tipos : DEFAULT_TIPOS_PAGO;
+  return TIPOS_PAGO_OPTIONS.filter((tipo) => seleccionados.includes(tipo.id));
+};
+
 const EVENT_PLACEHOLDERS = [
   { key: "nombre", label: "Nombre del cliente" },
   { key: "tratamiento", label: "Sr./Sra. según sexo" },
@@ -726,6 +731,7 @@ export default function AdministrarAvisos() {
               <TableHead>Tipo</TableHead>
               <TableHead>Template ID</TableHead>
               <TableHead>Desarrollos</TableHead>
+              <TableHead>Pagos a notificar</TableHead>
               <TableHead>Activo</TableHead>
               <TableHead>Fecha Creación</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -733,9 +739,9 @@ export default function AdministrarAvisos() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
             ) : pagedAvisos.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
@@ -787,6 +793,15 @@ export default function AdministrarAvisos() {
                         </Badge>
                       ));
                     })()}
+                  </div>
+                </TableCell>
+                <TableCell className="max-w-[240px]">
+                  <div className="flex flex-wrap gap-1.5">
+                    {getTiposPagoSeleccionados(aviso.tipos_pago_notificables).map((tipo) => (
+                      <Badge key={`${aviso.id}-tipo-${tipo.id}`} variant="outline">
+                        {tipo.label}
+                      </Badge>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
