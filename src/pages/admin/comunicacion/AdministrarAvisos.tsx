@@ -41,6 +41,13 @@ interface Aviso {
   payload_postmark?: any;
 }
 
+interface AvisoProyectoRow {
+  id_aviso: number;
+  proyectos: {
+    nombre: string;
+  } | null;
+}
+
 interface ProyectoPublicado {
   id: number;
   nombre: string;
@@ -266,6 +273,7 @@ export default function AdministrarAvisos() {
   const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
   const [proyectosPublicados, setProyectosPublicados] = useState<ProyectoPublicado[]>([]);
+  const [proyectosPorAviso, setProyectosPorAviso] = useState<Record<number, string[]>>({});
   const [mensajesWhatsapp, setMensajesWhatsapp] = useState<string[]>(["", "", ""]);
   const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -305,8 +313,20 @@ export default function AdministrarAvisos() {
 
   const fetchAvisos = async () => {
     setIsLoading(true);
-    const { data } = await supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false });
-    setAvisos(((data as any[]) || []) as Aviso[]);
+    const [{ data: avisosData }, { data: avisosProyectosData }] = await Promise.all([
+      supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false }),
+      supabase.from('avisos_proyectos').select('id_aviso, proyectos(nombre)').eq('activo', true),
+    ]);
+
+    const proyectosAgrupados = ((avisosProyectosData as unknown as AvisoProyectoRow[]) || []).reduce<Record<number, string[]>>((acc, item) => {
+      if (!item.proyectos?.nombre) return acc;
+      if (!acc[item.id_aviso]) acc[item.id_aviso] = [];
+      acc[item.id_aviso].push(item.proyectos.nombre);
+      return acc;
+    }, {});
+
+    setAvisos(((avisosData as any[]) || []) as Aviso[]);
+    setProyectosPorAviso(proyectosAgrupados);
     setIsLoading(false);
   };
 
@@ -652,6 +672,7 @@ export default function AdministrarAvisos() {
               <TableHead>Nombre</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Template ID</TableHead>
+              <TableHead>Desarrollos</TableHead>
               <TableHead>Activo</TableHead>
               <TableHead>Fecha Creación</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
@@ -659,9 +680,9 @@ export default function AdministrarAvisos() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay avisos</TableCell></TableRow>
             ) : pagedAvisos.map(aviso => (
               <TableRow key={aviso.id}>
                 <TableCell className="font-medium">{aviso.nombre}</TableCell>
@@ -695,6 +716,19 @@ export default function AdministrarAvisos() {
                       return tmpl ? `${tmpl.name}` : tid;
                     })()}
                   </Badge>
+                </TableCell>
+                <TableCell className="max-w-[260px]">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(proyectosPorAviso[aviso.id] || []).length > 0 ? (
+                      proyectosPorAviso[aviso.id].map((proyecto) => (
+                        <Badge key={`${aviso.id}-${proyecto}`} variant="secondary" className="max-w-full truncate">
+                          {proyecto}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Todos los publicados</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Switch checked={aviso.activo} onCheckedChange={() => canUpdate && toggleActivo(aviso)} disabled={!canUpdate} />
