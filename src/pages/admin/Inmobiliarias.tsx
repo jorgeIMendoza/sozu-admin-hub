@@ -368,7 +368,17 @@ export default function Inmobiliarias() {
 
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
-      const { representativeId, commercialRepresentativeId, entityType, tempBankAccounts, tempBeneficiaries, pendingDocuments, inmobiliariaId, ...cleanPersonData } = personData;
+      const {
+        representativeId,
+        commercialRepresentativeId,
+        entityType,
+        tempBankAccounts,
+        tempBeneficiaries,
+        pendingDocuments,
+        inmobiliariaId,
+        porcentaje_comision,
+        ...cleanPersonData
+      } = personData;
       
       // Validate email uniqueness before creating
       if (cleanPersonData.email) {
@@ -423,7 +433,7 @@ export default function Inmobiliarias() {
         .insert([{
           id_persona: personResult.id,
           id_tipo_entidad: tipoEntidad.id,
-          porcentaje_comision: personData.porcentaje_comision ?? 2.00,
+          porcentaje_comision: porcentaje_comision ?? 2.00,
           activo: true
         }]);
       
