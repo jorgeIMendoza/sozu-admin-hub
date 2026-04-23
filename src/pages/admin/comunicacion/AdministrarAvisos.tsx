@@ -43,6 +43,7 @@ interface Aviso {
 
 interface AvisoProyectoRow {
   id_aviso: number;
+  id_proyecto: number;
   proyectos: {
     nombre: string;
   } | null;
@@ -273,7 +274,7 @@ export default function AdministrarAvisos() {
   const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
   const [proyectosPublicados, setProyectosPublicados] = useState<ProyectoPublicado[]>([]);
-  const [proyectosPorAviso, setProyectosPorAviso] = useState<Record<number, string[]>>({});
+  const [proyectosPorAviso, setProyectosPorAviso] = useState<Record<number, { nombres: string[]; ids: number[] }>>({});
   const [mensajesWhatsapp, setMensajesWhatsapp] = useState<string[]>(["", "", ""]);
   const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -315,13 +316,23 @@ export default function AdministrarAvisos() {
     setIsLoading(true);
     const [{ data: avisosData }, { data: avisosProyectosData }] = await Promise.all([
       supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false }),
-      supabase.from('avisos_proyectos').select('id_aviso, proyectos(nombre)').eq('activo', true),
+      supabase.from('avisos_proyectos').select('id_aviso, id_proyecto, proyectos(nombre)').eq('activo', true),
     ]);
 
-    const proyectosAgrupados = ((avisosProyectosData as unknown as AvisoProyectoRow[]) || []).reduce<Record<number, string[]>>((acc, item) => {
+    const proyectosAgrupados = ((avisosProyectosData as unknown as AvisoProyectoRow[]) || []).reduce<Record<number, { nombres: string[]; ids: number[] }>>((acc, item) => {
+      if (!acc[item.id_aviso]) {
+        acc[item.id_aviso] = { nombres: [], ids: [] };
+      }
+
+      if (!acc[item.id_aviso].ids.includes(item.id_proyecto)) {
+        acc[item.id_aviso].ids.push(item.id_proyecto);
+      }
+
       if (!item.proyectos?.nombre) return acc;
-      if (!acc[item.id_aviso]) acc[item.id_aviso] = [];
-      acc[item.id_aviso].push(item.proyectos.nombre);
+      if (!acc[item.id_aviso].nombres.includes(item.proyectos.nombre)) {
+        acc[item.id_aviso].nombres.push(item.proyectos.nombre);
+      }
+
       return acc;
     }, {});
 
@@ -719,15 +730,21 @@ export default function AdministrarAvisos() {
                 </TableCell>
                 <TableCell className="max-w-[260px]">
                   <div className="flex flex-wrap gap-1.5">
-                    {(proyectosPorAviso[aviso.id] || []).length > 0 ? (
-                      proyectosPorAviso[aviso.id].map((proyecto) => (
+                    {(() => {
+                      const proyectosAviso = proyectosPorAviso[aviso.id];
+                      const totalPublicados = proyectosPublicados.length;
+                      const tieneTodosLosPublicados = totalPublicados > 0 && (proyectosAviso?.ids.length || 0) >= totalPublicados;
+
+                      if (!proyectosAviso?.nombres.length || tieneTodosLosPublicados) {
+                        return <span className="text-sm text-muted-foreground">Todos los publicados</span>;
+                      }
+
+                      return proyectosAviso.nombres.map((proyecto) => (
                         <Badge key={`${aviso.id}-${proyecto}`} variant="secondary" className="max-w-full truncate">
                           {proyecto}
                         </Badge>
-                      ))
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Todos los publicados</span>
-                    )}
+                      ));
+                    })()}
                   </div>
                 </TableCell>
                 <TableCell>
