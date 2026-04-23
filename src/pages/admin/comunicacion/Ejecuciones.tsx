@@ -39,58 +39,58 @@ interface ParsedErrorItem {
 }
 
 const estadoColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  completado: 'default',
-  error: 'destructive',
-  parcial: 'secondary',
+  completado: "default",
+  error: "destructive",
+  parcial: "secondary",
 };
 
 const EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
 function translateErrorMessage(code: string | undefined, raw: string) {
-  const normalized = raw.replace(/^undefined:\s*/i, '').trim();
+  const normalized = raw.replace(/^undefined:\s*/i, "").trim();
 
-  if (code === '406' || /marked as inactive|inactive recipients/i.test(normalized)) {
-    return 'Correo inactivo (rebote previo o queja de spam)';
+  if (code === "406" || /marked as inactive|inactive recipients/i.test(normalized)) {
+    return "Correo inactivo (rebote previo o queja de spam)";
   }
 
-  if (code === '300' || /invalid email|is not a valid email/i.test(normalized)) {
-    return 'Correo inválido';
+  if (code === "300" || /invalid email|is not a valid email/i.test(normalized)) {
+    return "Correo inválido";
   }
 
-  if (code === '405') {
-    return 'No permitido enviar a este destinatario';
+  if (code === "405") {
+    return "No permitido enviar a este destinatario";
   }
 
   if (/From' address you supplied/i.test(normalized)) {
-    return 'El remitente configurado no está autorizado en Postmark';
+    return "El remitente configurado no está autorizado en Postmark";
   }
 
-  return normalized || 'Error desconocido';
+  return normalized || "Error desconocido";
 }
 
 function parseDetalleErrores(raw: string): ParsedErrorItem[] {
   if (!raw.trim()) return [];
 
   return raw
-    .split(' | ')
+    .split(" | ")
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => {
       try {
         const parsed = JSON.parse(part);
         return {
-          email: String(parsed.email || 'Correo no identificado'),
-          codigo: String(parsed.codigo || '—'),
-          motivo: String(parsed.motivo || 'Error desconocido'),
+          email: String(parsed.email || "Correo no identificado"),
+          codigo: String(parsed.codigo || "—"),
+          motivo: String(parsed.motivo || "Error desconocido"),
         };
       } catch {
-        const email = part.match(EMAIL_REGEX)?.[0] || 'Correo no identificado';
-        const codigo = part.match(/\[(\d+)\]/)?.[1] || '—';
+        const email = part.match(EMAIL_REGEX)?.[0] || "Correo no identificado";
+        const codigo = part.match(/\[(\d+)\]/)?.[1] || "—";
 
         return {
           email,
           codigo,
-          motivo: translateErrorMessage(codigo === '—' ? undefined : codigo, part),
+          motivo: translateErrorMessage(codigo === "—" ? undefined : codigo, part),
         };
       }
     });
@@ -98,19 +98,19 @@ function parseDetalleErrores(raw: string): ParsedErrorItem[] {
 
 function buildCopyText(items: ParsedErrorItem[], totalErrores: number) {
   const lines = items.map((item, index) => {
-    const suffix = item.codigo !== '—' ? ` (código ${item.codigo})` : '';
+    const suffix = item.codigo !== "—" ? ` (código ${item.codigo})` : "";
     return `${index + 1}. ${item.email} — ${item.motivo}${suffix}`;
   });
 
   if (totalErrores > items.length) {
-    lines.push('', `Nota: esta ejecución antigua solo guardó ${items.length} de ${totalErrores} errores en el detalle.`);
+    lines.push("", `Nota: esta ejecución solo guardó ${items.length} de ${totalErrores} errores en el detalle.`);
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 export default function Ejecuciones() {
-  const { isLoading: permLoading } = usePagePermissions('/admin/comunicacion/ejecuciones');
+  const { isLoading: permLoading } = usePagePermissions("/admin/comunicacion/ejecuciones");
   const { toast } = useToast();
 
   const [ejecuciones, setEjecuciones] = useState<Ejecucion[]>([]);
@@ -123,85 +123,41 @@ export default function Ejecuciones() {
   const [copied, setCopied] = useState(false);
 
   const parsedErrors = useMemo(
-    () => parseDetalleErrores(errorDetail?.detalle_error || ''),
+    () => parseDetalleErrores(errorDetail?.detalle_error || ""),
     [errorDetail?.detalle_error]
   );
 
-  const hiddenErrorCount = Math.max(
-    0,
-    (errorDetail?.total_errores ?? 0) - parsedErrors.length
-  );
+  const hiddenErrorCount = Math.max(0, (errorDetail?.total_errores ?? 0) - parsedErrors.length);
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [{ data: ejData }, { data: avData }, { data: evData }] = await Promise.all([
-      supabase.from('avisos_ejecuciones').select('*, avisos(nombre)').order('fecha_ejecucion', { ascending: false }).limit(200),
-      supabase.from('avisos').select('id, nombre').order('nombre'),
-      supabase.from('avisos_envios_evento').select('id, id_aviso, id_trigger, fecha_envio, fecha_objetivo, estado, email_destino, error, avisos:avisos!avisos_envios_evento_id_aviso_fkey(nombre)').order('fecha_envio', { ascending: false }).limit(2000),
+    const [{ data: ejData }, { data: avData }] = await Promise.all([
+      supabase
+        .from("avisos_ejecuciones")
+        .select("*, avisos(nombre)")
+        .eq("tipo_trigger", "evento")
+        .order("fecha_ejecucion", { ascending: false })
+        .limit(500),
+      supabase.from("avisos").select("id, nombre").order("nombre"),
     ]);
 
-    // Agrupar envíos por evento por (id_aviso, id_trigger, fecha_envio truncada al minuto)
-    // de modo que cada corrida del cron aparezca como una ejecución independiente.
-    const eventosAgrupados = new Map<string, Ejecucion>();
-    (evData || []).forEach((row: any) => {
-      // truncar a minuto: YYYY-MM-DDTHH:MM
-      const fechaMin = (row.fecha_envio || '').slice(0, 16);
-      const key = `evt-${row.id_aviso}-${row.id_trigger}-${fechaMin}`;
-      const existing = eventosAgrupados.get(key);
-      if (existing) {
-        existing.total_destinatarios = (existing.total_destinatarios || 0) + 1;
-        if (row.estado === 'enviado') existing.total_enviados = (existing.total_enviados || 0) + 1;
-        if (row.estado === 'error') {
-          existing.total_errores = (existing.total_errores || 0) + 1;
-          const detalle = `${row.email_destino || 'sin email'}: ${row.error || 'error desconocido'}`;
-          existing.detalle_error = existing.detalle_error
-            ? `${existing.detalle_error} | ${detalle}`
-            : detalle;
-        }
-      } else {
-        const isError = row.estado === 'error';
-        const isSent = row.estado === 'enviado';
-        eventosAgrupados.set(key, {
-          id: -row.id, // negativo para evitar colisión con avisos_ejecuciones
-          id_aviso: row.id_aviso,
-          fecha_ejecucion: row.fecha_envio,
-          tipo_trigger: 'evento',
-          total_destinatarios: 1,
-          total_enviados: isSent ? 1 : 0,
-          total_errores: isError ? 1 : 0,
-          estado: 'completado',
-          detalle_error: isError ? `${row.email_destino || 'sin email'}: ${row.error || 'error desconocido'}` : null,
-          avisos: row.avisos || null,
-        });
-      }
-    });
-
-    // Calcular estado final por grupo
-    eventosAgrupados.forEach((ej) => {
-      const errores = ej.total_errores || 0;
-      const enviados = ej.total_enviados || 0;
-      const total = ej.total_destinatarios || 0;
-      if (errores === total && total > 0) ej.estado = 'error';
-      else if (errores > 0) ej.estado = 'parcial';
-      else ej.estado = 'completado';
-    });
-
-    const todos = [...((ejData as any) || []), ...Array.from(eventosAgrupados.values())].sort(
-      (a, b) => new Date(b.fecha_ejecucion).getTime() - new Date(a.fecha_ejecucion).getTime()
-    );
-    setEjecuciones(todos);
+    setEjecuciones((ejData as Ejecucion[]) || []);
     setAvisos(avData || []);
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const filtered = ejecuciones.filter(e => {
-    if (filterAviso !== 'all' && e.id_aviso !== parseInt(filterAviso)) return false;
-    if (filterEstado !== 'all' && e.estado !== filterEstado) return false;
+  const filtered = ejecuciones.filter((e) => {
+    if (filterAviso !== "all" && e.id_aviso !== parseInt(filterAviso)) return false;
+    if (filterEstado !== "all" && e.estado !== filterEstado) return false;
     if (searchTerm) {
-      const name = (e.avisos as any)?.nombre || '';
-      if (!name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+      const name = e.avisos?.nombre || "";
+      const detail = e.detalle_error || "";
+      const term = searchTerm.toLowerCase();
+      if (!name.toLowerCase().includes(term) && !detail.toLowerCase().includes(term)) return false;
     }
     return true;
   });
@@ -210,8 +166,8 @@ export default function Ejecuciones() {
 
   const chartData = (() => {
     const map = new Map<string, { date: string; enviados: number; errores: number }>();
-    filtered.forEach(e => {
-      const date = new Date(e.fecha_ejecucion).toLocaleDateString('es-MX');
+    filtered.forEach((e) => {
+      const date = new Date(e.fecha_ejecucion).toLocaleDateString("es-MX");
       const existing = map.get(date) || { date, enviados: 0, errores: 0 };
       existing.enviados += e.total_enviados || 0;
       existing.errores += e.total_errores || 0;
@@ -227,7 +183,9 @@ export default function Ejecuciones() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (permLoading) return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  if (permLoading) {
+    return <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -252,13 +210,13 @@ export default function Ejecuciones() {
       <div className="flex gap-4 flex-wrap">
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterAviso} onValueChange={setFilterAviso}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Filtrar por aviso" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los avisos</SelectItem>
-            {avisos.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.nombre}</SelectItem>)}
+            {avisos.map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterEstado} onValueChange={setFilterEstado}>
@@ -283,17 +241,18 @@ export default function Ejecuciones() {
               <TableHead className="text-right">Enviados</TableHead>
               <TableHead className="text-right">Errores</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Motivo</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8">Cargando...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No hay ejecuciones</TableCell></TableRow>
-            ) : pagedEjec.map(e => (
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No hay ejecuciones</TableCell></TableRow>
+            ) : pagedEjec.map((e) => (
               <TableRow key={e.id}>
-                <TableCell className="text-sm">{new Date(e.fecha_ejecucion).toLocaleString('es-MX')}</TableCell>
-                <TableCell className="font-medium">{(e.avisos as any)?.nombre || '—'}</TableCell>
+                <TableCell className="text-sm">{new Date(e.fecha_ejecucion).toLocaleString("es-MX")}</TableCell>
+                <TableCell className="font-medium">{e.avisos?.nombre || "—"}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{e.tipo_trigger}</Badge>
                 </TableCell>
@@ -307,17 +266,20 @@ export default function Ejecuciones() {
                   ) : (e.total_errores ?? 0)}
                 </TableCell>
                 <TableCell>
-                  {e.estado === 'error' && e.detalle_error ? (
+                  {(e.estado === "error" || e.estado === "parcial") && e.detalle_error ? (
                     <Badge
-                      variant="destructive"
+                      variant={e.estado === "error" ? "destructive" : "secondary"}
                       className="cursor-pointer"
                       onClick={() => setErrorDetail(e)}
                     >
-                      error
+                      {e.estado}
                     </Badge>
                   ) : (
-                    <Badge variant={estadoColors[e.estado] || 'outline'}>{e.estado}</Badge>
+                    <Badge variant={estadoColors[e.estado] || "outline"}>{e.estado}</Badge>
                   )}
+                </TableCell>
+                <TableCell className="max-w-[320px] text-xs text-muted-foreground whitespace-normal break-words">
+                  {e.detalle_error || "—"}
                 </TableCell>
               </TableRow>
             ))}
@@ -336,28 +298,32 @@ export default function Ejecuciones() {
       <Dialog open={!!errorDetail} onOpenChange={() => setErrorDetail(null)}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Detalle de Error</DialogTitle>
+            <DialogTitle>Detalle de Ejecución</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Aviso: <strong>{(errorDetail?.avisos as any)?.nombre}</strong> — {errorDetail && new Date(errorDetail.fecha_ejecucion).toLocaleString('es-MX')}
+              Aviso: <strong>{errorDetail?.avisos?.nombre}</strong> — {errorDetail && new Date(errorDetail.fecha_ejecucion).toLocaleString("es-MX")}
             </p>
 
             <div className="space-y-1">
               <div className="text-sm text-muted-foreground">
-                {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? 'es' : ''} de {errorDetail?.total_destinatarios} destinatarios
+                {errorDetail?.total_errores} error{(errorDetail?.total_errores ?? 0) > 1 ? "es" : ""} de {errorDetail?.total_destinatarios} destinatarios
               </div>
               {hiddenErrorCount > 0 && (
                 <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-muted-foreground">
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-destructive shrink-0" />
                   <span>
-                    Esta ejecución antigua solo guardó <strong>{parsedErrors.length}</strong> detalles de <strong>{errorDetail?.total_errores}</strong> errores. Los próximos envíos ya guardan todos completos.
+                    Esta ejecución solo guardó <strong>{parsedErrors.length}</strong> detalles de <strong>{errorDetail?.total_errores}</strong> errores.
                   </span>
                 </div>
               )}
             </div>
 
-            <ScrollArea className="h-[360px] rounded-lg border bg-muted/40 pr-3">
+            <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground whitespace-pre-wrap break-words">
+              {errorDetail?.detalle_error || "Sin detalle disponible."}
+            </div>
+
+            <ScrollArea className="h-[260px] rounded-lg border bg-muted/40 pr-3">
               <div className="space-y-2 p-4">
                 {parsedErrors.length > 0 ? parsedErrors.map((err, i) => (
                   <div key={`${err.email}-${i}`} className="flex items-start gap-2 rounded-md border border-border/60 bg-background/80 p-3 text-sm">
@@ -368,7 +334,7 @@ export default function Ejecuciones() {
                     </div>
                   </div>
                 )) : (
-                  <p className="p-4 text-sm text-muted-foreground">Sin detalle disponible.</p>
+                  <p className="p-4 text-sm text-muted-foreground">Sin detalle estructurado disponible.</p>
                 )}
               </div>
             </ScrollArea>
@@ -380,7 +346,7 @@ export default function Ejecuciones() {
               disabled={parsedErrors.length === 0}
             >
               {copied ? <Check className="h-4 w-4 mr-1" /> : <Copy className="h-4 w-4 mr-1" />}
-              {copied ? 'Copiado' : 'Copiar detalle'}
+              {copied ? "Copiado" : "Copiar detalle"}
             </Button>
           </div>
         </DialogContent>
