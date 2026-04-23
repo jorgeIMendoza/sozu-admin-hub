@@ -366,6 +366,45 @@ export default function Inmobiliarias() {
     setCurrentPage(1);
   };
 
+  const buildEmailInUseMessage = async (email: string, excludePersonaId?: number) => {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const { data: personaExistente } = await supabase
+      .from('personas')
+      .select('id, email, nombre_legal')
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+
+    if (!personaExistente || (excludePersonaId && personaExistente.id === excludePersonaId)) {
+      return `El correo ${normalizedEmail} ya está registrado en el sistema.`;
+    }
+
+    const [{ data: entidadesRelacionadas }, { data: usuariosRelacionados }] = await Promise.all([
+      supabase
+        .from('entidades_relacionadas')
+        .select('id_tipo_entidad, tipos_entidad(nombre)')
+        .eq('id_persona', personaExistente.id)
+        .eq('activo', true),
+      supabase
+        .from('usuarios')
+        .select('rol_id, roles(nombre)')
+        .ilike('email', normalizedEmail)
+        .eq('activo', true)
+    ]);
+
+    const tiposEntidad = [...new Set((entidadesRelacionadas || [])
+      .map((item: any) => item.tipos_entidad?.nombre)
+      .filter(Boolean))];
+    const rolesUsuario = [...new Set((usuariosRelacionados || [])
+      .map((item: any) => item.roles?.nombre)
+      .filter(Boolean))];
+
+    const etiquetas = [...tiposEntidad, ...rolesUsuario];
+    const descripcion = etiquetas.length > 0 ? etiquetas.join(', ') : 'sin rol identificado';
+
+    return `El correo ${normalizedEmail} ya está dado de alta para \"${personaExistente.nombre_legal}\" con: ${descripcion}.`;
+  };
+
   const createMutation = useMutation({
     mutationFn: async (personData: any) => {
       const {
@@ -383,31 +422,15 @@ export default function Inmobiliarias() {
       // Validate email uniqueness before creating
       if (cleanPersonData.email) {
         const emailLower = cleanPersonData.email.toLowerCase().trim();
-        
-        // Check if email is already used by a user
-        const { data: existingUser } = await supabase
-          .from('usuarios')
-          .select('email')
+
+        const { data: existingPersona } = await supabase
+          .from('personas')
+          .select('id')
           .ilike('email', emailLower)
           .maybeSingle();
-        
-        if (existingUser) {
-          throw new Error(`El email ${emailLower} ya está registrado como usuario del sistema. No puedes usar este email para la inmobiliaria.`);
-        }
-        
-        // Check if email is used by another inmobiliaria
-        const { data: inmobiliariaPersonas } = await supabase
-          .from('entidades_relacionadas')
-          .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(email, nombre_legal)')
-          .eq('id_tipo_entidad', 5)
-          .eq('activo', true);
-        
-        const existingInmobiliaria = (inmobiliariaPersonas || []).find((er: any) => 
-          er.personas?.email?.toLowerCase() === emailLower
-        );
-        
-        if (existingInmobiliaria) {
-          throw new Error(`El email ${emailLower} ya pertenece a la inmobiliaria: "${(existingInmobiliaria as any).personas.nombre_legal}".`);
+
+        if (existingPersona) {
+          throw new Error(await buildEmailInUseMessage(emailLower));
         }
       }
       
@@ -417,7 +440,12 @@ export default function Inmobiliarias() {
         .select()
         .single();
       
-      if (personError) throw personError;
+      if (personError) {
+        if (personError.code === '23505' && personError.message?.includes('personas_email_key') && cleanPersonData.email) {
+          throw new Error(await buildEmailInUseMessage(cleanPersonData.email));
+        }
+        throw personError;
+      }
       
       // Get the Inmobiliaria entity type ID
       const { data: tipoEntidad, error: tipoError } = await supabase
@@ -756,30 +784,14 @@ export default function Inmobiliarias() {
         
         // Only validate if email is actually being changed
         if (emailLower !== currentEmail) {
-          // Check if email is already used by another user
-          const { data: existingUser } = await supabase
-            .from('usuarios')
-            .select('email')
+          const { data: existingPersona } = await supabase
+            .from('personas')
+            .select('id')
             .ilike('email', emailLower)
             .maybeSingle();
-          
-          if (existingUser) {
-            throw new Error(`El email ${emailLower} ya está registrado como usuario del sistema. No puedes usar este email para la inmobiliaria.`);
-          }
-        
-          // Check if email is used by another inmobiliaria (excluding current one)
-          const { data: inmobiliariaPersonas } = await supabase
-            .from('entidades_relacionadas')
-            .select('id_persona, personas!entidades_relacionadas_id_persona_fkey(id, email, nombre_legal)')
-            .eq('id_tipo_entidad', 5)
-            .eq('activo', true);
-          
-          const otherInmobiliariaWithEmail = (inmobiliariaPersonas || []).find((er: any) => 
-            er.personas?.email?.toLowerCase() === emailLower && er.personas?.id !== editingEntity.id
-          );
-          
-          if (otherInmobiliariaWithEmail) {
-            throw new Error(`El email ${emailLower} ya pertenece a otra inmobiliaria: "${(otherInmobiliariaWithEmail as any).personas.nombre_legal}".`);
+
+          if (existingPersona && existingPersona.id !== editingEntity.id) {
+            throw new Error(await buildEmailInUseMessage(emailLower, editingEntity.id));
           }
         }
       }
@@ -789,7 +801,12 @@ export default function Inmobiliarias() {
         .update(cleanPersonData)
         .eq('id', editingEntity?.id);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        if (updateError.code === '23505' && updateError.message?.includes('personas_email_key') && cleanPersonData.email) {
+          throw new Error(await buildEmailInUseMessage(cleanPersonData.email, editingEntity?.id));
+        }
+        throw updateError;
+      }
       
       // Sincronizar teléfono con usuarios si la inmobiliaria tiene usuario asociado
       if (editingEntity?.id && (cleanPersonData.telefono !== undefined || cleanPersonData.clave_pais_telefono !== undefined)) {
