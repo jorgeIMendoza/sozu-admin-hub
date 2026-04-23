@@ -319,7 +319,7 @@ Deno.serve(async (req) => {
       }
 
       for (const offset of effectiveOffsets) {
-          const executionId = await createExecutionLog(supabaseAdmin, aviso.id, executionOrigin);
+          let executionId: number | null = null;
         const metrics = createExecutionMetrics();
 
         const target = new Date(mexNow);
@@ -333,10 +333,11 @@ Deno.serve(async (req) => {
         if (!ignoreWindow && !withinSendWindow(trig.hora_envio as string, mexNow)) {
           console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): fuera de ventana hora_envio=${trig.hora_envio}`);
           addMotivo(metrics, `Fuera de ventana de envío (${trig.hora_envio})`);
-          await finalizeExecutionLog(supabaseAdmin, executionId, metrics);
           summary.skipped++;
           continue;
         }
+
+          executionId = await createExecutionLog(supabaseAdmin, aviso.id, executionOrigin);
 
         if (selectedProjectIds.length === 0) {
           console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): sin desarrollos habilitados`);
