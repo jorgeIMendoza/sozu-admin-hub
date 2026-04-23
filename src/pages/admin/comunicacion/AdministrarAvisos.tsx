@@ -482,6 +482,20 @@ export default function AdministrarAvisos() {
       return;
     }
 
+    const whatsappLimpios = mensajesWhatsapp.map((mensaje) => mensaje.trim());
+    if (whatsappLimpios.some((mensaje) => !mensaje)) {
+      toast({ title: "Error", description: "Debes capturar los 3 mensajes de WhatsApp", variant: "destructive" });
+      return;
+    }
+    if (new Set(whatsappLimpios.map((mensaje) => mensaje.toLowerCase())).size !== 3) {
+      toast({ title: "Error", description: "Los 3 mensajes de WhatsApp deben ser distintos", variant: "destructive" });
+      return;
+    }
+    if (selectedProyectos.length === 0) {
+      toast({ title: "Error", description: "Debes seleccionar al menos un desarrollo publicado", variant: "destructive" });
+      return;
+    }
+
     // Validate custom payload JSON
     let payloadPostmark: any = null;
     if (payloadEnabled) {
@@ -499,6 +513,7 @@ export default function AdministrarAvisos() {
 
     const payload = {
       nombre, asunto, mensaje_html: mensajeHtml, tipo_envio: tipoEnvio,
+      mensajes_whatsapp: whatsappLimpios,
       cron_expression: (tipoEnvio === 'automatico' && modoTrigger === 'cron') ? cronExpression : null,
       activo, fecha_actualizacion: new Date().toISOString(),
       postmark_template_id: templateId,
@@ -529,14 +544,25 @@ export default function AdministrarAvisos() {
         }))
       );
     } else if (destinatarios.length > 0) {
-      const { data: firstRole } = await supabase.from('roles').select('id').eq('activo', true).limit(1).single();
-      if (firstRole) {
-        await supabase.from('avisos_roles_destinatarios').insert({
+      await supabase.from('avisos_roles_destinatarios').insert({
+        id_aviso: avisoId,
+        id_rol: null,
+        correos: correosJson,
+      });
+    }
+
+    const proyectoIdsSeleccionados = proyectosPublicados
+      .filter((proyecto) => selectedProyectos.includes(proyecto.nombre))
+      .map((proyecto) => proyecto.id);
+    await supabase.from('avisos_proyectos').delete().eq('id_aviso', avisoId);
+    if (proyectoIdsSeleccionados.length > 0) {
+      await supabase.from('avisos_proyectos').insert(
+        proyectoIdsSeleccionados.map((id_proyecto) => ({
           id_aviso: avisoId,
-          id_rol: firstRole.id,
-          correos: correosJson,
-        });
-      }
+          id_proyecto,
+          activo: true,
+        }))
+      );
     }
 
     // Persist event-trigger config: one row per aviso (delete + insert for simplicity)
