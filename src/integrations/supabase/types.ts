@@ -4373,6 +4373,18 @@ export type Database = {
           },
         ]
       }
+      historico_claves_rastreo: {
+        Row: {
+          clave_rastreo: string | null
+        }
+        Insert: {
+          clave_rastreo?: string | null
+        }
+        Update: {
+          clave_rastreo?: string | null
+        }
+        Relationships: []
+      }
       inmob_kpi_mensual: {
         Row: {
           anio: number
