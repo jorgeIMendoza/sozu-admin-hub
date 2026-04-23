@@ -151,7 +151,52 @@ async function getSelectedProjectIds(supabaseAdmin: any, avisoId: number): Promi
   return (data || []).map((item: any) => item.id_proyecto).filter((id: unknown): id is number => typeof id === 'number');
 }
 
-async function createExecutionLog(supabaseAdmin: any, avisoId: number) {
+type ExecutionOrigin = 'cron' | 'manual_explicit';
+
+function resolveExecutionOrigin(value: unknown): ExecutionOrigin {
+  if (typeof value !== 'string') return 'cron';
+  return value === 'manual_explicit' ? 'manual_explicit' : 'cron';
+}
+
+function buildManualEntityKey(baseKey: string, executionOrigin: ExecutionOrigin, executionId: number | null): string {
+  if (executionOrigin === 'manual_explicit') {
+    return `${baseKey}:exec:${executionId ?? 'sin-ejecucion'}`;
+  }
+  return baseKey;
+}
+
+async function getSuccessfulManualRecipients(
+  supabaseAdmin: any,
+  avisoId: number,
+  triggerId: number,
+  fechaObjetivo: string,
+  emails: string[],
+): Promise<Set<string>> {
+  const uniqueEmails = [...new Set(emails.map((email) => email.trim()).filter(Boolean))];
+  if (uniqueEmails.length === 0) return new Set();
+
+  const { data, error } = await supabaseAdmin
+    .from('avisos_envios_evento')
+    .select('email_destino')
+    .eq('id_aviso', avisoId)
+    .eq('id_trigger', triggerId)
+    .eq('fecha_objetivo', fechaObjetivo)
+    .in('email_destino', uniqueEmails)
+    .in('estado', ['enviado', 'parcial']);
+
+  if (error) {
+    console.error(`Error consultando envíos manuales exitosos previos:`, error);
+    return new Set();
+  }
+
+  return new Set(
+    (data || [])
+      .map((row: any) => (typeof row.email_destino === 'string' ? row.email_destino.trim() : ''))
+      .filter(Boolean),
+  );
+}
+
+async function createExecutionLog(supabaseAdmin: any, avisoId: number, executionOrigin: ExecutionOrigin) {
   const { data, error } = await supabaseAdmin
     .from('avisos_ejecuciones')
     .insert({
@@ -163,7 +208,7 @@ async function createExecutionLog(supabaseAdmin: any, avisoId: number) {
       total_errores: 0,
       estado: 'completado',
       detalle_error: null,
-      ejecutado_por: 'cron:evento',
+      ejecutado_por: executionOrigin === 'manual_explicit' ? 'manual:evento' : 'cron:evento',
     })
     .select('id')
     .single();
@@ -207,10 +252,15 @@ Deno.serve(async (req) => {
     const dryRun = url.searchParams.get('dry_run') === '1';
     const overrideOffsetParam = url.searchParams.get('override_offset');
     const overrideOffset = overrideOffsetParam !== null ? Number(overrideOffsetParam) : null;
+    const requestBody = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const executionOrigin = resolveExecutionOrigin(
+      (requestBody as Record<string, unknown>)?.execution_origin
+      ?? ((requestBody as Record<string, unknown>)?.tipo_trigger === 'manual' ? 'manual_explicit' : 'cron')
+    );
 
     const mexNow = getMexicoTime();
     const tag = `[${fmtTime(mexNow)} MX]`;
-    console.log(`${tag} evaluar-triggers-evento iniciando (ignoreWindow=${ignoreWindow}, dryRun=${dryRun})`);
+    console.log(`${tag} evaluar-triggers-evento iniciando (ignoreWindow=${ignoreWindow}, dryRun=${dryRun}, executionOrigin=${executionOrigin})`);
 
     const { data: triggers, error: tErr } = await supabaseAdmin
       .from('avisos_triggers_evento')
@@ -269,7 +319,7 @@ Deno.serve(async (req) => {
       }
 
       for (const offset of effectiveOffsets) {
-        const executionId = await createExecutionLog(supabaseAdmin, aviso.id);
+          const executionId = await createExecutionLog(supabaseAdmin, aviso.id, executionOrigin);
         const metrics = createExecutionMetrics();
 
         const target = new Date(mexNow);
@@ -486,7 +536,7 @@ Deno.serve(async (req) => {
                 email: m.email,
                 nombre: m.nombre || persona.nombre_legal || '',
                 telefono: m.telefono || '',
-                claveEntidad: `${claveEntidadManualBase}:exec:${executionId ?? 'sin-ejecucion'}`,
+                claveEntidad: buildManualEntityKey(claveEntidadManualBase, executionOrigin, executionId),
                 asunto: destAsunto,
                 html: destHtml,
                 textoPlano,
@@ -658,7 +708,39 @@ Deno.serve(async (req) => {
 
         if (manualAccum.size > 0 && rowsFilteredByProject.length > 0) {
           const channel = trig.canal as string;
-          const destinatariosManual = Array.from(manualAccum.values());
+          let destinatariosManual = Array.from(manualAccum.values());
+          if (executionOrigin === 'cron') {
+            const successfulEmails = await getSuccessfulManualRecipients(
+              supabaseAdmin,
+              aviso.id,
+              trig.id,
+              fechaObjetivo,
+              destinatariosManual.map((dest) => dest.email),
+            );
+
+            if (successfulEmails.size > 0) {
+              const omitidosPrevios = destinatariosManual.filter((dest) => successfulEmails.has(dest.email));
+              if (omitidosPrevios.length > 0) {
+                metrics.omitidos += omitidosPrevios.length;
+                addMotivo(metrics, 'Ya enviado exitosamente en esta ventana; reenvío automático omitido');
+                console.log(`${tag} trigger ${trig.id} offset ${offset}: ${omitidosPrevios.length} destinatario(s) manual(es) omitido(s) por éxito previo en ventana`);
+                summary.details.push({
+                  trigger_id: trig.id,
+                  offset,
+                  fecha_objetivo: fechaObjetivo,
+                  consolidado: true,
+                  skipped_successful_window: omitidosPrevios.map((dest) => dest.email),
+                });
+              }
+              destinatariosManual = destinatariosManual.filter((dest) => !successfulEmails.has(dest.email));
+            }
+          }
+
+          if (destinatariosManual.length === 0) {
+            await finalizeExecutionLog(supabaseAdmin, executionId, metrics);
+            continue;
+          }
+
           metrics.destinatarios = destinatariosManual.length;
 
           const insertedIds: number[] = [];
