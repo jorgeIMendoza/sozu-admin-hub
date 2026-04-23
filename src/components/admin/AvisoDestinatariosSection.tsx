@@ -394,6 +394,17 @@ export function AvisoDestinatariosSection({
 
   return (
     <div className="space-y-4">
+      {/* Aviso whitelist semantics */}
+      <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs text-foreground/80 leading-relaxed">
+        <strong className="text-foreground">¿Cómo funciona la lista de destinatarios?</strong>
+        <br />
+        Si el aviso es <strong>de evento</strong> (ej. recordatorio de pago), la lista cargada
+        funciona como una <strong>whitelist</strong> sobre el email del cliente real del acuerdo:
+        solo se notifica a los clientes cuyo correo aparece en la lista. Si la dejas{" "}
+        <strong>vacía</strong>, se notifica automáticamente a <strong>todos</strong> los clientes
+        que cumplan la condición del trigger.
+      </div>
+
       {/* Roles selection */}
       <div>
         <Label>Roles Destinatarios</Label>

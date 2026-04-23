@@ -171,6 +171,42 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Si el aviso es de evento, delegamos a evaluar-triggers-evento para que aplique la
+    // semántica de whitelist sobre el email del cliente real del acuerdo. Esto evita
+    // duplicar lógica y garantiza que el envío manual respete el modo Personalizado y la
+    // misma lógica de destinatarios que la corrida automática.
+    if ((aviso as any).modo_trigger === 'evento') {
+      try {
+        const evalUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/evaluar-triggers-evento?ignore_window=1`;
+        const r = await fetch(evalUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          },
+          body: JSON.stringify({ execution_origin: 'manual_explicit', aviso_id }),
+        });
+        const txt = await r.text();
+        let body: any = null;
+        try { body = JSON.parse(txt); } catch { body = { raw: txt }; }
+        return new Response(JSON.stringify({
+          delegated_to: 'evaluar-triggers-evento',
+          status: r.status,
+          ...body,
+        }), {
+          status: r.ok ? 200 : 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({
+          error: `Error delegando a evaluar-triggers-evento: ${(err as Error).message}`,
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Use the template ID from the aviso record, fallback to default
     const templateId = aviso.postmark_template_id || 36978552;
     const mensajesWhatsapp = Array.isArray((aviso as any).mensajes_whatsapp)

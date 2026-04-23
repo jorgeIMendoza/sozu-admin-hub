@@ -347,9 +347,22 @@ Deno.serve(async (req) => {
           }
         }
       }
-      if (manualEmails.length > 0) {
+      // NUEVA SEMÁNTICA: la lista manual opera como WHITELIST sobre el email del cliente real del acuerdo.
+      // Se usa nombre/telefono del manual como override cuando coinciden; si la lista está vacía,
+      // se notifica a todos los clientes reales que cumplan la condición del trigger.
+      const manualOverridesByEmail = new Map<string, { nombre: string; telefono: string }>();
+      const manualEmailsSet = new Set<string>();
+      for (const m of manualEmails) {
+        const key = m.email.toLowerCase();
+        manualEmailsSet.add(key);
+        if (!manualOverridesByEmail.has(key)) {
+          manualOverridesByEmail.set(key, { nombre: m.nombre || '', telefono: m.telefono || '' });
+        }
+      }
+      const hasManualWhitelist = manualEmailsSet.size > 0;
+      if (hasManualWhitelist) {
         const conTel = manualEmails.filter((m) => m.telefono).length;
-        console.log(`${tag} trigger ${trig.id}: ${manualEmails.length} destinatario(s) manual(es) (${conTel} con teléfono) → REEMPLAZAN al cliente real`);
+        console.log(`${tag} trigger ${trig.id}: ${manualEmailsSet.size} correo(s) manual(es) cargados (${conTel} con teléfono) → operan como whitelist sobre el email del cliente del acuerdo`);
       }
 
       const offsets: number[] = (trig.offsets_dias as number[]) || [];
@@ -510,17 +523,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const manualAccum: Map<string, {
-          email: string;
-          nombre: string;
-          telefono: string;
-          claveEntidadBase: string;
-          claveEntidad?: string;
-          asunto: string;
-          html: string;
-          textoPlano: string;
-          templateModel: any;
-        }> = new Map();
         const isPersonalizado = !!aviso.personalizado;
 
         for (const ac of rowsFilteredByProject) {
@@ -538,11 +540,28 @@ Deno.serve(async (req) => {
           const channel = trig.canal as string;
           const emailReal = emailOverride || persona.email || null;
 
+          // Whitelist: si hay lista manual cargada, exigir que el email del cliente real esté en ella.
+          const emailRealLower = (emailReal || '').toLowerCase();
+          if (hasManualWhitelist) {
+            if (!emailRealLower || !manualEmailsSet.has(emailRealLower)) {
+              console.log(`${tag} acuerdo ${ac.id}: cliente "${persona.email || '(sin email)'}" fuera de whitelist manual, omitiendo`);
+              addMotivo(metrics, 'Cliente del acuerdo no está en la lista manual (whitelist)');
+              continue;
+            }
+          }
+
+          // Override de nombre/telefono cuando el email del cliente coincide con el manual.
+          const manualOverride = emailRealLower ? manualOverridesByEmail.get(emailRealLower) : undefined;
+          const nombreFinal = manualOverride?.nombre || persona.nombre_legal || '';
+          const telefonoFinal = manualOverride?.telefono
+            ? manualOverride.telefono
+            : (persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '');
+
           const vars: Record<string, string> = {
-            nombre: persona.nombre_legal || '',
+            nombre: nombreFinal,
             tratamiento: resolveTratamiento(persona.sexo),
             email: persona.email || '',
-            telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
+            telefono: telefonoFinal,
             monto: fmtMoney(Number(ac.monto || 0)),
             fecha_pago: fmtDate(ac.fecha_pago as string),
             mes: formatMonthName(ac.fecha_pago as string),
@@ -561,174 +580,16 @@ Deno.serve(async (req) => {
           vars.asunto = renderedAsunto;
           vars.texto = renderedHtml;
 
-          if (manualEmails.length > 0) {
-            if (isPersonalizado) {
-              for (const m of manualEmails) {
-                const claveEntidad = `trigger:${trig.id}:offset:${offset}:fecha:${fechaObjetivo}:manual:${m.email}:acuerdo:${ac.id}`;
-                const destVars: Record<string, string> = { ...vars, nombre: m.nombre || persona.nombre_legal || '' };
-                const destAsunto = renderTemplate(aviso.asunto || '', destVars);
-                const destHtml = renderTemplate(aviso.mensaje_html || '', destVars);
-                destVars.asunto = destAsunto;
-                destVars.texto = destHtml;
-                const destTemplateModel = aviso.payload_postmark
-                  ? renderJsonTemplate(aviso.payload_postmark, destVars)
-                  : { mensaje: { nombre: m.nombre || persona.nombre_legal || '', texto: destHtml, asunto: destAsunto } };
-                const mensajeWaTpl = pickRandomWhatsappMessage(aviso.mensajes_whatsapp, aviso.mensaje_html || '');
-                const textoPlano = renderTemplate(mensajeWaTpl, destVars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-
-                if (executionOrigin === 'cron') {
-                  const successfulKeys = await getSuccessfulEntityKeys(supabaseAdmin, aviso.id, trig.id, fechaObjetivo, [claveEntidad]);
-                  if (successfulKeys.has(claveEntidad)) {
-                    metrics.omitidos++;
-                    addMotivo(metrics, 'Ya enviado exitosamente en esta ventana; reenvío automático omitido');
-                    continue;
-                  }
-                }
-
-                executionId = await ensureExecutionLog(supabaseAdmin, executionId, aviso.id, executionOrigin);
-                metrics.destinatarios++;
-
-                const { data: ins, error: insErr } = await supabaseAdmin
-                  .from('avisos_envios_evento')
-                  .insert({
-                    id_aviso: aviso.id,
-                    id_trigger: trig.id,
-                    clave_entidad: claveEntidad,
-                    fecha_objetivo: fechaObjetivo,
-                    email_destino: m.email,
-                    telefono_destino: m.telefono ? normalizarTelefonoWA(m.telefono) : null,
-                    canal: channel,
-                    estado: 'enviando',
-                  })
-                  .select('id')
-                  .single();
-
-                if (insErr) {
-                  if ((insErr as any).code === '23505') {
-                    metrics.omitidos++;
-                    addMotivo(metrics, 'Ya enviado previamente; ejecución omitida');
-                  } else {
-                    metrics.errores++;
-                    summary.errors++;
-                    addMotivo(metrics, `Error registrando destinatario manual: ${(insErr as any).message || 'desconocido'}`);
-                  }
-                  continue;
-                }
-
-                const telDigits = normalizarTelefonoWA(m.telefono || '');
-                const telWA = telefonoConPlus(telDigits);
-                let tipoN8N: 'wa' | 'email' | 'ambos' | null = null;
-                if (channel === 'ambos') {
-                  if (m.email && telWA) tipoN8N = 'ambos';
-                  else if (m.email) tipoN8N = 'email';
-                  else if (telWA) tipoN8N = 'wa';
-                } else if (channel === 'whatsapp') {
-                  if (telWA) tipoN8N = 'wa';
-                } else if (channel === 'email') {
-                  if (m.email) tipoN8N = 'email';
-                }
-
-                let finalEstado: 'enviado' | 'parcial' | 'error' | 'simulado' = 'error';
-                let errMsg = '';
-                const payloadN8N: Record<string, unknown> = {
-                  tipo: tipoN8N,
-                  from: 'Notificaciones Sozu <notificaciones@sozu.com>',
-                  templateId: aviso.postmark_template_id || 36978552,
-                  mensaje: destTemplateModel?.mensaje ?? destTemplateModel,
-                  mensajeWA: textoPlano,
-                  asunto: destAsunto,
-                  email: m.email || null,
-                  telefono: telWA || null,
-                  cc: bccList.length > 0 ? bccList.join(',') : null,
-                  origen: 'aviso_evento_personalizado',
-                  aviso_id: aviso.id,
-                  trigger_id: trig.id,
-                  clave_entidad: claveEntidad,
-                  destinatario_tipo: 'manual',
-                  nombre_usuario: m.nombre || persona.nombre_legal || '',
-                };
-
-                if (dryRun) {
-                  finalEstado = 'simulado';
-                  await supabaseAdmin.from('avisos_envios_evento').update({ estado: finalEstado, error: 'dry_run', payload_enviado: payloadN8N as any }).eq('id', ins.id);
-                  summary.sent++;
-                  metrics.enviados++;
-                  continue;
-                }
-
-                if (!tipoN8N) {
-                  errMsg = `sin destino válido (canal=${channel}, email=${!!m.email}, tel=${!!telWA})`;
-                } else {
-                  try {
-                    const waToken = Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN') || '';
-                    const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/enviar-notificacion`;
-                    const r = await fetch(fnUrl, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                        'apikey': waToken,
-                      },
-                      body: JSON.stringify(payloadN8N),
-                    });
-                    if (!r.ok) {
-                      const txt = await r.text().catch(() => '');
-                      errMsg = `n8n ${tipoN8N}: ${r.status} ${txt.slice(0, 200)}`;
-                    } else {
-                      finalEstado = 'enviado';
-                    }
-                  } catch (e) {
-                    errMsg = `n8n red: ${(e as Error).message}`;
-                  }
-                }
-
-                await supabaseAdmin.from('avisos_envios_evento').update({ estado: finalEstado, error: errMsg || null, payload_enviado: payloadN8N as any }).eq('id', ins.id);
-                if (finalEstado === 'enviado') {
-                  summary.sent++;
-                  metrics.enviados++;
-                } else {
-                  summary.errors++;
-                  metrics.errores++;
-                  addMotivo(metrics, errMsg || 'Error enviando notificación personalizada');
-                }
-              }
-              continue;
-            }
-
-            for (const m of manualEmails) {
-              const key = `${m.email}|${m.telefono || ''}`;
-              if (manualAccum.has(key)) continue;
-              const destVars: Record<string, string> = { ...vars, nombre: m.nombre || persona.nombre_legal || '' };
-              const destAsunto = renderTemplate(aviso.asunto || '', destVars);
-              const destHtml = renderTemplate(aviso.mensaje_html || '', destVars);
-              destVars.asunto = destAsunto;
-              destVars.texto = destHtml;
-              const destTemplateModel = aviso.payload_postmark
-                ? renderJsonTemplate(aviso.payload_postmark, destVars)
-                : { mensaje: { nombre: m.nombre || persona.nombre_legal || '', texto: destHtml, asunto: destAsunto } };
-              const mensajeWaTpl = pickRandomWhatsappMessage(aviso.mensajes_whatsapp, aviso.mensaje_html || '');
-              const textoPlano = renderTemplate(mensajeWaTpl, destVars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-              const claveEntidadManualBase = `trigger:${trig.id}:offset:${offset}:fecha:${fechaObjetivo}:manual:${m.email}`;
-              manualAccum.set(key, {
-                email: m.email,
-                nombre: m.nombre || persona.nombre_legal || '',
-                telefono: m.telefono || '',
-                claveEntidadBase: claveEntidadManualBase,
-                asunto: destAsunto,
-                html: destHtml,
-                textoPlano,
-                templateModel: destTemplateModel,
-              });
-            }
+          if (!emailReal) {
+            console.log(`${tag} acuerdo ${ac.id}: cliente sin email, omitiendo`);
+            addMotivo(metrics, 'Cliente sin email');
             continue;
           }
 
-          if (!emailReal) continue;
-
           const destinatarios = [{
             email: emailReal,
-            nombre: persona.nombre_legal || '',
-            telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
+            nombre: nombreFinal,
+            telefono: telefonoFinal,
             tipo: 'cliente' as const,
             claveEntidad: `acuerdo:${ac.id}:offset:${offset}`,
           }];
@@ -881,217 +742,6 @@ Deno.serve(async (req) => {
             }
 
             summary.details.push({ trigger_id: trig.id, clave_entidad: dest.claveEntidad, estado: finalEstado, tipo: dest.tipo });
-          }
-        }
-
-        if (manualAccum.size > 0 && rowsFilteredByProject.length > 0) {
-          const channel = trig.canal as string;
-          let destinatariosManual = Array.from(manualAccum.values());
-          if (executionOrigin === 'cron') {
-            const successfulEmails = await getSuccessfulManualRecipients(
-              supabaseAdmin,
-              aviso.id,
-              trig.id,
-              fechaObjetivo,
-              destinatariosManual.map((dest) => dest.email),
-            );
-
-            if (successfulEmails.size > 0) {
-              const omitidosPrevios = destinatariosManual.filter((dest) => successfulEmails.has(dest.email));
-              if (omitidosPrevios.length > 0) {
-                metrics.omitidos += omitidosPrevios.length;
-                addMotivo(metrics, 'Ya enviado exitosamente en esta ventana; reenvío automático omitido');
-                console.log(`${tag} trigger ${trig.id} offset ${offset}: ${omitidosPrevios.length} destinatario(s) manual(es) omitido(s) por éxito previo en ventana`);
-                summary.details.push({
-                  trigger_id: trig.id,
-                  offset,
-                  fecha_objetivo: fechaObjetivo,
-                  consolidado: true,
-                  skipped_successful_window: omitidosPrevios.map((dest) => dest.email),
-                });
-              }
-              destinatariosManual = destinatariosManual.filter((dest) => !successfulEmails.has(dest.email));
-            }
-          }
-
-          if (destinatariosManual.length === 0) {
-            continue;
-          }
-
-          executionId = await ensureExecutionLog(supabaseAdmin, executionId, aviso.id, executionOrigin);
-          metrics.destinatarios = destinatariosManual.length;
-
-          for (const d of destinatariosManual) {
-            d.claveEntidad = buildManualEntityKey(d.claveEntidadBase, executionOrigin, executionId);
-          }
-
-          const insertedIds: number[] = [];
-          let yaEnviado = false;
-          for (const d of destinatariosManual) {
-            const { data: ins, error: insErr } = await supabaseAdmin
-              .from('avisos_envios_evento')
-              .insert({
-                id_aviso: aviso.id,
-                id_trigger: trig.id,
-                clave_entidad: d.claveEntidad,
-                fecha_objetivo: fechaObjetivo,
-                email_destino: d.email,
-                telefono_destino: d.telefono ? normalizarTelefonoWA(d.telefono) : null,
-                canal: channel,
-                estado: 'enviando',
-              })
-              .select('id')
-              .single();
-            if (insErr) {
-              if ((insErr as any).code === '23505') {
-                console.log(`${tag} ${d.claveEntidad}: ya enviado, omitiendo lote consolidado`);
-                yaEnviado = true;
-                break;
-              }
-              console.error(`${tag} insert error ${d.claveEntidad}:`, insErr);
-              metrics.errores++;
-              summary.errors++;
-              addMotivo(metrics, `Error registrando destinatario manual: ${(insErr as any).message || 'desconocido'}`);
-              continue;
-            }
-            insertedIds.push(ins.id);
-          }
-
-          if (yaEnviado) {
-            if (insertedIds.length > 0) {
-              for (const id of insertedIds) {
-                await supabaseAdmin
-                  .from('avisos_envios_evento')
-                  .update({ estado: 'omitido', error: 'ya enviado previamente' })
-                  .eq('id', id);
-              }
-            }
-            metrics.omitidos += destinatariosManual.length;
-            addMotivo(metrics, 'Ya enviado previamente; ejecución omitida');
-          } else if (insertedIds.length > 0) {
-            const emailsCSV = destinatariosManual
-              .map((d) => d.email)
-              .filter(Boolean)
-              .join(',');
-            const telefonosCSV = destinatariosManual
-              .map((d) => telefonoConPlus(normalizarTelefonoWA(d.telefono || '')))
-              .filter((t) => t && t.length > 1)
-              .join(',');
-            const base = destinatariosManual[0];
-
-            let tipoN8N: 'wa' | 'email' | 'ambos' | null = null;
-            if (channel === 'ambos') {
-              if (emailsCSV && telefonosCSV) tipoN8N = 'ambos';
-              else if (emailsCSV) tipoN8N = 'email';
-              else if (telefonosCSV) tipoN8N = 'wa';
-            } else if (channel === 'whatsapp') {
-              if (telefonosCSV) tipoN8N = 'wa';
-            } else if (channel === 'email') {
-              if (emailsCSV) tipoN8N = 'email';
-            }
-
-            let okBatch = true;
-            let errMsgBatch = '';
-            let payloadN8N: Record<string, unknown> | null = null;
-
-            if (!tipoN8N) {
-              okBatch = false;
-              errMsgBatch = `sin destino válido (canal=${channel}, emails=${!!emailsCSV}, tels=${!!telefonosCSV})`;
-            } else if (dryRun) {
-              payloadN8N = {
-                tipo: tipoN8N,
-                email: emailsCSV || null,
-                telefono: telefonosCSV || null,
-                asunto: base.asunto,
-                mensaje: base.templateModel?.mensaje ?? base.templateModel,
-                mensajeWA: base.textoPlano,
-                origen: 'aviso_evento_consolidado',
-                aviso_id: aviso.id,
-                trigger_id: trig.id,
-                total_destinatarios: destinatariosManual.length,
-              };
-              for (const id of insertedIds) {
-                await supabaseAdmin
-                  .from('avisos_envios_evento')
-                  .update({ estado: 'simulado', error: 'dry_run', payload_enviado: payloadN8N as any })
-                  .eq('id', id);
-              }
-              summary.sent += insertedIds.length;
-              metrics.enviados += insertedIds.length;
-              addMotivo(metrics, 'Simulación ejecutada');
-            } else {
-              try {
-                const waToken = Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN') || '';
-                const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/enviar-notificacion`;
-                const templateId = aviso.postmark_template_id || 36978552;
-
-                payloadN8N = {
-                  tipo: tipoN8N,
-                  from: 'Notificaciones Sozu <notificaciones@sozu.com>',
-                  templateId,
-                  asunto: base.asunto,
-                  mensaje: base.templateModel?.mensaje ?? base.templateModel,
-                  mensajeWA: base.textoPlano,
-                  email: emailsCSV || null,
-                  telefono: telefonosCSV || null,
-                  cc: bccList.length > 0 ? bccList.join(',') : null,
-                  origen: 'aviso_evento_consolidado',
-                  aviso_id: aviso.id,
-                  trigger_id: trig.id,
-                  total_destinatarios: destinatariosManual.length,
-                  total_acuerdos: rowsFilteredByProject.length,
-                  nombre_usuario: base.nombre,
-                };
-
-                const r = await fetch(fnUrl, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                    'apikey': waToken,
-                  },
-                  body: JSON.stringify(payloadN8N),
-                });
-                if (!r.ok) {
-                  const txt = await r.text().catch(() => '');
-                  okBatch = false;
-                  errMsgBatch = `n8n ${tipoN8N}: ${r.status} ${txt.slice(0, 200)}`;
-                }
-              } catch (e) {
-                okBatch = false;
-                errMsgBatch = `n8n red: ${(e as Error).message}`;
-              }
-
-              const estadoFinal = okBatch ? 'enviado' : 'error';
-              for (const id of insertedIds) {
-                await supabaseAdmin
-                  .from('avisos_envios_evento')
-                  .update({
-                    estado: estadoFinal,
-                    error: errMsgBatch || null,
-                    payload_enviado: payloadN8N as any,
-                  })
-                  .eq('id', id);
-              }
-              if (okBatch) {
-                summary.sent += insertedIds.length;
-                metrics.enviados += insertedIds.length;
-              } else {
-                summary.errors += insertedIds.length;
-                metrics.errores += insertedIds.length;
-                addMotivo(metrics, errMsgBatch || 'Error enviando lote consolidado');
-              }
-            }
-
-            console.log(`${tag} envío consolidado: ${destinatariosManual.length} destinatario(s) manual(es), ${rowsFilteredByProject.length} acuerdo(s), tipo=${tipoN8N}, ok=${okBatch}`);
-            summary.details.push({
-              trigger_id: trig.id,
-              consolidado: true,
-              destinatarios_manual: destinatariosManual.length,
-              acuerdos: rowsFilteredByProject.length,
-              tipo: tipoN8N,
-              ok: okBatch,
-            });
           }
         }
 
