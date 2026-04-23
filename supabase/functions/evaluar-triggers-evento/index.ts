@@ -484,6 +484,7 @@ Deno.serve(async (req) => {
           nombre: string;
           telefono: string;
           claveEntidadBase: string;
+          claveEntidad?: string;
           asunto: string;
           html: string;
           textoPlano: string;
