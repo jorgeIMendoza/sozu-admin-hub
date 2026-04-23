@@ -523,6 +523,34 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Calcular el "número real" de la parcialidad/concepto: rank dentro
+        // del mismo (cuenta_cobranza, concepto), no el campo `orden` global
+        // que mezcla apartado, enganche, parcialidades, etc.
+        const cuentaConceptoPairs = [...new Set(
+          rowsFilteredByProject.map((ac: any) => `${ac.id_cuenta_cobranza}|${ac.id_concepto}`)
+        )];
+        const cuentaIdsForRank = [...new Set(rowsFilteredByProject.map((ac: any) => ac.id_cuenta_cobranza))];
+        const conceptoIdsForRank = [...new Set(rowsFilteredByProject.map((ac: any) => ac.id_concepto))];
+        const { data: hermanos } = cuentaIdsForRank.length > 0 && conceptoIdsForRank.length > 0
+          ? await supabaseAdmin
+              .from('acuerdos_pago')
+              .select('id, id_cuenta_cobranza, id_concepto, orden, fecha_pago')
+              .in('id_cuenta_cobranza', cuentaIdsForRank)
+              .in('id_concepto', conceptoIdsForRank)
+              .eq('activo', true)
+              .order('fecha_pago', { ascending: true })
+              .order('orden', { ascending: true })
+          : { data: [] as any[] };
+        const ordenLocalById = new Map<number, number>();
+        const counterByPair = new Map<string, number>();
+        for (const h of (hermanos as any[]) || []) {
+          const key = `${h.id_cuenta_cobranza}|${h.id_concepto}`;
+          if (!cuentaConceptoPairs.includes(key)) continue;
+          const next = (counterByPair.get(key) || 0) + 1;
+          counterByPair.set(key, next);
+          ordenLocalById.set(h.id, next);
+        }
+
         const isPersonalizado = !!aviso.personalizado;
 
         for (const ac of rowsFilteredByProject) {
@@ -565,7 +593,8 @@ Deno.serve(async (req) => {
             monto: fmtMoney(Number(ac.monto || 0)),
             fecha_pago: fmtDate(ac.fecha_pago as string),
             mes: formatMonthName(ac.fecha_pago as string),
-            orden: String(ac.orden || ''),
+            orden: String(ordenLocalById.get(ac.id) ?? ac.orden ?? ''),
+            orden_global: String(ac.orden || ''),
             departamento: numeroDepartamento,
             producto: nombreProducto,
             proyecto: nombreProyecto,
