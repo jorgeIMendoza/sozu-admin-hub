@@ -314,6 +314,26 @@ export default function InmobConfiguracion() {
     }
   }, [persona]);
 
+  useEffect(() => {
+    if (repLegalData && !isEditRepLegalDialogOpen) {
+      setRepLegalForm({
+        nombre_legal: repLegalData.nombre_legal || "",
+        email: repLegalData.email || "",
+        telefono: repLegalData.telefono || "",
+      });
+    }
+  }, [repLegalData, isEditRepLegalDialogOpen]);
+
+  useEffect(() => {
+    if (repComData && !isEditRepComDialogOpen) {
+      setRepComForm({
+        nombre_legal: repComData.nombre_legal || "",
+        email: repComData.email || "",
+        telefono: repComData.telefono || "",
+      });
+    }
+  }, [repComData, isEditRepComDialogOpen]);
+
   // Copy address to fiscal address
   useEffect(() => {
     if (copiarDireccion && isEditingFiscal) {
@@ -622,13 +642,24 @@ export default function InmobConfiguracion() {
                 </div>
 
                 {/* Representantes */}
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Representante Legal</Label>
                     {persona.id_entidad_relacionada_rep_leg ? (
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-emerald-500" />
-                        <p className="font-medium text-foreground text-sm">{repLegalNombre || "Cargando..."}</p>
+                      <div className="space-y-2 rounded-md border border-border p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-2">
+                            <UserCheck className="h-4 w-4 text-primary mt-0.5" />
+                            <div className="space-y-1 text-sm">
+                              <p className="font-medium text-foreground">{repLegalData?.nombre_legal || "Cargando..."}</p>
+                              <p className="text-muted-foreground">{repLegalData?.email || "—"}</p>
+                              <p className="text-muted-foreground">{repLegalData?.telefono || "—"}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => setIsEditRepLegalDialogOpen(true)}>
+                            <Edit className="h-4 w-4 mr-1" /> Editar
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div>
@@ -644,12 +675,23 @@ export default function InmobConfiguracion() {
                       </div>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Representante Comercial</Label>
                     {persona.id_entidad_relacionada_rep_com ? (
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="h-4 w-4 text-emerald-500" />
-                        <p className="font-medium text-foreground text-sm">{repComNombre || "Cargando..."}</p>
+                      <div className="space-y-2 rounded-md border border-border p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-2">
+                            <UserCheck className="h-4 w-4 text-primary mt-0.5" />
+                            <div className="space-y-1 text-sm">
+                              <p className="font-medium text-foreground">{repComData?.nombre_legal || "Cargando..."}</p>
+                              <p className="text-muted-foreground">{repComData?.email || "—"}</p>
+                              <p className="text-muted-foreground">{repComData?.telefono || "—"}</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => setIsEditRepComDialogOpen(true)}>
+                            <Edit className="h-4 w-4 mr-1" /> Editar
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div>
@@ -906,6 +948,62 @@ export default function InmobConfiguracion() {
             entityType="representante_legal"
             restrictToBasicTab={true}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditRepLegalDialogOpen} onOpenChange={setIsEditRepLegalDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Representante Legal</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="rep-legal-nombre">Nombre</Label>
+              <Input id="rep-legal-nombre" value={repLegalForm.nombre_legal} onChange={(e) => setRepLegalForm((prev) => ({ ...prev, nombre_legal: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rep-legal-email">Correo</Label>
+              <Input id="rep-legal-email" type="email" value={repLegalForm.email} onChange={(e) => setRepLegalForm((prev) => ({ ...prev, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rep-legal-telefono">Teléfono</Label>
+              <Input id="rep-legal-telefono" value={repLegalForm.telefono} onChange={(e) => setRepLegalForm((prev) => ({ ...prev, telefono: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditRepLegalDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={() => saveRepLegalMutation.mutate()} disabled={saveRepLegalMutation.isPending || !repLegalForm.nombre_legal.trim() || !repLegalForm.email.trim()}>
+                <Save className="h-4 w-4 mr-1" /> Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditRepComDialogOpen} onOpenChange={setIsEditRepComDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Representante Comercial</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="rep-com-nombre">Nombre</Label>
+              <Input id="rep-com-nombre" value={repComForm.nombre_legal} onChange={(e) => setRepComForm((prev) => ({ ...prev, nombre_legal: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rep-com-email">Correo</Label>
+              <Input id="rep-com-email" type="email" value={repComForm.email} onChange={(e) => setRepComForm((prev) => ({ ...prev, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rep-com-telefono">Teléfono</Label>
+              <Input id="rep-com-telefono" value={repComForm.telefono} onChange={(e) => setRepComForm((prev) => ({ ...prev, telefono: e.target.value }))} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsEditRepComDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={() => saveRepComMutation.mutate()} disabled={saveRepComMutation.isPending || !repComForm.nombre_legal.trim() || !repComForm.email.trim()}>
+                <Save className="h-4 w-4 mr-1" /> Guardar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>
