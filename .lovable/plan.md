@@ -1,89 +1,65 @@
 
-Objetivo: agregar un switch llamado `Personalizado` en la configuración del aviso para controlar cómo se envían los destinatarios configurados (manuales y por rol), de forma que:
-- prendido: cada destinatario reciba su propio correo y/o WhatsApp con variables renderizadas para su caso;
-- apagado: se conserve el envío consolidado actual, donde sale un solo mensaje a la lista completa.
 
-Qué se va a construir
+## Problema identificado
 
-1. Persistir la nueva preferencia del aviso
-- Agregar un campo booleano en `avisos` para guardar el modo `personalizado`, con valor por defecto `false` para no romper el comportamiento actual.
-- Leer y guardar ese valor desde la pantalla de `Administrar Avisos`.
+El aviso `Recordatorio de pago 3 dia antes` (id 5) tiene:
+- 6 acuerdos elegibles hoy con offset -2 (clientes reales: Abraham, Edgar, José Ramón ×2, Luis Gabriel, Ricardo).
+- 390 correos cargados manualmente en `avisos_roles_destinatarios.correos.destinatarios` (padrón completo de clientes).
 
-2. Añadir el switch “Personalizado” en la UI
-- En `src/pages/admin/comunicacion/AdministrarAvisos.tsx`, incorporar un `Switch` con la etiqueta exacta `Personalizado`.
-- Ubicarlo junto a la configuración de envío del aviso para que quede claro que afecta el modo de entrega.
-- Al editar un aviso existente, cargar el valor guardado.
-- Al crear uno nuevo, iniciar apagado para conservar compatibilidad con los avisos actuales.
+La lógica actual en `evaluar-triggers-evento` aplica los manuales como destinatarios que **REEMPLAZAN al cliente real** y los itera **por cada acuerdo encontrado**. Resultado:
+- Personalizado prendido: 6 acuerdos × 390 manuales = **hasta 2,340 envíos** (cada cliente del padrón recibe el recordatorio de los 6 acuerdos ajenos).
+- Personalizado apagado: 6 acuerdos × 1 payload consolidado, cada uno a la lista CSV de 390 correos = los 390 reciben el mensaje 6 veces.
 
-3. Cambiar la lógica del envío por evento
-- En `supabase/functions/evaluar-triggers-evento/index.ts`, usar el nuevo flag del aviso para bifurcar el flujo de destinatarios configurados:
-  - `personalizado = false`: mantener el flujo consolidado actual (`manualAccum` + un solo payload con CSV de emails/teléfonos).
-  - `personalizado = true`: enviar uno por uno a cada destinatario configurado, reutilizando el patrón individual que hoy ya existe para cliente real.
-- En el modo personalizado:
-  - generar `asunto`, `mensaje`, `mensajeWA` y `payload_postmark` por destinatario;
-  - mandar `email` y/o `telefono` individual, no listas CSV;
-  - registrar un renglón por destinatario en `avisos_envios_evento`;
-  - mantener la idempotencia y la regla reciente de no duplicar corridas automáticas satisfechas dentro de la tolerancia.
+Esto es lo que estás viendo en producción.
 
-4. Mantener la personalización correcta
-- Con `personalizado = true`, la personalización debe seguir basándose en los datos del acuerdo/cuenta que se esté evaluando:
-  - `{{nombre}}`, `{{monto}}`, `{{fecha_pago}}`, `{{orden}}`, `{{departamento}}`, `{{producto}}`, `{{proyecto}}`, etc.
-- Para destinatarios manuales o por rol, cada envío saldrá separado pero con los valores del acuerdo correspondiente.
-- Cuando un mismo aviso aplique a múltiples acuerdos en la corrida, el envío se hará por destinatario y por contexto de acuerdo, en lugar de mezclar todo en un solo mensaje masivo.
+## Comportamiento correcto esperado
 
-5. Conservar el comportamiento actual cuando esté apagado
-- Si `Personalizado` está apagado, se mantiene exactamente el patrón que hoy viste en logs:
-  - un solo payload;
-  - `to` y/o `numero` en CSV;
-  - mismo contenido para toda la lista.
-- Esto evita cambios inesperados en avisos ya activos.
+Cuando un aviso de evento (acuerdo de pago) tiene una lista manual de destinatarios cargada:
+- la lista manual debe tratarse como **filtro/whitelist por email del cliente real**, no como reemplazo;
+- si el aviso aplica a 6 acuerdos, deben salir **6 envíos** dirigidos al email del cliente real de cada acuerdo, siempre que ese email esté presente en la lista manual cargada;
+- si el aviso no tiene lista manual, debe seguir disparándose al email del cliente real de cada acuerdo (comportamiento actual ya correcto).
 
-6. Revisar el envío manual desde la pantalla “Enviar Avisos”
-- El envío manual general hoy usa `supabase/functions/enviar-aviso-bulk/index.ts`.
-- Extender esa función para respetar también el nuevo flag:
-  - apagado: seguir usando lote masivo;
-  - prendido: enviar individualmente a cada destinatario con su render por destinatario.
-- Así el comportamiento será consistente tanto en avisos manuales como en automáticos.
+Adicionalmente:
+- los nombre/teléfono/etc del manual se usan **solo como override** cuando el email manual coincide con el del acuerdo (por ejemplo si el manual trae teléfono y el cliente real no lo tiene en `personas`);
+- el modo `personalizado` sigue controlando si el render es individual con `{{nombre}}`, `{{monto}}`, etc. (que ya es el caso porque el universo final es 1 cliente real por acuerdo).
 
-Archivos a tocar
-- `src/pages/admin/comunicacion/AdministrarAvisos.tsx`
-- `supabase/functions/evaluar-triggers-evento/index.ts`
-- `supabase/functions/enviar-aviso-bulk/index.ts`
-- `src/integrations/supabase/types.ts` se actualizará automáticamente después del cambio de base de datos; no se edita manualmente.
+## Cambios
 
-Cambio de base de datos
-- Crear migración para añadir a `avisos` un campo booleano, por ejemplo:
-  - `personalizado boolean not null default false`
-- No se requiere nueva tabla.
+### `supabase/functions/evaluar-triggers-evento/index.ts`
+1. Cambiar la semántica de `manualEmails`:
+   - dejar de tratarlos como "reemplazan al cliente real";
+   - construir un `Map<emailLower, { nombre, telefono }>` (`manualOverridesByEmail`) y un `Set<emailLower>` (`manualEmailsSet`).
+2. En el loop por acuerdo (`for (const ac of rowsFilteredByProject)`):
+   - calcular `emailReal` del cliente del acuerdo;
+   - si hay lista manual y `emailReal` no está en `manualEmailsSet`, saltar el acuerdo (con log y motivo "cliente del acuerdo no está en la lista manual");
+   - si está, tomar nombre/teléfono del manual cuando exista; si no, usar los del cliente real.
+3. Eliminar el bloque `if (manualEmails.length > 0) { ... }` que iteraba `manualEmails` por acuerdo (líneas 564–724) y la ruta `manualAccum` consolidada que envía a todos los manuales (líneas 887+).
+4. Mantener el resto del flujo (un envío por acuerdo, idempotencia por `acuerdo:{id}:offset:{n}`, modo personalizado para render por acuerdo, ventana de tolerancia, omitidos por reenvío automático).
+5. Actualizar el log: en vez de `"X destinatario(s) manual(es) → REEMPLAZAN al cliente real"`, escribir `"X correo(s) manual(es) cargados → operan como whitelist sobre el email del cliente del acuerdo"`.
 
-Diseño técnico
-```text
-Aviso.personalizado = false
-  -> destinatarios configurados
-  -> 1 payload consolidado
-  -> to/telefono como CSV
-  -> mismo contenido para todos
+### `supabase/functions/enviar-aviso-bulk/index.ts`
+Aplicar la misma corrección al envío manual desde "Enviar Avisos" cuando el aviso es de evento: la lista cargada actúa como whitelist sobre el cliente real del acuerdo, no como universo independiente.
 
-Aviso.personalizado = true
-  -> destinatarios configurados
-  -> N payloads individuales
-  -> un email/telefono por request
-  -> contenido renderizado por destinatario/contexto
-```
+### UI `src/pages/admin/comunicacion/AdministrarAvisos.tsx`
+- Añadir un texto de ayuda corto debajo de la sección de "Destinatarios" del aviso que aclare:
+  - "La lista manual funciona como whitelist sobre el email del cliente real del acuerdo. Si la dejas vacía, se notifica a todos los clientes que cumplan la condición del trigger."
+- Sin cambios funcionales adicionales.
 
-Resultado esperado
-- El switch `Personalizado` permitirá elegir entre:
-  - envío masivo no personalizado;
-  - envío individual personalizado.
-- El caso que mostraste del 22 de abril dejará de agrupar correos y WhatsApps cuando el switch esté prendido.
-- Los avisos actuales no cambiarán de comportamiento hasta que actives el switch.
+### Sin cambios de base de datos
+No se requiere migración; la información necesaria ya está en `avisos_roles_destinatarios.correos.destinatarios` y `personas.email`.
 
-Validación posterior
-- Crear o editar un aviso de recordatorio de pago con varios correos/teléfonos configurados.
-- Probar con `Personalizado` apagado:
-  1. debe seguir saliendo un solo payload consolidado.
-- Probar con `Personalizado` prendido:
-  2. deben salir múltiples requests, uno por destinatario;
-  3. cada request debe llevar solo un correo y/o un WhatsApp;
-  4. el contenido debe venir renderizado con los placeholders correctos;
-  5. la bitácora `avisos_envios_evento` debe registrar un envío por destinatario.
+## Resultado esperado tras el fix
+
+Para el aviso 5 ejecutado hoy (con offset -2 → fecha objetivo 2026-04-25):
+- 6 acuerdos elegibles;
+- emails reales: `elabrahamql@gmail.com`, `egrizo@hotmail.com`, `ing.escobar.mtz@gmail.com` (×2 acuerdos), `importacioneschavez@hotmail.com`, `doc_lyn@hotmail.com`;
+- los 5 emails únicos están dentro de los 390 manuales cargados;
+- saldrán **6 envíos personalizados, uno por acuerdo, al cliente real correspondiente** (uno de ellos repetido al mismo email pero por dos acuerdos distintos del mismo cliente, lo cual es correcto y queda diferenciado por `clave_entidad`).
+
+## Validación posterior
+
+1. Forzar una corrida del trigger 47 a una hora controlada y verificar en `avisos_envios_evento` que se crean exactamente 6 filas, una por acuerdo, cada una al email del cliente real.
+2. Confirmar en logs que aparece `"6 correo(s) manual(es) cargados → whitelist"` y que no se itera 390×6.
+3. Crear un acuerdo de prueba cuyo email NO esté en la lista manual y verificar que se omite con motivo "cliente fuera de whitelist".
+4. Quitar la lista manual del aviso y verificar que se siguen mandando 6 envíos a los 6 clientes reales.
+
