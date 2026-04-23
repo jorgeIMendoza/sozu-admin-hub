@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Pencil, Trash2, Search, Users, Mail, Loader2, Info, Clock, CalendarClock, Bell } from "lucide-react";
 import { DeleteConfirmationDialog } from "@/components/admin/DeleteConfirmationDialog";
@@ -39,6 +40,7 @@ interface Aviso {
   postmark_template_id: number;
   modo_trigger?: string | null;
   payload_postmark?: any;
+  tipos_pago_notificables?: number[] | null;
 }
 
 interface AvisoProyectoRow {
@@ -83,6 +85,29 @@ interface TriggerEvento {
   filtros?: any;
   activo: boolean;
 }
+
+const TIPOS_PAGO_OPTIONS = [
+  { id: 2, label: "Enganche", placeholder: "enganche" },
+  { id: 5, label: "Parcialidad", placeholder: "parcialidad" },
+  { id: 4, label: "Especial", placeholder: "especial" },
+  { id: 3, label: "Contraentrega", placeholder: "contraentrega" },
+] as const;
+
+const DEFAULT_TIPOS_PAGO = TIPOS_PAGO_OPTIONS.map((item) => item.id);
+
+const EVENT_PLACEHOLDERS = [
+  { key: "nombre", label: "Nombre del cliente" },
+  { key: "tratamiento", label: "Sr./Sra. según sexo" },
+  { key: "monto", label: "Monto del pago" },
+  { key: "fecha_pago", label: "Fecha de vencimiento" },
+  { key: "mes", label: "Mes de la fecha de pago" },
+  { key: "orden", label: "Número de parcialidad" },
+  { key: "departamento", label: "Número del departamento" },
+  { key: "producto", label: "Nombre del producto" },
+  { key: "proyecto", label: "Nombre del desarrollo" },
+  { key: "cuenta_id", label: "ID de cuenta de cobranza" },
+  { key: "offset", label: "Días respecto al vencimiento" },
+];
 
 const DIAS_SEMANA: Record<string, string> = { '0': 'domingo', '1': 'lunes', '2': 'martes', '3': 'miércoles', '4': 'jueves', '5': 'viernes', '6': 'sábado', '7': 'domingo' };
 const MESES: Record<string, string> = { '1': 'enero', '2': 'febrero', '3': 'marzo', '4': 'abril', '5': 'mayo', '6': 'junio', '7': 'julio', '8': 'agosto', '9': 'septiembre', '10': 'octubre', '11': 'noviembre', '12': 'diciembre' };
