@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       .from('avisos_triggers_evento')
       .select(`
         id, id_aviso, id_fuente, offsets_dias, hora_envio, canal, filtros, activo,
-        avisos:avisos!inner ( id, nombre, asunto, mensaje_html, postmark_template_id, activo, modo_trigger, payload_postmark ),
+          avisos:avisos!inner ( id, nombre, asunto, mensaje_html, mensajes_whatsapp, postmark_template_id, activo, modo_trigger, payload_postmark, tipos_pago_notificables ),
         fuente:aviso_triggers_fuentes!inner ( id, clave, activo )
       `)
       .eq('activo', true);
@@ -241,7 +241,8 @@ Deno.serve(async (req) => {
               id_propiedad,
               ofertas:ofertas!fk_ccob_oferta!inner (
                 id,
-                personas:personas!fk_ofertas_persona_lead!inner ( id, nombre_legal, email, telefono, clave_pais_telefono )
+                id_producto,
+                personas:personas!fk_ofertas_persona_lead!inner ( id, nombre_legal, email, telefono, clave_pais_telefono, sexo )
               )
             )
           `)
@@ -249,11 +250,11 @@ Deno.serve(async (req) => {
           .eq('pago_completado', false)
           .eq('fecha_pago', fechaObjetivo);
 
-        // Optional concepto filter
         const filtros: any = trig.filtros || {};
-        if (Array.isArray(filtros.id_concepto) && filtros.id_concepto.length > 0) {
-          q = q.in('id_concepto', filtros.id_concepto);
-        }
+        const tiposPagoConfigurados = Array.isArray(aviso.tipos_pago_notificables) && aviso.tipos_pago_notificables.length > 0
+          ? aviso.tipos_pago_notificables
+          : DEFAULT_TIPOS_PAGO;
+        q = q.in('id_concepto', tiposPagoConfigurados);
 
         // Modo prueba/auditoría:
         //   filtros.email_override: redirige TODOS los envíos a ese correo (ignora email del cliente)
