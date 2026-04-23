@@ -33,6 +33,7 @@ interface Aviso {
   asunto: string;
   mensaje_html: string;
   mensajes_whatsapp?: any;
+  personalizado?: boolean;
   tipo_envio: string;
   cron_expression: string | null;
   activo: boolean;
@@ -318,6 +319,7 @@ export default function AdministrarAvisos() {
   const [eventoCanal, setEventoCanal] = useState<'email' | 'whatsapp' | 'ambos'>('email');
   const [eventoActivo, setEventoActivo] = useState<boolean>(true);
   const [tiposPagoNotificables, setTiposPagoNotificables] = useState<number[]>(DEFAULT_TIPOS_PAGO);
+  const [personalizado, setPersonalizado] = useState<boolean>(false);
 
   // Payload Postmark personalizado
   const [payloadEnabled, setPayloadEnabled] = useState<boolean>(false);
@@ -432,6 +434,7 @@ export default function AdministrarAvisos() {
     setEventoOffsets('-5,-3,-1');
     setEventoHora('10:00'); setEventoCanal('email'); setEventoActivo(true);
     setTiposPagoNotificables(DEFAULT_TIPOS_PAGO);
+    setPersonalizado(false);
     setPayloadEnabled(false);
     setPayloadJson("");
     setDialogOpen(true);
@@ -442,6 +445,7 @@ export default function AdministrarAvisos() {
     setNombre(aviso.nombre); setAsunto(aviso.asunto); setMensajeHtml(aviso.mensaje_html);
     setTipoEnvio(aviso.tipo_envio); setCronExpression(aviso.cron_expression || "");
     setActivo(aviso.activo);
+    setPersonalizado(!!aviso.personalizado);
     setPostmarkTemplateId(String(aviso.postmark_template_id || 36978552));
     setMensajesWhatsapp(Array.isArray(aviso.mensajes_whatsapp)
       ? [...aviso.mensajes_whatsapp.slice(0, 3), ...Array(Math.max(0, 3 - aviso.mensajes_whatsapp.length)).fill("")]
@@ -587,6 +591,7 @@ export default function AdministrarAvisos() {
     const payload = {
       nombre, asunto, mensaje_html: mensajeHtml, tipo_envio: tipoEnvio,
       mensajes_whatsapp: whatsappLimpios,
+      personalizado,
       cron_expression: (tipoEnvio === 'automatico' && modoTrigger === 'cron') ? cronExpression : null,
       activo, fecha_actualizacion: new Date().toISOString(),
       postmark_template_id: templateId,
@@ -597,11 +602,11 @@ export default function AdministrarAvisos() {
 
     let avisoId: number;
     if (editingAviso) {
-      const { error } = await supabase.from('avisos').update(payload).eq('id', editingAviso.id);
+      const { error } = await supabase.from('avisos').update(payload as any).eq('id', editingAviso.id);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
       avisoId = editingAviso.id;
     } else {
-      const { data, error } = await supabase.from('avisos').insert(payload).select('id').single();
+      const { data, error } = await supabase.from('avisos').insert(payload as any).select('id').single();
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
       avisoId = data.id;
     }
@@ -1039,6 +1044,16 @@ export default function AdministrarAvisos() {
               <div className="flex items-center gap-2">
                 <Switch checked={activo} onCheckedChange={setActivo} />
                 <Label>Activo</Label>
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-3">
+                <div className="space-y-1">
+                  <Label>Personalizado</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Prendido envía uno por uno; apagado conserva el envío consolidado actual.
+                  </p>
+                </div>
+                <Switch checked={personalizado} onCheckedChange={setPersonalizado} />
               </div>
 
               <AvisoPayloadSection

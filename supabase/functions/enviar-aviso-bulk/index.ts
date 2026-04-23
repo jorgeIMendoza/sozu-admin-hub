@@ -212,16 +212,19 @@ Deno.serve(async (req) => {
     const selectedProjectIds = await getSelectedProjectIds(aviso_id);
 
     // Extract unique recipients from correos JSON
-    const emailSet = new Set<string>();
-    const recipients: { nombre: string; email: string }[] = [];
+    const recipientSet = new Set<string>();
+    const recipients: { nombre: string; email: string; telefono?: string }[] = [];
     
     for (const row of rolesData) {
       const correos = row.correos as any;
       const destinatarios = correos?.destinatarios || [];
       for (const dest of destinatarios) {
-        if (dest.email && !emailSet.has(dest.email)) {
-          emailSet.add(dest.email);
-          recipients.push({ nombre: dest.nombre || '', email: dest.email });
+        const email = typeof dest.email === 'string' ? dest.email.trim() : '';
+        const telefono = typeof dest.telefono === 'string' ? dest.telefono.trim() : '';
+        const key = `${email}|${telefono}`;
+        if (email && !recipientSet.has(key)) {
+          recipientSet.add(key);
+          recipients.push({ nombre: dest.nombre || '', email, telefono });
         }
       }
     }
@@ -274,6 +277,111 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({ error: 'Token de Postmark no configurado' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const isPersonalizado = !!(aviso as any).personalizado;
+
+    if (isPersonalizado) {
+      let totalEnviados = 0;
+      let totalErrores = 0;
+      const errorMessages: string[] = [];
+      const waToken = Deno.env.get('EVOLUTION_WA_COBRANZA_TOKEN') || '';
+      const fnUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/enviar-notificacion`;
+
+      for (const recipient of filteredRecipients) {
+        const vars: Record<string, string> = {
+          nombre: recipient.nombre || '',
+          tratamiento: '',
+          email: recipient.email || '',
+          telefono: recipient.telefono || '',
+          asunto: aviso.asunto || '',
+          texto: aviso.mensaje_html || '',
+          monto: '',
+          fecha_pago: '',
+          mes: '',
+          orden: '',
+          departamento: '',
+          producto: '',
+          proyecto: '',
+          cuenta_id: '',
+          offset: '',
+        };
+        const asuntoPersonalizado = renderStr(aviso.asunto || '', vars);
+        const htmlPersonalizado = renderStr(aviso.mensaje_html || '', vars);
+        vars.asunto = asuntoPersonalizado;
+        vars.texto = htmlPersonalizado;
+        const templateModel = (aviso as any).payload_postmark
+          ? renderJsonTemplate((aviso as any).payload_postmark, vars)
+          : { mensaje: { nombre: vars.nombre, texto: vars.texto, asunto: vars.asunto } };
+        const telefono = recipient.telefono?.trim() || null;
+        const hasEmail = !!recipient.email;
+        const hasTelefono = !!telefono;
+        const tipo = hasEmail && hasTelefono ? 'ambos' : hasEmail ? 'email' : hasTelefono ? 'wa' : null;
+
+        if (!tipo) {
+          totalErrores++;
+          errorMessages.push(JSON.stringify({ email: recipient.email || '', motivo: 'Sin destino válido' }));
+          continue;
+        }
+
+        const payloadN8N = {
+          tipo,
+          from: 'Notificaciones Sozu <notificaciones@sozu.com>',
+          templateId,
+          asunto: asuntoPersonalizado,
+          mensaje: (templateModel as any)?.mensaje ?? templateModel,
+          mensajeWA: renderStr(pickRandomWhatsappMessage(), vars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+          email: hasEmail ? recipient.email : null,
+          telefono: hasTelefono ? telefono : null,
+          cc: null,
+          origen: 'aviso_bulk_personalizado',
+          aviso_id,
+          nombre_usuario: recipient.nombre || '',
+        };
+
+        try {
+          const res = await fetch(fnUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'apikey': waToken,
+            },
+            body: JSON.stringify(payloadN8N),
+          });
+
+          if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            totalErrores++;
+            errorMessages.push(JSON.stringify({ email: recipient.email || '', motivo: `n8n ${res.status}: ${txt.slice(0, 200)}` }));
+            continue;
+          }
+
+          totalEnviados++;
+        } catch (err: any) {
+          totalErrores++;
+          errorMessages.push(JSON.stringify({ email: recipient.email || '', motivo: `Red: ${err.message}` }));
+        }
+      }
+
+      await supabaseAdmin
+        .from('avisos_ejecuciones')
+        .update({
+          estado: totalErrores > 0 ? (totalEnviados > 0 ? 'completado' : 'error') : 'completado',
+          total_enviados: totalEnviados,
+          total_errores: totalErrores,
+          detalle_error: totalErrores > 0 ? errorMessages.join(' | ') : null,
+        })
+        .eq('id', ejecucion.id);
+
+      return new Response(JSON.stringify({
+        ejecucion_id: ejecucion.id,
+        total_destinatarios: filteredRecipients.length,
+        total_enviados: totalEnviados,
+        total_errores: totalErrores,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 

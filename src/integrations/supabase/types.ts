@@ -391,6 +391,7 @@ export type Database = {
           modo_trigger: string
           nombre: string
           payload_postmark: Json | null
+          personalizado: boolean
           postmark_template_id: number
           tipo_envio: string
           tipos_pago_notificables: number[]
@@ -407,6 +408,7 @@ export type Database = {
           modo_trigger?: string
           nombre: string
           payload_postmark?: Json | null
+          personalizado?: boolean
           postmark_template_id?: number
           tipo_envio?: string
           tipos_pago_notificables?: number[]
@@ -423,6 +425,7 @@ export type Database = {
           modo_trigger?: string
           nombre?: string
           payload_postmark?: Json | null
+          personalizado?: boolean
           postmark_template_id?: number
           tipo_envio?: string
           tipos_pago_notificables?: number[]
@@ -1052,6 +1055,21 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_bancos_banxico: {
+        Row: {
+          "Clave de la institución": number | null
+          "Nombre de la institución": string | null
+        }
+        Insert: {
+          "Clave de la institución"?: number | null
+          "Nombre de la institución"?: string | null
+        }
+        Update: {
+          "Clave de la institución"?: number | null
+          "Nombre de la institución"?: string | null
+        }
+        Relationships: []
+      }
       borrar_bodegas_estacionamientos_daiku_stagin: {
         Row: {
           id: number
@@ -1460,6 +1478,18 @@ export type Database = {
           nombre_estacionamiento?: string | null
           num_depa?: string | null
           proyecto?: string | null
+        }
+        Relationships: []
+      }
+      borrar_historico_claves_rastreo: {
+        Row: {
+          clave_rastreo: string | null
+        }
+        Insert: {
+          clave_rastreo?: string | null
+        }
+        Update: {
+          clave_rastreo?: string | null
         }
         Relationships: []
       }
@@ -4372,18 +4402,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      historico_claves_rastreo: {
-        Row: {
-          clave_rastreo: string | null
-        }
-        Insert: {
-          clave_rastreo?: string | null
-        }
-        Update: {
-          clave_rastreo?: string | null
-        }
-        Relationships: []
       }
       inmob_kpi_mensual: {
         Row: {
