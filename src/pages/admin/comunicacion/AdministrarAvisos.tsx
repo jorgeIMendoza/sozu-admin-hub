@@ -1231,7 +1231,7 @@ export default function AdministrarAvisos() {
                     const todosCorreos = rolesConCorreos.flatMap(r => r.correos);
 
                     // CASO 1: Aviso por evento con correos específicos
-                    // → Solo se envía a esos correos manuales (modo prueba/auditoría)
+                    // → La lista manual opera como whitelist sobre el cliente real del acuerdo
                     if (esEvento && totalCorreos > 0) {
                       const mostrar = todosCorreos.slice(0, 5);
                       return (
@@ -1239,7 +1239,7 @@ export default function AdministrarAvisos() {
                           <div className="flex items-start gap-2">
                             <Mail className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
                             <span>
-                              Solo a <strong>{totalCorreos}</strong> correo{totalCorreos === 1 ? '' : 's'} específico{totalCorreos === 1 ? '' : 's'} (modo prueba)
+                              Whitelist de <strong>{totalCorreos}</strong> correo{totalCorreos === 1 ? '' : 's'}: solo se notifica a los clientes que cumplan la condición y cuyo email esté en esta lista
                             </span>
                           </div>
                           <ul className="text-xs text-muted-foreground space-y-0.5 pl-5">
