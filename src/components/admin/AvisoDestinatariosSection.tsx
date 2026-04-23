@@ -39,6 +39,7 @@ interface Props {
   onDestinatariosChange: (destinatarios: Destinatario[]) => void;
   selectedProyectos?: string[];
   onSelectedProyectosChange?: (proyectos: string[]) => void;
+  availableProjectOptions?: string[];
 }
 
 export function AvisoDestinatariosSection({
@@ -49,6 +50,7 @@ export function AvisoDestinatariosSection({
   onDestinatariosChange,
   selectedProyectos = [],
   onSelectedProyectosChange,
+  availableProjectOptions = [],
 }: Props) {
   const { toast } = useToast();
   const [loadingRolId, setLoadingRolId] = useState<number | null>(null);
@@ -63,7 +65,6 @@ export function AvisoDestinatariosSection({
 
   const [pool, setPool] = useState<PoolItem[]>([]);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
-  const [availableProyectos, setAvailableProyectos] = useState<string[]>([]);
   const [clienteProyectoMap, setClienteProyectoMap] = useState<Map<string, string[]>>(new Map());
 
   const isClienteSelected = selectedRoles.includes(CLIENTE_ROL_ID);
@@ -167,15 +168,12 @@ export function AvisoDestinatariosSection({
     }
 
     const map = new Map<string, string[]>();
-    const allProyectos = new Set<string>();
     for (const [email, proysSet] of emailProyectos) {
       const proys = [...proysSet];
       map.set(email, proys);
-      proys.forEach(p => allProyectos.add(p));
     }
 
     setClienteProyectoMap(map);
-    setAvailableProyectos([...allProyectos].sort());
   }, []);
 
   // Sync from parent on mount
@@ -289,6 +287,8 @@ export function AvisoDestinatariosSection({
   useEffect(() => {
     if (!isClienteSelected || selectedProyectos.length === 0) return;
 
+    const selectedProjectNames = selectedProyectos;
+
     // Filter: keep only clients that belong to at least one selected project
     const newSelected = new Set(selectedEmails);
     let changed = false;
@@ -296,7 +296,7 @@ export function AvisoDestinatariosSection({
     for (const item of pool) {
       if (!item.rolIds.includes(CLIENTE_ROL_ID)) continue;
       const clientProjects = clienteProyectoMap.get(item.email) || [];
-      const matchesProject = selectedProyectos.some(p => clientProjects.includes(p));
+      const matchesProject = selectedProjectNames.some((p) => clientProjects.includes(p));
 
       if (!matchesProject && newSelected.has(item.email)) {
         // Only deselect if this user is ONLY a Cliente (not also another role)
@@ -371,8 +371,9 @@ export function AvisoDestinatariosSection({
     return pool.filter(d => {
       // When projects are selected, hide clients that don't belong to any selected project
       if (isClienteSelected && selectedProyectos.length > 0 && d.rolIds.includes(CLIENTE_ROL_ID)) {
+        const selectedProjectNames = selectedProyectos;
         const clientProjects = clienteProyectoMap.get(d.email) || [];
-        const matchesProject = selectedProyectos.some(p => clientProjects.includes(p));
+        const matchesProject = selectedProjectNames.some((p) => clientProjects.includes(p));
         // If user is ONLY a client and doesn't match project, hide completely
         const hasOtherRoles = d.rolIds.some(r => r !== CLIENTE_ROL_ID);
         if (!matchesProject && !hasOtherRoles) return false;
@@ -435,21 +436,21 @@ export function AvisoDestinatariosSection({
       </div>
 
       {/* Project filter - only shown when Cliente role is selected */}
-      {isClienteSelected && availableProyectos.length > 0 && (
+      {isClienteSelected && availableProjectOptions.length > 0 && (
         <div>
           <Label className="flex items-center gap-1.5 mb-1.5">
             <Building2 className="h-4 w-4" />
-            Segmentar Clientes por Proyecto
+            Desarrollos habilitados para este aviso
           </Label>
           <p className="text-xs text-muted-foreground mb-2">
-            Filtra los clientes por proyecto. Si no seleccionas ninguno, se envía a todos los clientes.
+            Selecciona los desarrollos publicados por Sozu donde este aviso estará activo.
           </p>
           <MultiSelectFilter
             values={selectedProyectos}
             onValuesChange={(vals) => onSelectedProyectosChange?.(vals)}
-            options={availableProyectos}
-            placeholder="Todos los proyectos"
-            searchPlaceholder="Buscar proyecto..."
+            options={availableProjectOptions}
+            placeholder="Todos los desarrollos publicados"
+            searchPlaceholder="Buscar desarrollo..."
             icon={<Building2 className="h-4 w-4" />}
           />
         </div>

@@ -4,6 +4,7 @@ import { usePagePermissions } from "@/hooks/usePagePermissions";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,6 +31,7 @@ interface Aviso {
   nombre: string;
   asunto: string;
   mensaje_html: string;
+  mensajes_whatsapp?: any;
   tipo_envio: string;
   cron_expression: string | null;
   activo: boolean;
@@ -37,6 +39,11 @@ interface Aviso {
   postmark_template_id: number;
   modo_trigger?: string | null;
   payload_postmark?: any;
+}
+
+interface ProyectoPublicado {
+  id: number;
+  nombre: string;
 }
 
 interface Rol {
@@ -258,6 +265,8 @@ export default function AdministrarAvisos() {
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [postmarkTemplateId, setPostmarkTemplateId] = useState<string>("36978552");
   const [selectedProyectos, setSelectedProyectos] = useState<string[]>([]);
+  const [proyectosPublicados, setProyectosPublicados] = useState<ProyectoPublicado[]>([]);
+  const [mensajesWhatsapp, setMensajesWhatsapp] = useState<string[]>(["", "", ""]);
   const [postmarkTemplates, setPostmarkTemplates] = useState<PostmarkTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -297,7 +306,7 @@ export default function AdministrarAvisos() {
   const fetchAvisos = async () => {
     setIsLoading(true);
     const { data } = await supabase.from('avisos').select('*').order('fecha_creacion', { ascending: false });
-    setAvisos(data || []);
+    setAvisos(((data as any[]) || []) as Aviso[]);
     setIsLoading(false);
   };
 
@@ -333,13 +342,24 @@ export default function AdministrarAvisos() {
     }
   };
 
-  useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); fetchFuentes(); }, []);
+  const fetchProyectosPublicados = async () => {
+    const { data } = await supabase
+      .from('proyectos')
+      .select('id, nombre')
+      .eq('activo', true)
+      .eq('publicar', true)
+      .order('nombre');
+    setProyectosPublicados((data as ProyectoPublicado[]) || []);
+  };
+
+  useEffect(() => { fetchAvisos(); fetchRoles(); fetchPostmarkTemplates(); fetchFuentes(); fetchProyectosPublicados(); }, []);
 
   const openCreate = () => {
     setEditingAviso(null);
     setNombre(""); setAsunto(""); setMensajeHtml(""); setTipoEnvio("manual");
     setCronExpression(""); setCronError(""); setActivo(true); setSelectedRoles([]); setDestinatarios([]);
-    setPostmarkTemplateId("36978552"); setSelectedProyectos([]);
+    setPostmarkTemplateId("36978552"); setSelectedProyectos(proyectosPublicados.map((p) => p.nombre));
+    setMensajesWhatsapp(["", "", ""]);
     setModoTrigger('cron');
     setEventoFuenteId(fuentesTrigger[0] ? String(fuentesTrigger[0].id) : '');
     setEventoOffsets('-5,-3,-1');
@@ -355,7 +375,9 @@ export default function AdministrarAvisos() {
     setTipoEnvio(aviso.tipo_envio); setCronExpression(aviso.cron_expression || "");
     setActivo(aviso.activo);
     setPostmarkTemplateId(String(aviso.postmark_template_id || 36978552));
-    setSelectedProyectos([]);
+    setMensajesWhatsapp(Array.isArray(aviso.mensajes_whatsapp)
+      ? [...aviso.mensajes_whatsapp.slice(0, 3), ...Array(Math.max(0, 3 - aviso.mensajes_whatsapp.length)).fill("")]
+      : ["", "", ""]);
     setModoTrigger((aviso.modo_trigger as any) || 'cron');
 
     // Load payload personalizado
@@ -369,7 +391,10 @@ export default function AdministrarAvisos() {
     }
 
     // Load existing roles and their correos
-    const { data } = await supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id);
+    const [{ data }, { data: avisoProyectos }] = await Promise.all([
+      supabase.from('avisos_roles_destinatarios').select('id_rol, correos').eq('id_aviso', aviso.id),
+      supabase.from('avisos_proyectos').select('id_proyecto').eq('id_aviso', aviso.id).eq('activo', true),
+    ]);
     const rolIds: number[] = [];
     const allDests: Destinatario[] = [];
     data?.forEach(r => {
@@ -384,6 +409,13 @@ export default function AdministrarAvisos() {
     });
     setSelectedRoles(rolIds);
     setDestinatarios(allDests);
+    setSelectedProyectos(
+      avisoProyectos && avisoProyectos.length > 0
+        ? avisoProyectos
+            .map((item: any) => proyectosPublicados.find((proyecto) => proyecto.id === item.id_proyecto)?.nombre)
+            .filter(Boolean)
+        : proyectosPublicados.map((proyecto) => proyecto.nombre)
+    );
 
     // Load existing event trigger config (single row per aviso in V1)
     const { data: trigData } = await supabase
@@ -450,6 +482,20 @@ export default function AdministrarAvisos() {
       return;
     }
 
+    const whatsappLimpios = mensajesWhatsapp.map((mensaje) => mensaje.trim());
+    if (whatsappLimpios.some((mensaje) => !mensaje)) {
+      toast({ title: "Error", description: "Debes capturar los 3 mensajes de WhatsApp", variant: "destructive" });
+      return;
+    }
+    if (new Set(whatsappLimpios.map((mensaje) => mensaje.toLowerCase())).size !== 3) {
+      toast({ title: "Error", description: "Los 3 mensajes de WhatsApp deben ser distintos", variant: "destructive" });
+      return;
+    }
+    if (selectedProyectos.length === 0) {
+      toast({ title: "Error", description: "Debes seleccionar al menos un desarrollo publicado", variant: "destructive" });
+      return;
+    }
+
     // Validate custom payload JSON
     let payloadPostmark: any = null;
     if (payloadEnabled) {
@@ -467,6 +513,7 @@ export default function AdministrarAvisos() {
 
     const payload = {
       nombre, asunto, mensaje_html: mensajeHtml, tipo_envio: tipoEnvio,
+      mensajes_whatsapp: whatsappLimpios,
       cron_expression: (tipoEnvio === 'automatico' && modoTrigger === 'cron') ? cronExpression : null,
       activo, fecha_actualizacion: new Date().toISOString(),
       postmark_template_id: templateId,
@@ -497,14 +544,25 @@ export default function AdministrarAvisos() {
         }))
       );
     } else if (destinatarios.length > 0) {
-      const { data: firstRole } = await supabase.from('roles').select('id').eq('activo', true).limit(1).single();
-      if (firstRole) {
-        await supabase.from('avisos_roles_destinatarios').insert({
+      await supabase.from('avisos_roles_destinatarios').insert({
+        id_aviso: avisoId,
+        id_rol: null,
+        correos: correosJson,
+      });
+    }
+
+    const proyectoIdsSeleccionados = proyectosPublicados
+      .filter((proyecto) => selectedProyectos.includes(proyecto.nombre))
+      .map((proyecto) => proyecto.id);
+    await supabase.from('avisos_proyectos').delete().eq('id_aviso', avisoId);
+    if (proyectoIdsSeleccionados.length > 0) {
+      await supabase.from('avisos_proyectos').insert(
+        proyectoIdsSeleccionados.map((id_proyecto) => ({
           id_aviso: avisoId,
-          id_rol: firstRole.id,
-          correos: correosJson,
-        });
-      }
+          id_proyecto,
+          activo: true,
+        }))
+      );
     }
 
     // Persist event-trigger config: one row per aviso (delete + insert for simplicity)
@@ -561,7 +619,7 @@ export default function AdministrarAvisos() {
       </div>
       <div style="background: #eef2ff; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #4338ca;">
         <strong>Destinatarios:</strong> ${destinatarios.length} seleccionado${destinatarios.length !== 1 ? 's' : ''}
-        ${selectedProyectos.length > 0 ? ` | <strong>Proyectos:</strong> ${selectedProyectos.join(', ')}` : ''}
+        ${selectedProyectos.length > 0 ? ` | <strong>Desarrollos:</strong> ${selectedProyectos.join(', ')}` : ''}
         | <strong>Template ID:</strong> ${postmarkTemplateId}
       </div>
       <div style="padding: 16px;">
@@ -680,6 +738,29 @@ export default function AdministrarAvisos() {
               <div>
                 <Label>Contenido del mensaje</Label>
                 <RichTextEditor value={mensajeHtml} onChange={setMensajeHtml} />
+              </div>
+              <div className="space-y-3">
+                <Label>Mensajes de WhatsApp</Label>
+                <p className="text-xs text-muted-foreground">
+                  Captura 3 variantes obligatorias y distintas. Al enviar por WhatsApp se elegirá una al azar.
+                </p>
+                <div className="space-y-3">
+                  {mensajesWhatsapp.map((mensaje, index) => (
+                    <div key={index} className="space-y-1.5">
+                      <Label className="text-xs">Mensaje {index + 1}</Label>
+                      <Textarea
+                        value={mensaje}
+                        onChange={(e) => {
+                          const next = [...mensajesWhatsapp];
+                          next[index] = e.target.value;
+                          setMensajesWhatsapp(next);
+                        }}
+                        placeholder={`Mensaje de WhatsApp ${index + 1}`}
+                        className="min-h-[96px]"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -836,6 +917,7 @@ export default function AdministrarAvisos() {
                 onDestinatariosChange={setDestinatarios}
                 selectedProyectos={selectedProyectos}
                 onSelectedProyectosChange={setSelectedProyectos}
+                availableProjectOptions={proyectosPublicados.map((proyecto) => proyecto.nombre)}
               />
             </div>
 

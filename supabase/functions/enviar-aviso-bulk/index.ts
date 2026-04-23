@@ -39,6 +39,14 @@ Deno.serve(async (req) => {
 
     // Use the template ID from the aviso record, fallback to default
     const templateId = aviso.postmark_template_id || 36978552;
+    const mensajesWhatsapp = Array.isArray((aviso as any).mensajes_whatsapp)
+      ? ((aviso as any).mensajes_whatsapp as unknown[]).filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : [];
+    const pickRandomWhatsappMessage = () => {
+      if (mensajesWhatsapp.length === 0) return aviso.mensaje_html || '';
+      const index = Math.floor(Math.random() * mensajesWhatsapp.length);
+      return mensajesWhatsapp[index];
+    };
 
     // Helper: render {{var}} in any JSON structure
     const renderStr = (s: string, vars: Record<string, string>) =>
@@ -149,12 +157,14 @@ Deno.serve(async (req) => {
         const templateModel = (aviso as any).payload_postmark
           ? renderJsonTemplate((aviso as any).payload_postmark, vars)
           : { mensaje: { nombre: vars.nombre, texto: vars.texto, asunto: vars.asunto } };
+        const mensajeWA = renderStr(pickRandomWhatsappMessage(), vars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         return {
           From: 'notificaciones@sozu.com',
           To: recipient.email,
           TemplateId: templateId,
           TemplateModel: templateModel,
           MessageStream: 'outbound',
+          Metadata: { mensajeWA },
         };
       });
 

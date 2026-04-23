@@ -618,19 +618,19 @@ export type Database = {
           correos: Json | null
           id: number
           id_aviso: number
-          id_rol: number
+          id_rol: number | null
         }
         Insert: {
           correos?: Json | null
           id?: never
           id_aviso: number
-          id_rol: number
+          id_rol?: number | null
         }
         Update: {
           correos?: Json | null
           id?: never
           id_aviso?: number
-          id_rol?: number
+          id_rol?: number | null
         }
         Relationships: [
           {
