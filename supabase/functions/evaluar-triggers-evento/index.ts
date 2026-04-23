@@ -365,6 +365,14 @@ Deno.serve(async (req) => {
           const persona: any = cc?.ofertas?.personas;
           if (!persona) continue;
 
+          const idPropiedad = cc?.id_propiedad;
+          const idEdificioModelo = idPropiedad ? edificioModeloByPropiedad.get(idPropiedad) : undefined;
+          const idEdificio = idEdificioModelo ? edificioByModelo.get(idEdificioModelo) : undefined;
+          const idProyecto = idEdificio ? proyectoByEdificio.get(idEdificio) : undefined;
+          const numeroDepartamento = idPropiedad ? (numeroPropiedadById.get(idPropiedad) || '') : '';
+          const nombreProyecto = idProyecto ? (proyectoNombreById.get(idProyecto) || '') : '';
+          const nombreProducto = cc?.ofertas?.id_producto ? (productoNombreById.get(cc.ofertas.id_producto) || '') : '';
+
           const claveEntidad = `acuerdo:${ac.id}:offset:${offset}`;
           const channel = trig.canal as string;
 
@@ -374,11 +382,16 @@ Deno.serve(async (req) => {
           // Build template variables
           const vars: Record<string, string> = {
             nombre: persona.nombre_legal || '',
+            tratamiento: resolveTratamiento(persona.sexo),
             email: persona.email || '',
             telefono: persona.telefono ? `${persona.clave_pais_telefono || ''}${persona.telefono}` : '',
             monto: fmtMoney(Number(ac.monto || 0)),
             fecha_pago: fmtDate(ac.fecha_pago as string),
+            mes: formatMonthName(ac.fecha_pago as string),
             orden: String(ac.orden || ''),
+            departamento: numeroDepartamento,
+            producto: nombreProducto,
+            proyecto: nombreProyecto,
             offset: String(offset),
             cuenta_id: String(cc.id),
             asunto: '',
@@ -409,7 +422,8 @@ Deno.serve(async (req) => {
               const destTemplateModel = aviso.payload_postmark
                 ? renderJsonTemplate(aviso.payload_postmark, destVars)
                 : { mensaje: { nombre: m.nombre || persona.nombre_legal || '', texto: destHtml, asunto: destAsunto } };
-              const textoPlano = destHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+              const mensajeWaTpl = pickRandomWhatsappMessage(aviso.mensajes_whatsapp, aviso.mensaje_html || '');
+              const textoPlano = renderTemplate(mensajeWaTpl, destVars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
               manualAccum.set(key, {
                 email: m.email,
                 nombre: m.nombre || persona.nombre_legal || '',
@@ -497,7 +511,8 @@ Deno.serve(async (req) => {
             // ============================================================
             const telDigits = normalizarTelefonoWA(dest.telefono || '');
             const telWA = telefonoConPlus(telDigits);
-            const textoPlano = destHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            const mensajeWaTpl = pickRandomWhatsappMessage(aviso.mensajes_whatsapp, aviso.mensaje_html || '');
+            const textoPlano = renderTemplate(mensajeWaTpl, destVars).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
             // Mapear canal de la BD ("email"|"whatsapp"|"ambos") al contrato de n8n
             // ("email"|"wa"|"ambos"). Si pidieron WA pero no hay teléfono, degradar a email.
