@@ -16,13 +16,18 @@ const DEFAULT_PAYLOAD = JSON.stringify(
 
 const SAMPLE_VALUES: Record<string, string> = {
   nombre: "Margot Pérez",
+  tratamiento: "Sra.",
   email: "margot@ejemplo.com",
   telefono: "525512345678",
   asunto: "Recordatorio de pago",
   texto: "<p>Tienes un pago próximo</p>",
   monto: "$5,000.00",
   fecha_pago: "25 de abril de 2026",
+  mes: "abril",
   orden: "12",
+  departamento: "A-1204",
+  producto: "Bodega 18",
+  proyecto: "Bosque Alto",
   cuenta_id: "874",
   offset: "-3",
 };
@@ -60,7 +65,7 @@ export function AvisoPayloadSection({
 
   const variables = useMemo(() => {
     const base = ["nombre", "email", "asunto", "texto"];
-    if (modo === "evento") return [...base, "telefono", "monto", "fecha_pago", "orden", "cuenta_id", "offset"];
+    if (modo === "evento") return [...base, "tratamiento", "telefono", "monto", "fecha_pago", "mes", "orden", "departamento", "producto", "proyecto", "cuenta_id", "offset"];
     return base;
   }, [modo]);
 
