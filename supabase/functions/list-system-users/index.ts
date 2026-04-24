@@ -68,10 +68,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "No tienes permisos para consultar usuarios del sistema" }, 403);
     }
 
-    const pageSize = 1000;
+    // Pagination: keep pageSize comfortably under PostgREST's db-max-rows (1000)
+    // and rely on an empty batch as the stop condition. The previous logic
+    // (data.length < pageSize) caused early exits when PostgREST returned a
+    // partial page, hiding users at the tail of the alphabet.
+    const pageSize = 500;
+    const maxIterations = 40; // safety cap: up to 20 000 users
     const allUsers: unknown[] = [];
 
-    for (let from = 0; ; from += pageSize) {
+    for (let i = 0; i < maxIterations; i++) {
+      const from = i * pageSize;
+
       let query = supabaseAdmin
         .from("usuarios")
         .select(`
@@ -101,12 +108,17 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "No se pudieron consultar los usuarios" }, 500);
       }
 
-      allUsers.push(...(data ?? []));
+      const batch = data ?? [];
+      allUsers.push(...batch);
 
-      if (!data || data.length < pageSize) {
-        break;
-      }
+      // Stop only when an empty batch is returned. A short (but non-empty)
+      // batch can still mean there are more rows on the next offset.
+      if (batch.length === 0) break;
     }
+
+    console.log(
+      `list-system-users: returned ${allUsers.length} users for rol ${requester.rol_id}`,
+    );
 
     return jsonResponse({ data: allUsers });
   } catch (error) {

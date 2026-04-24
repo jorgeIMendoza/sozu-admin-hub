@@ -1,64 +1,87 @@
-
-
 ## Diagnóstico
 
-Después de revisar BD y código, el agente **SÍ existe** y está correctamente vinculado:
+`abel.salazar@sozu.com` (rol 2 — Administrador de Proyecto) NO ve a `contacto@vivaltainmobiliaria.com` (rol 4 — Inmobiliaria, "VIVALTA") en la pantalla de Usuarios.
 
-- Usuario `ivandelatorre_@hotmail.com` → `id_persona=2483`, `rol_id=3` (Agente Inmobiliario), `activo=true`.
-- Relación `entidades_relacionadas` id=3604: `id_persona=2483` ↔ `id_persona_duena_lead=2687` (Invierte y Vive MX), `id_tipo_entidad=19`, `activo=true`. ✅
+Datos verificados en BD:
+- Ambos usuarios existen, están `activo = true` y con `es_rol_interno = true`.
+- Hay **1016** usuarios con rol 3 o 4 (los únicos visibles para ADP).
+- Ordenados por `nombre, email`, VIVALTA está en la posición **993** (dentro del primer batch teórico de 1000).
 
-El motivo por el cual la pestaña "Activos (0)" no lo muestra es **una RLS faltante en la tabla `usuarios`**.
+El filtro frontend (`filteredUsuarios` en `src/pages/admin/Usuarios.tsx`) SÍ permite rol 4 para ADP — no descarta a VIVALTA.
 
-### Causa raíz
+### Causa raíz: paginación frágil en `list-system-users`
 
-El hook `useInmobAgents` ejecuta tres queries:
-1. `entidades_relacionadas` filtrando por `id_persona_duena_lead = 2687` y `id_tipo_entidad = 19` → devuelve `id_persona=2483` ✅ (la RLS de esta tabla permite el caso `id_tipo_entidad NOT IN (2,7)`).
-2. `usuarios.select(email, id_persona, activo).in('id_persona', [2483])` → **devuelve 0 filas** ❌
-3. `personas` → no se ejecuta porque no hay usuarios.
+La edge function `supabase/functions/list-system-users/index.ts` usa:
 
-Las políticas SELECT actuales sobre `public.usuarios` son:
-- `Super admins can view all users` — solo Super Admin.
-- `Internal roles can view all users` — solo roles internos (Sozu).
-- `Users can view own record` — solo el propio registro.
-- `Anon puede verificar email de clientes` — solo `rol_id = 23`.
-
-**Una Inmobiliaria (rol 4) no califica en ninguna**, por lo que `usuarios` se filtra a vacío y el hook devuelve `[]`. Por eso la lista aparece en cero, los filtros tampoco encuentran al agente, y los demás portales del Inmob (Pipeline, Comisiones, Citas, Reportes) que también dependen de `useInmobAgents` están afectados con el mismo problema.
-
-## Cambios
-
-### 1. Migración: nueva policy SELECT en `public.usuarios`
-
-Crear una policy que permita a una Inmobiliaria (rol 4) leer los registros de `usuarios` cuyo `email` corresponda a un agente vinculado a esa inmobiliaria vía `entidades_relacionadas` tipo 19. Reutilizar la función ya existente `is_inmob_agent_owner(text)` (SECURITY DEFINER, evita recursión RLS):
-
-```sql
-CREATE POLICY "Inmob owners can view their agents"
-ON public.usuarios
-FOR SELECT
-TO authenticated
-USING ( public.is_inmob_agent_owner(email) );
+```ts
+const pageSize = 1000;
+for (let from = 0; ; from += pageSize) {
+  const { data } = await query.range(from, from + pageSize - 1);
+  allUsers.push(...(data ?? []));
+  if (!data || data.length < pageSize) break;
+}
 ```
 
-Esa función ya cubre los casos:
-- Super Admin / Admin Proyecto → acceso total (devuelve true para cualquier email).
-- Inmobiliaria (rol 4) con `id_persona` → ve solo a sus agentes tipo 19.
-- Agentes (rol 3/9) consultando agentes de su misma inmobiliaria.
-- Inmobiliarias secundarias resueltas vía `proyectos_acceso`.
+Problema: PostgREST aplica un límite global (`db-max-rows`, típicamente 1000). Cuando se combina con `.range(0, 999)` y el join `roles!inner` + `personas`, el primer batch suele devolver **menos de 1000 filas** (no las 1000 esperadas). Como la condición de salida es `data.length < pageSize`, el loop **sale antes de pedir el segundo batch**, y se pierden los usuarios del final de la lista alfabética: VIVALTA (993), Welhome (999), Wellestate, Wendy Villa, Wiggot, Ximena, etc.
 
-No reemplaza ni rompe las policies existentes; se agrega como condición OR.
+Los logs confirman la sospecha: cada invocación de `list-system-users` tarda ~250–600 ms con un único POST, indicando que solo se ejecuta una iteración del loop.
 
-### 2. Sin cambios de código frontend
+Además, `pageSize = 1000` es justo el límite máximo de PostgREST, así que cualquier fila descartada por el join provoca el corte prematuro.
 
-`useInmobAgents`, `InmobAgentes`, `InmobPipeline`, `InmobComisiones`, `InmobCitas`, `InmobReportes` y `InmobDashboard` ya tienen la lógica correcta. Una vez aplicada la policy, todos verán a sus agentes automáticamente.
+## Solución
 
-### 3. Validación posterior
+1. **Reducir `pageSize` a 500** en `list-system-users/index.ts` para quedar por debajo del límite de PostgREST y garantizar paginación efectiva.
+2. **Cambiar la condición de salida** de `data.length < pageSize` a un control basado en si el último batch devolvió 0 filas o si se alcanzó un máximo de seguridad (p. ej. 20 iteraciones / 10 000 usuarios). Así, aunque PostgREST devuelva un batch parcial, se sigue pidiendo el siguiente offset.
+3. **Ordenar también por una columna estable** (`email` ya está, pero añadir `email` como tie-breaker explícito y consistente para evitar duplicados/saltos entre páginas).
+4. (Opcional, defensivo) Añadir `console.log` con el conteo total devuelto para facilitar futuros diagnósticos en logs.
 
-Tras la migración, verificar:
-- `invierteyvivemx@gmail.com` ve a Félix Iván De La Torre Ramírez en la pestaña **Activos**.
-- KPIs de Pipeline/Comisiones/Citas para esa inmobiliaria reflejan los datos del agente.
-- Sozu (rol 1) sigue viendo todos los usuarios sin cambios.
-- Un agente de OTRA inmobiliaria no aparece en la lista de Invierte y Vive (la función filtra por `id_persona_duena_lead`).
+### Detalles técnicos
+
+Archivo: `supabase/functions/list-system-users/index.ts`
+
+```ts
+const pageSize = 500;
+const maxIterations = 40; // tope de seguridad: 20 000 usuarios
+
+for (let i = 0; i < maxIterations; i++) {
+  const from = i * pageSize;
+  let query = supabaseAdmin
+    .from("usuarios")
+    .select(`...`)
+    .eq("roles.es_rol_interno", true)
+    .order("nombre", { ascending: true })
+    .order("email", { ascending: true })
+    .range(from, from + pageSize - 1);
+
+  if (requester.rol_id === ROLE_ADMINISTRADOR_PROYECTO) {
+    query = query.in("rol_id", [ROLE_AGENTE_INMOBILIARIO, ROLE_INMOBILIARIA]);
+  }
+
+  const { data, error } = await query;
+  if (error) { ... }
+
+  const batch = data ?? [];
+  allUsers.push(...batch);
+
+  // Salir solo cuando un batch venga vacío (no cuando sea < pageSize)
+  if (batch.length === 0) break;
+}
+
+console.log(`list-system-users: returned ${allUsers.length} users for rol ${requester.rol_id}`);
+```
+
+No hace falta tocar RLS: la edge function usa `service_role`, así que el problema nunca fue de políticas.
 
 ## Resultado esperado
 
-La inmobiliaria `invierteyvivemx@gmail.com` (y cualquier otra inmobiliaria rol 4) podrá ver correctamente a sus agentes vinculados en todos los módulos del Portal Inmobiliaria, sin exponer datos de agentes de otras inmobiliarias.
+- `abel.salazar@sozu.com` (y cualquier ADP) podrá ver **todos** los 1016 usuarios con rol 3 y 4, incluyendo VIVALTA (`contacto@vivaltainmobiliaria.com`) y todos los demás del final del alfabeto.
+- Super Admin (rol 1) seguirá viendo el universo completo de usuarios internos sin verse afectado.
+- Sin cambios en seguridad: la función conserva la verificación de rol del solicitante y los filtros existentes.
 
+## QA sugerido
+
+1. Iniciar sesión como `abel.salazar@sozu.com`.
+2. Ir a la vista de Usuarios.
+3. Buscar "vivalta" en el buscador → debe aparecer `contacto@vivaltainmobiliaria.com` en la pestaña "Activos".
+4. Verificar que el contador total de usuarios coincida con lo esperado (~1016 visibles para ADP).
+5. Probar con un Super Admin para confirmar que no se rompe la vista global.
