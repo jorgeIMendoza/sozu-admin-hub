@@ -5,8 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const N8N_WEBHOOK_URL = 'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook/manda_notificacion';
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -14,6 +12,16 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+
+    const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
+    if (!n8nBaseUrl) {
+      return new Response(
+        JSON.stringify({ error: 'N8N_WEBHOOK_BASE_URL no está configurado' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const N8N_WEBHOOK_URL = `${n8nBaseUrl.replace(/\/$/, '')}/manda_notificacion`;
+    console.log('Using N8N webhook URL:', N8N_WEBHOOK_URL);
 
     const token = Deno.env.get('POSTMARK_SERVER_TOKEN');
     if (!token) {
