@@ -1332,6 +1332,68 @@ export default function AdministrarAvisos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: seleccionar aviso a duplicar */}
+      <Dialog open={duplicateOpen} onOpenChange={(o) => { setDuplicateOpen(o); if (!o) setDuplicateSearch(""); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-4 w-4" />
+              Duplicar aviso
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Selecciona el aviso que deseas copiar. Se cargarán todos sus datos (mensajes, roles, destinatarios, proyectos, triggers, etc.) en un nuevo aviso que podrás ajustar antes de guardar.
+          </p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar aviso por nombre o asunto..."
+              value={duplicateSearch}
+              onChange={(e) => setDuplicateSearch(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto border rounded-md divide-y">
+            {(() => {
+              const term = duplicateSearch.trim().toLowerCase();
+              const list = term
+                ? avisos.filter(a =>
+                    a.nombre.toLowerCase().includes(term) ||
+                    (a.asunto || '').toLowerCase().includes(term)
+                  )
+                : avisos;
+              if (list.length === 0) {
+                return <div className="p-6 text-center text-sm text-muted-foreground">Sin resultados</div>;
+              }
+              return list.map((aviso) => (
+                <button
+                  key={aviso.id}
+                  type="button"
+                  onClick={() => openDuplicate(aviso)}
+                  className="w-full text-left px-4 py-3 hover:bg-muted/60 transition-colors flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="font-medium text-sm truncate">{aviso.nombre}</div>
+                    <div className="text-xs text-muted-foreground truncate">{aviso.asunto}</div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={aviso.activo ? 'default' : 'secondary'}>
+                      {aviso.activo ? 'Activo' : 'Inactivo'}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">{aviso.tipo_envio}</Badge>
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </button>
+              ));
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuplicateOpen(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
