@@ -338,6 +338,10 @@ export default function AdministrarAvisos() {
   const [detailRoles, setDetailRoles] = useState<Array<{ id_rol: number; correos: any }>>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Modal para duplicar un aviso existente
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicateSearch, setDuplicateSearch] = useState("");
+
   const openDetail = async (aviso: Aviso) => {
     setDetailAviso(aviso);
     setDetailTriggers([]);
