@@ -20,8 +20,21 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    const N8N_WEBHOOK_URL = `${n8nBaseUrl.replace(/\/$/, '')}/manda_notificacion`;
+    const baseClean = n8nBaseUrl.replace(/\/$/, '');
+    const N8N_WEBHOOK_URL = `${baseClean}/manda_notificacion`;
     console.log('Using N8N webhook URL:', N8N_WEBHOOK_URL);
+
+    // Inyectar configuración de WhatsApp (Evolution) en el payload
+    const instanciaWA = Deno.env.get('INSTANCIA_EVOLUTION_WHATSAPP') || '';
+    if (!instanciaWA) {
+      console.warn('INSTANCIA_EVOLUTION_WHATSAPP no está configurado');
+    }
+    const enrichedBody = {
+      ...body,
+      URL_WA_base: body?.URL_WA_base ?? baseClean,
+      instanciaWA: body?.instanciaWA ?? instanciaWA,
+    };
+    console.log('WA config -> URL_WA_base:', enrichedBody.URL_WA_base, '| instanciaWA:', enrichedBody.instanciaWA);
 
     const token = Deno.env.get('POSTMARK_SERVER_TOKEN');
     if (!token) {
@@ -49,7 +62,7 @@ Deno.serve(async (req) => {
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: outgoingHeaders,
-      body: JSON.stringify(body),
+      body: JSON.stringify(enrichedBody),
     });
 
     if (!response.ok) {
