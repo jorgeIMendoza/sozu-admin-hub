@@ -1,49 +1,50 @@
+# Plan: Inyectar `URL_WA_base` / `instanciaWA` en notificaciones de pago manual
+
 ## Problema
 
-Para el trigger 56 ("Recordatorio 3 días antes", `hora_envio=09:00`), la ventana de ejecución real es **09:00:00 – 09:02:00 MX** (2 min). El resto del día (los otros ~1438 minutos) el cron lo evalúa pero sale temprano con un `console.log` "fuera de ventana" y un `continue`. Esos logs viven en Supabase sólo unas pocas horas y se pierden.
+Cuando se aplica un **pago manual** desde `AddManualPaymentDialog`, el frontend llama directamente al webhook de N8N `${N8N_WEBHOOK_BASE_URL}/aplicaPago`. Ese workflow internamente arma el payload de notificación (con `templateId`, `mensajeWA`, recibo PDF, etc.) y dispara el envío de Email + WhatsApp, pero **nunca recibe** los campos `URL_WA_base`, `instanciaWA` ni `urlEndpointWA`. Resultado: WhatsApp termina usando un valor por defecto/cableado ("Pruebas de todo") en vez de la instancia real definida en el secret `INSTANCIA_EVOLUTION_WHATSAPP`.
 
-Resultado: cuando preguntas "¿se ejecutó hoy?" no hay forma confiable de saberlo, porque:
+A diferencia, el flujo de avisos automáticos pasa por la edge function `enviar-notificacion` que sí inyecta esos campos desde los secrets antes de reenviar a N8N.
 
-- Los logs de la ventana 09:00–09:02 ya rotaron.
-- La tabla `avisos_ejecuciones_log` sólo se crea **después** de pasar la validación de ventana, así que si la ventana pasó pero no había acuerdos que calificaran, no queda ningún rastro.
-- La tabla `avisos_envios_evento` está vacía (sólo se llena si efectivamente se envía algo).
+## Solución
 
-## Solución propuesta
+Hacer que el flujo de pago manual también pase por una capa de proxy que inyecte la configuración WA desde los secrets. Como el endpoint de N8N en este caso es **`/aplicaPago`** (no `/manda_notificacion`) y el payload tiene una estructura distinta, lo más limpio es **extender la edge function `enviar-notificacion`** para soportar un endpoint configurable, o crear una helper análoga.
 
-Hacer que **cada vez que el trigger entra en su ventana de envío se inserte una fila persistente en `avisos_ejecuciones_log`**, aunque no haya destinatarios o todo se filtre. Así siempre puedes verificar después: "¿corrió hoy a las 09:00? ¿Cuántos evaluados, cuántos enviados, qué motivos?"
+### Cambios
 
-### Cambios en `supabase/functions/evaluar-triggers-evento/index.ts`
+**1. `supabase/functions/enviar-notificacion/index.ts`**
 
-1. **Mover `ensureExecutionLog` para que se cree justo al entrar en ventana** (antes de cualquier filtro de proyectos/destinatarios). Hoy se crea más adelante, dentro de algunos `continue` y dentro del flujo de envío.
+- Aceptar un campo opcional `n8nPath` en el body (ej: `"aplicaPago"`). Si no viene, mantener el comportamiento actual (`manda_notificacion`).
+- Inyectar siempre `URL_WA_base`, `instanciaWA` y además `urlEndpointWA` (alias por compatibilidad con N8N) en el `enrichedBody`, sin importar el endpoint destino.
+- Mantener el reenvío del header `apikey` (`EVOLUTION_WA_COBRANZA_TOKEN`).
 
-2. **Cuando `withinSendWindow` devuelve `false`**: ya no llamar al log (igual que hoy). Pero cuando devuelve `true`, **crear inmediatamente** el `avisos_ejecuciones_log` con `estado='ejecutado_sin_destinatarios'` por default, y al final actualizarlo con los contadores reales (`evaluados`, `enviados`, `errores`, `motivos`). Así, aunque el flujo termine en 0 envíos, queda el registro.
+**2. `src/components/admin/AddManualPaymentDialog.tsx`** (línea 541-561)
 
-3. **Agregar columna `motivo_principal` o un campo JSON `metricas`** en `avisos_ejecuciones_log` si no existe (revisar primero su schema). Si ya tiene esos campos, sólo asegurar que se llenen.
+- Reemplazar el `fetch` directo a `${N8N_WEBHOOK_BASE_URL}/aplicaPago` por:
+  ```ts
+  await supabase.functions.invoke('enviar-notificacion', {
+    body: { ...webhookBody, n8nPath: 'aplicaPago' },
+    headers: { apikey: EVOLUTION_WA_COBRANZA_TOKEN } // si aplica
+  })
+  ```
+- Mantener exactamente el mismo `webhookBody` que hoy se envía; los campos WA los añadirá la edge function.
 
-4. **Loguear también un `console.log` resumen** en cada entrada en ventana, con formato fácil de buscar: `[trigger 56 IN-WINDOW] evaluados=X, candidatos=Y, enviados=Z, motivos=[...]`.
+**3. Validar otros flujos análogos** (mismo bug latente):
+- `src/components/admin/CancelCuentaDialog.tsx` (`/aplicaPago`)
+- `src/components/admin/EditCuentaCobranzaDialog.tsx` (`/aplicaPago`)
+- `src/components/admin/FacturasTab.tsx` (`/generaFactura`)
 
-### Cómo lo verificarás después
+Si el equipo confirma que también disparan notificaciones WA por dentro del workflow, aplicar el mismo enrutamiento por `enviar-notificacion` con el `n8nPath` correspondiente. (Para el alcance inmediato me limito a **pago manual**; los demás se pueden hacer en una segunda iteración si confirmas.)
 
-```sql
--- ¿Corrió el trigger 56 hoy a su hora?
-SELECT id, fecha_ejecucion, estado, evaluados, enviados, errores, motivos
-FROM avisos_ejecuciones_log
-WHERE id_aviso = 6  -- Recordatorio 3 días antes
-  AND fecha_ejecucion::date = current_date
-ORDER BY fecha_ejecucion DESC;
-```
+## Verificación post-deploy
 
-Si hay fila → corrió. Si no hay fila → el cron no entró a la ventana (y entonces hay que mirar el cron de pg_cron).
+1. Aplicar un pago manual de prueba.
+2. En **Edge Function logs** de `enviar-notificacion`, confirmar el log:
+   `WA config -> URL_WA_base: ... | instanciaWA: <valor real del secret>`
+3. En N8N (`aplicaPago`), inspeccionar el body recibido y verificar que `URL_WA_base`, `instanciaWA` y `urlEndpointWA` ya estén presentes con los valores correctos (no "Pruebas de todo").
+4. Confirmar que el WhatsApp llega al cliente desde la instancia productiva.
 
-### Pasos exactos
+## Alcance
 
-1. Consultar el schema de `avisos_ejecuciones_log` para confirmar columnas disponibles.
-2. Si falta alguna columna (ej. `metricas jsonb`), crear migración para agregarla.
-3. Modificar `evaluar-triggers-evento/index.ts` para:
-   - Crear el log de ejecución apenas el trigger entra en ventana.
-   - Garantizar `finalizeExecutionLog` siempre al final del bloque del trigger (en `try/finally`).
-4. Probar con `?ignore_window=1` para forzar una ejecución y verificar que se cree la fila aunque no haya envíos.
-
-## Resultado
-
-A partir de mañana, podrás consultar en cualquier momento si el trigger 56 corrió a las 09:00 MX, qué evaluó y por qué no envió (si fue el caso), sin depender de los logs efímeros de Edge Functions.
+- **Sí** incluye: edge function `enviar-notificacion` + `AddManualPaymentDialog.tsx`.
+- **No** incluye (a menos que lo apruebes ahora): cancelación de cuenta, edición de cuenta y generación de factura. Avísame y lo agrego al mismo plan.

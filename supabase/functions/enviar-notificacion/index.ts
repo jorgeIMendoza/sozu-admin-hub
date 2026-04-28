@@ -21,8 +21,14 @@ Deno.serve(async (req) => {
       );
     }
     const baseClean = n8nBaseUrl.replace(/\/$/, '');
-    const N8N_WEBHOOK_URL = `${baseClean}/manda_notificacion`;
+    // Permite enrutar a distintos endpoints de N8N (manda_notificacion, aplicaPago, etc.)
+    const rawPath = typeof body?.n8nPath === 'string' && body.n8nPath.trim().length > 0
+      ? body.n8nPath.trim().replace(/^\/+/, '')
+      : 'manda_notificacion';
+    const N8N_WEBHOOK_URL = `${baseClean}/${rawPath}`;
     console.log('Using N8N webhook URL:', N8N_WEBHOOK_URL);
+    // Quitar n8nPath del payload reenviado para no contaminar el workflow
+    const { n8nPath: _omit, ...bodyForward } = body ?? {};
 
     // Inyectar configuración de WhatsApp (Evolution) en el payload
     const instanciaWA = Deno.env.get('INSTANCIA_EVOLUTION_WHATSAPP') || '';
@@ -30,11 +36,13 @@ Deno.serve(async (req) => {
       console.warn('INSTANCIA_EVOLUTION_WHATSAPP no está configurado');
     }
     const enrichedBody = {
-      ...body,
-      URL_WA_base: body?.URL_WA_base ?? baseClean,
-      instanciaWA: body?.instanciaWA ?? instanciaWA,
+      ...bodyForward,
+      URL_WA_base: bodyForward?.URL_WA_base ?? baseClean,
+      instanciaWA: bodyForward?.instanciaWA ?? instanciaWA,
+      // Alias por compatibilidad con workflows N8N que esperan urlEndpointWA
+      urlEndpointWA: bodyForward?.urlEndpointWA ?? instanciaWA,
     };
-    console.log('WA config -> URL_WA_base:', enrichedBody.URL_WA_base, '| instanciaWA:', enrichedBody.instanciaWA);
+    console.log('WA config -> URL_WA_base:', enrichedBody.URL_WA_base, '| instanciaWA:', enrichedBody.instanciaWA, '| urlEndpointWA:', enrichedBody.urlEndpointWA);
 
     const token = Deno.env.get('POSTMARK_SERVER_TOKEN');
     if (!token) {

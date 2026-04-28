@@ -16,7 +16,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { N8N_WEBHOOK_BASE_URL, ENVIRONMENT } from "@/lib/config";
+import { ENVIRONMENT } from "@/lib/config";
 import { Textarea } from "@/components/ui/textarea";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -552,16 +552,14 @@ export function AddManualPaymentDialog({
           environment: ENVIRONMENT
         };
 
-        const response = await fetch(`${N8N_WEBHOOK_BASE_URL}/aplicaPago`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(webhookBody),
+        // Enrutar a través de enviar-notificacion para que inyecte
+        // URL_WA_base / instanciaWA / urlEndpointWA desde los secrets
+        const { error: notifError } = await supabase.functions.invoke('enviar-notificacion', {
+          body: { ...webhookBody, n8nPath: 'aplicaPago' },
         });
 
-        if (!response.ok) {
-          console.error('Webhook call failed:', response.statusText);
+        if (notifError) {
+          console.error('enviar-notificacion (aplicaPago) failed:', notifError);
         }
       } catch (error) {
         console.error('Error calling webhook:', error);
