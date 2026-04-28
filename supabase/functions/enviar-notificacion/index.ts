@@ -12,6 +12,9 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log('==================== [enviar-notificacion] INVOKED ====================');
+    console.log('[enviar-notificacion] PAYLOAD IN:', JSON.stringify(body, null, 2));
+    console.log('[enviar-notificacion] n8nPath received:', body?.n8nPath);
 
     const n8nBaseUrl = Deno.env.get('N8N_WEBHOOK_BASE_URL');
     if (!n8nBaseUrl) {
@@ -67,6 +70,8 @@ Deno.serve(async (req) => {
       console.warn('No apikey header received - WhatsApp notifications may fail');
     }
 
+    console.log('[enviar-notificacion] PAYLOAD OUT to N8N:', JSON.stringify(enrichedBody, null, 2));
+    console.log('[enviar-notificacion] Outgoing headers:', JSON.stringify({ ...outgoingHeaders, 'x-postmark-server-token': '***', apikey: outgoingHeaders.apikey ? '***' : undefined }));
     const response = await fetch(N8N_WEBHOOK_URL, {
       method: 'POST',
       headers: outgoingHeaders,
@@ -75,6 +80,7 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('[enviar-notificacion] N8N ERROR status:', response.status, 'body:', errorText);
       return new Response(
         JSON.stringify({ error: 'Error del servicio de notificación', details: errorText }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -82,10 +88,20 @@ Deno.serve(async (req) => {
     }
 
     const result = await response.text();
-    return new Response(result, {
+    console.log('[enviar-notificacion] N8N response status:', response.status, 'body:', result.slice(0, 500));
+    // Devolver también el payload enriquecido para inspección desde Network
+    let parsedResult: any = result;
+    try { parsedResult = JSON.parse(result); } catch { /* keep as text */ }
+    return new Response(JSON.stringify({
+      n8nStatus: response.status,
+      n8nResponse: parsedResult,
+      sentPayload: enrichedBody,
+      sentTo: N8N_WEBHOOK_URL,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    console.error('[enviar-notificacion] EXCEPTION:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

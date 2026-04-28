@@ -554,12 +554,15 @@ export function AddManualPaymentDialog({
 
         // Enrutar a través de enviar-notificacion para que inyecte
         // URL_WA_base / instanciaWA / urlEndpointWA desde los secrets
-        const { error: notifError } = await supabase.functions.invoke('enviar-notificacion', {
-          body: { ...webhookBody, n8nPath: 'aplicaPago' },
+        const invokeBody = { ...webhookBody, n8nPath: 'aplicaPago' };
+        console.log('🚀 [AddManualPayment] Invoking enviar-notificacion with body:', invokeBody);
+        const { data: notifData, error: notifError } = await supabase.functions.invoke('enviar-notificacion', {
+          body: invokeBody,
         });
+        console.log('✅ [AddManualPayment] enviar-notificacion response:', { notifData, notifError });
 
         if (notifError) {
-          console.error('enviar-notificacion (aplicaPago) failed:', notifError);
+          console.error('❌ enviar-notificacion (aplicaPago) failed:', notifError);
         }
       } catch (error) {
         console.error('Error calling webhook:', error);
