@@ -581,11 +581,9 @@ export function CancelCuentaDialog({
           });
         }
 
-        const webhookUrl = `${N8N_WEBHOOK_BASE_URL}/aplicaPago`;
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        const { data: notifData, error: notifError } = await supabase.functions.invoke('enviar-notificacion', {
+          body: {
+            n8nPath: 'aplicaPago',
             success: true,
             siguiente_accion: "genera_cuenta_cobranza_completa_cesion",
             message: "Cancelación con cesión de derechos",
@@ -605,12 +603,12 @@ export function CancelCuentaDialog({
               porcentaje_entrega: esquema?.porcentaje_entrega || 0,
               monto_entrega: montoEntrega
             }
-          })
+          }
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Error al llamar al webhook: ${errorText}`);
+        if (notifError || (notifData?.n8nStatus ?? 500) >= 400) {
+          const errMsg = notifError?.message || JSON.stringify(notifData?.n8nResponse ?? notifData);
+          throw new Error(`Error al llamar al webhook: ${errMsg}`);
         }
       }
 
