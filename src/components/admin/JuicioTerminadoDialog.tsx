@@ -346,9 +346,11 @@ export function JuicioTerminadoDialog({
         const { error: propError } = await supabase
           .from('propiedades')
           .update({ 
-            id_estatus_disponibilidad: 2, // Disponible
+            id_estatus_disponibilidad: 1, // Inventario (queda como draft)
+            es_aprobado: false, // Borrador: requiere segunda revisión manual antes de publicarse
             clabe_stp_tmp_apartado: nuevaClabe,
-            fecha_actualizacion: new Date().toISOString()
+            fecha_actualizacion: new Date().toISOString(),
+            ...(nuevoPrecioLista > 0 ? { precio_lista: nuevoPrecioLista } : {})
           })
           .eq('id', propiedadId);
 
@@ -356,7 +358,7 @@ export function JuicioTerminadoDialog({
 
         toast({
           title: "Juicio terminado",
-          description: "La cuenta ha sido cancelada y la propiedad liberada exitosamente",
+          description: "Cuenta cancelada. La propiedad quedó en Inventario como borrador y requiere aprobación manual antes de publicarse.",
         });
       } else {
         // OPCIÓN 2: Cambiar a Vendido (Mantener compra)
