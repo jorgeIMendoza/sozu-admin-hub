@@ -35,6 +35,7 @@ export function JuicioTerminadoDialog({
   const [accionSeleccionada, setAccionSeleccionada] = useState<AccionJuicio>('liberar');
   const [tipoCancelacion, setTipoCancelacion] = useState<string>("2"); // 2=demanda, 3=negociación
   const [montoCancelacion, setMontoCancelacion] = useState<number>(0);
+  const [nuevoPrecioLista, setNuevoPrecioLista] = useState<number>(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
