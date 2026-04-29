@@ -609,7 +609,72 @@ Deno.serve(async (req) => {
 
         const isPersonalizado = !!aviso.personalizado;
 
-        for (const ac of rowsFilteredByProject) {
+        // En modo acumulado agrupamos por email del cliente: un solo envío
+        // por persona con la lista completa de adeudos. Construimos un
+        // arreglo de "acuerdos representativos" (uno por grupo), llevando
+        // adjunta la lista completa en __grupoAcuerdos.
+        type GrupoAcumulado = {
+          totalMonto: number;
+          cantidad: number;
+          fechaMasAntigua: string;
+          items: Array<{
+            fecha: string;
+            mes: string;
+            monto: number;
+            departamento: string;
+            proyecto: string;
+            producto: string;
+            concepto_id: number;
+          }>;
+        };
+        let acuerdosParaProcesar: any[] = rowsFilteredByProject;
+        if (isAcumulado) {
+          const gruposPorEmail = new Map<string, { rep: any; grupo: GrupoAcumulado }>();
+          for (const ac of rowsFilteredByProject) {
+            const ccG: any = (ac as any).cuentas_cobranza;
+            const personaG: any = ccG?.ofertas?.personas;
+            const emailG = (emailOverride || personaG?.email || '').toString().trim().toLowerCase();
+            if (!emailG) continue;
+            const idPropG = ccG?.id_propiedad;
+            const idEdModG = idPropG ? edificioModeloByPropiedad.get(idPropG) : undefined;
+            const idEdG = idEdModG ? edificioByModelo.get(idEdModG) : undefined;
+            const idProyG = idEdG ? proyectoByEdificio.get(idEdG) : undefined;
+            const item = {
+              fecha: ac.fecha_pago as string,
+              mes: formatMonthName(ac.fecha_pago as string),
+              monto: Number(ac.monto || 0),
+              departamento: idPropG ? (numeroPropiedadById.get(idPropG) || '') : '',
+              proyecto: idProyG ? (proyectoNombreById.get(idProyG) || '') : '',
+              producto: ccG?.ofertas?.id_producto ? (productoNombreById.get(ccG.ofertas.id_producto) || '') : '',
+              concepto_id: ac.id_concepto as number,
+            };
+            if (!gruposPorEmail.has(emailG)) {
+              gruposPorEmail.set(emailG, {
+                rep: ac,
+                grupo: {
+                  totalMonto: 0,
+                  cantidad: 0,
+                  fechaMasAntigua: item.fecha,
+                  items: [],
+                },
+              });
+            }
+            const g = gruposPorEmail.get(emailG)!;
+            g.grupo.items.push(item);
+            g.grupo.totalMonto += item.monto;
+            g.grupo.cantidad += 1;
+            if (item.fecha < g.grupo.fechaMasAntigua) g.grupo.fechaMasAntigua = item.fecha;
+          }
+          // Ordenar items por fecha asc dentro de cada grupo
+          for (const g of gruposPorEmail.values()) {
+            g.grupo.items.sort((a, b) => a.fecha.localeCompare(b.fecha));
+            (g.rep as any).__grupoAcumulado = g.grupo;
+          }
+          acuerdosParaProcesar = [...gruposPorEmail.values()].map((g) => g.rep);
+          console.log(`${tag} trigger ${trig.id} ACUMULADO: ${rowsFilteredByProject.length} acuerdos → ${acuerdosParaProcesar.length} clientes`);
+        }
+
+        for (const ac of acuerdosParaProcesar) {
           const cc: any = (ac as any).cuentas_cobranza;
           const persona: any = cc?.ofertas?.personas;
           if (!persona) continue;
@@ -665,6 +730,40 @@ Deno.serve(async (req) => {
           vars.asunto = renderedAsunto;
           vars.texto = renderedHtml;
 
+          // Variables específicas del modo acumulado: tabla con todos los
+          // adeudos del cliente, total, cantidad, fecha más antigua.
+          if (isAcumulado && (ac as any).__grupoAcumulado) {
+            const g: GrupoAcumulado = (ac as any).__grupoAcumulado;
+            const filasHtml = g.items.map((it) => `
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;">${fmtDate(it.fecha)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;">${it.proyecto}${it.departamento ? ` · Depto ${it.departamento}` : ''}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${fmtMoney(it.monto)}</td>
+              </tr>`).join('');
+            const tablaHtml = `
+              <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">
+                <thead>
+                  <tr style="background:#f5f5f5;">
+                    <th style="padding:8px 10px;text-align:left;">Fecha</th>
+                    <th style="padding:8px 10px;text-align:left;">Concepto</th>
+                    <th style="padding:8px 10px;text-align:right;">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>${filasHtml}</tbody>
+              </table>`;
+            const filasTexto = g.items
+              .map((it) => `• ${fmtDate(it.fecha)} — ${it.proyecto}${it.departamento ? ` Depto ${it.departamento}` : ''} — ${fmtMoney(it.monto)}`)
+              .join('\n');
+            vars.lista_adeudos = tablaHtml;
+            vars.lista_adeudos_texto = filasTexto;
+            vars.total_adeudo = fmtMoney(g.totalMonto);
+            vars.cantidad_acuerdos = String(g.cantidad);
+            vars.fecha_mas_antigua = fmtDate(g.fechaMasAntigua);
+            // Re-render con variables nuevas disponibles
+            vars.asunto = renderTemplate(aviso.asunto || '', vars);
+            vars.texto = renderTemplate(aviso.mensaje_html || '', vars);
+          }
+
           if (!emailReal) {
             console.log(`${tag} acuerdo ${ac.id}: cliente sin email, omitiendo`);
             addMotivo(metrics, 'Cliente sin email');
@@ -676,7 +775,9 @@ Deno.serve(async (req) => {
             nombre: nombreFinal,
             telefono: telefonoFinal,
             tipo: 'cliente' as const,
-            claveEntidad: `acuerdo:${ac.id}:offset:${offset}`,
+            claveEntidad: isAcumulado
+              ? `acumulado:cliente:${(emailReal || '').toLowerCase()}:fecha:${fechaObjetivo}`
+              : `acuerdo:${ac.id}:offset:${offset}`,
           }];
 
           for (const dest of destinatarios) {
