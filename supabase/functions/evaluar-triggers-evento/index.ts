@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
       .from('avisos_triggers_evento')
       .select(`
         id, id_aviso, id_fuente, offsets_dias, hora_envio, canal, filtros, activo,
-          avisos:avisos!inner ( id, nombre, asunto, mensaje_html, mensajes_whatsapp, postmark_template_id, activo, modo_trigger, payload_postmark, tipos_pago_notificables, personalizado ),
+          avisos:avisos!inner ( id, nombre, asunto, mensaje_html, mensajes_whatsapp, postmark_template_id, activo, modo_trigger, payload_postmark, tipos_pago_notificables, personalizado, cron_expression ),
         fuente:aviso_triggers_fuentes!inner ( id, clave, activo )
       `)
       .eq('activo', true);
