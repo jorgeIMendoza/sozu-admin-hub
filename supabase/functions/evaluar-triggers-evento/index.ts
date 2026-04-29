@@ -58,6 +58,44 @@ function fmtDate(s: string): string {
 
 const DEFAULT_TIPOS_PAGO = [2, 5, 4, 3];
 
+// ──────────────────────────────────────────────────────────────────────────
+// Cron matching (replicado de ejecutar-avisos-cron). Cuando un aviso en
+// modo evento tiene cron_expression, lo usamos como "gate del día": sólo
+// se evalúa si la expresión matchea la fecha/hora actual de México.
+// ──────────────────────────────────────────────────────────────────────────
+function cronFieldMatches(field: string, value: number): boolean {
+  if (field === '*') return true;
+  if (field.startsWith('*/')) {
+    const step = parseInt(field.slice(2), 10);
+    return Number.isFinite(step) && step > 0 && value % step === 0;
+  }
+  if (field.includes('-') && !field.includes(',')) {
+    const [min, max] = field.split('-').map(Number);
+    return value >= min && value <= max;
+  }
+  for (const part of field.split(',')) {
+    if (part.includes('-')) {
+      const [min, max] = part.split('-').map(Number);
+      if (value >= min && value <= max) return true;
+    } else if (parseInt(part, 10) === value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function cronMatchesDay(cronExpr: string, mexNow: Date): boolean {
+  // Para barrido diario sólo nos importa día-mes, mes y día-semana.
+  const parts = cronExpr.trim().split(/\s+/);
+  if (parts.length !== 5) return false;
+  const dayOfMonth = mexNow.getDate();
+  const month = mexNow.getMonth() + 1;
+  const dayOfWeek = mexNow.getDay();
+  return cronFieldMatches(parts[2], dayOfMonth)
+    && cronFieldMatches(parts[3], month)
+    && cronFieldMatches(parts[4], dayOfWeek);
+}
+
 function formatMonthName(value: string | null | undefined): string {
   if (!value) return '';
   const date = new Date(`${value}T00:00:00`);
@@ -307,7 +345,7 @@ Deno.serve(async (req) => {
       .from('avisos_triggers_evento')
       .select(`
         id, id_aviso, id_fuente, offsets_dias, hora_envio, canal, filtros, activo,
-          avisos:avisos!inner ( id, nombre, asunto, mensaje_html, mensajes_whatsapp, postmark_template_id, activo, modo_trigger, payload_postmark, tipos_pago_notificables, personalizado ),
+          avisos:avisos!inner ( id, nombre, asunto, mensaje_html, mensajes_whatsapp, postmark_template_id, activo, modo_trigger, payload_postmark, tipos_pago_notificables, personalizado, cron_expression ),
         fuente:aviso_triggers_fuentes!inner ( id, clave, activo )
       `)
       .eq('activo', true);
@@ -383,12 +421,24 @@ Deno.serve(async (req) => {
 
         const isProximo = fuente.clave === 'acuerdo_pago_proximo';
         const isVencido = fuente.clave === 'acuerdo_pago_vencido';
+        const isAcumulado = fuente.clave === 'acuerdos_vencidos_acumulados';
 
         if (!ignoreWindow && !withinSendWindow(trig.hora_envio as string, mexNow)) {
           console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): fuera de ventana hora_envio=${trig.hora_envio}`);
           addMotivo(metrics, `Fuera de ventana de envío (${trig.hora_envio})`);
           summary.skipped++;
           continue;
+        }
+
+        // Si el aviso tiene cron_expression, en modo evento la usamos como
+        // "gate de día" (ej. "0 9 30 * *" sólo dispara el día 30 a las 9:00).
+        if (aviso.cron_expression && typeof aviso.cron_expression === 'string') {
+          if (!cronMatchesDay(aviso.cron_expression, mexNow)) {
+            console.log(`${tag} trigger ${trig.id} (aviso "${aviso.nombre}"): cron_expression "${aviso.cron_expression}" no matchea hoy → omitido`);
+            addMotivo(metrics, `Cron del aviso no aplica hoy (${aviso.cron_expression})`);
+            summary.skipped++;
+            continue;
+          }
         }
 
         // Trigger entra en ventana → SIEMPRE crear log persistente
@@ -405,7 +455,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        if (!isProximo && !isVencido) {
+        if (!isProximo && !isVencido && !isAcumulado) {
           console.log(`${tag} fuente "${fuente.clave}" no soportada en V1`);
           addMotivo(metrics, `Fuente no soportada: ${fuente.clave}`);
           metrics.errores++;
@@ -431,7 +481,7 @@ Deno.serve(async (req) => {
           `)
           .eq('activo', true)
           .eq('pago_completado', false)
-          .eq('fecha_pago', fechaObjetivo);
+          [isAcumulado ? 'lte' : 'eq']('fecha_pago', fechaObjetivo);
 
         const filtros: any = trig.filtros || {};
         const tiposPagoConfigurados = Array.isArray(aviso.tipos_pago_notificables) && aviso.tipos_pago_notificables.length > 0
@@ -559,7 +609,72 @@ Deno.serve(async (req) => {
 
         const isPersonalizado = !!aviso.personalizado;
 
-        for (const ac of rowsFilteredByProject) {
+        // En modo acumulado agrupamos por email del cliente: un solo envío
+        // por persona con la lista completa de adeudos. Construimos un
+        // arreglo de "acuerdos representativos" (uno por grupo), llevando
+        // adjunta la lista completa en __grupoAcuerdos.
+        type GrupoAcumulado = {
+          totalMonto: number;
+          cantidad: number;
+          fechaMasAntigua: string;
+          items: Array<{
+            fecha: string;
+            mes: string;
+            monto: number;
+            departamento: string;
+            proyecto: string;
+            producto: string;
+            concepto_id: number;
+          }>;
+        };
+        let acuerdosParaProcesar: any[] = rowsFilteredByProject;
+        if (isAcumulado) {
+          const gruposPorEmail = new Map<string, { rep: any; grupo: GrupoAcumulado }>();
+          for (const ac of rowsFilteredByProject) {
+            const ccG: any = (ac as any).cuentas_cobranza;
+            const personaG: any = ccG?.ofertas?.personas;
+            const emailG = (emailOverride || personaG?.email || '').toString().trim().toLowerCase();
+            if (!emailG) continue;
+            const idPropG = ccG?.id_propiedad;
+            const idEdModG = idPropG ? edificioModeloByPropiedad.get(idPropG) : undefined;
+            const idEdG = idEdModG ? edificioByModelo.get(idEdModG) : undefined;
+            const idProyG = idEdG ? proyectoByEdificio.get(idEdG) : undefined;
+            const item = {
+              fecha: ac.fecha_pago as string,
+              mes: formatMonthName(ac.fecha_pago as string),
+              monto: Number(ac.monto || 0),
+              departamento: idPropG ? (numeroPropiedadById.get(idPropG) || '') : '',
+              proyecto: idProyG ? (proyectoNombreById.get(idProyG) || '') : '',
+              producto: ccG?.ofertas?.id_producto ? (productoNombreById.get(ccG.ofertas.id_producto) || '') : '',
+              concepto_id: ac.id_concepto as number,
+            };
+            if (!gruposPorEmail.has(emailG)) {
+              gruposPorEmail.set(emailG, {
+                rep: ac,
+                grupo: {
+                  totalMonto: 0,
+                  cantidad: 0,
+                  fechaMasAntigua: item.fecha,
+                  items: [],
+                },
+              });
+            }
+            const g = gruposPorEmail.get(emailG)!;
+            g.grupo.items.push(item);
+            g.grupo.totalMonto += item.monto;
+            g.grupo.cantidad += 1;
+            if (item.fecha < g.grupo.fechaMasAntigua) g.grupo.fechaMasAntigua = item.fecha;
+          }
+          // Ordenar items por fecha asc dentro de cada grupo
+          for (const g of gruposPorEmail.values()) {
+            g.grupo.items.sort((a, b) => a.fecha.localeCompare(b.fecha));
+            (g.rep as any).__grupoAcumulado = g.grupo;
+          }
+          acuerdosParaProcesar = [...gruposPorEmail.values()].map((g) => g.rep);
+          console.log(`${tag} trigger ${trig.id} ACUMULADO: ${rowsFilteredByProject.length} acuerdos → ${acuerdosParaProcesar.length} clientes`);
+        }
+
+        for (const ac of acuerdosParaProcesar) {
           const cc: any = (ac as any).cuentas_cobranza;
           const persona: any = cc?.ofertas?.personas;
           if (!persona) continue;
@@ -615,6 +730,40 @@ Deno.serve(async (req) => {
           vars.asunto = renderedAsunto;
           vars.texto = renderedHtml;
 
+          // Variables específicas del modo acumulado: tabla con todos los
+          // adeudos del cliente, total, cantidad, fecha más antigua.
+          if (isAcumulado && (ac as any).__grupoAcumulado) {
+            const g: GrupoAcumulado = (ac as any).__grupoAcumulado;
+            const filasHtml = g.items.map((it) => `
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;">${fmtDate(it.fecha)}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;">${it.proyecto}${it.departamento ? ` · Depto ${it.departamento}` : ''}</td>
+                <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right;">${fmtMoney(it.monto)}</td>
+              </tr>`).join('');
+            const tablaHtml = `
+              <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">
+                <thead>
+                  <tr style="background:#f5f5f5;">
+                    <th style="padding:8px 10px;text-align:left;">Fecha</th>
+                    <th style="padding:8px 10px;text-align:left;">Concepto</th>
+                    <th style="padding:8px 10px;text-align:right;">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>${filasHtml}</tbody>
+              </table>`;
+            const filasTexto = g.items
+              .map((it) => `• ${fmtDate(it.fecha)} — ${it.proyecto}${it.departamento ? ` Depto ${it.departamento}` : ''} — ${fmtMoney(it.monto)}`)
+              .join('\n');
+            vars.lista_adeudos = tablaHtml;
+            vars.lista_adeudos_texto = filasTexto;
+            vars.total_adeudo = fmtMoney(g.totalMonto);
+            vars.cantidad_acuerdos = String(g.cantidad);
+            vars.fecha_mas_antigua = fmtDate(g.fechaMasAntigua);
+            // Re-render con variables nuevas disponibles
+            vars.asunto = renderTemplate(aviso.asunto || '', vars);
+            vars.texto = renderTemplate(aviso.mensaje_html || '', vars);
+          }
+
           if (!emailReal) {
             console.log(`${tag} acuerdo ${ac.id}: cliente sin email, omitiendo`);
             addMotivo(metrics, 'Cliente sin email');
@@ -626,7 +775,9 @@ Deno.serve(async (req) => {
             nombre: nombreFinal,
             telefono: telefonoFinal,
             tipo: 'cliente' as const,
-            claveEntidad: `acuerdo:${ac.id}:offset:${offset}`,
+            claveEntidad: isAcumulado
+              ? `acumulado:cliente:${(emailReal || '').toLowerCase()}:fecha:${fechaObjetivo}`
+              : `acuerdo:${ac.id}:offset:${offset}`,
           }];
 
           for (const dest of destinatarios) {
