@@ -459,7 +459,7 @@ export function JuicioTerminadoDialog({
                     Liberar propiedad
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Cancela la cuenta de cobranza y pone la propiedad en estado "Disponible"
+                    Cancela la cuenta de cobranza y devuelve la propiedad a "Inventario" como borrador. Requiere una segunda revisión manual antes de publicarse.
                   </p>
                 </div>
               </div>
