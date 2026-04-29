@@ -280,15 +280,22 @@ function describeOffsets(offsets: number[]): string {
   return formatList(parts);
 }
 
-function describeEventTrigger(trigger: TriggerEvento, fuente?: FuenteTrigger): string {
+function describeEventTrigger(trigger: TriggerEvento, fuente?: FuenteTrigger, cronExpr?: string | null): string {
   const fuenteNombre = fuente?.nombre || 'fuente desconocida';
   const offsetsTxt = describeOffsets(trigger.offsets_dias || []);
-  const hora = (trigger.hora_envio || '').slice(0, 5);
   const canalTxt = trigger.canal === 'ambos'
     ? 'por correo y WhatsApp'
     : trigger.canal === 'whatsapp'
     ? 'por WhatsApp'
     : 'por correo';
+  const hasCron = !!(cronExpr && cronExpr.trim());
+  if (hasCron) {
+    const cronDesc = describeCron(cronExpr!.trim());
+    // cronDesc ya empieza con mayúscula y contiene el día/hora; lo bajamos para concatenar.
+    const cronLower = cronDesc.charAt(0).toLowerCase() + cronDesc.slice(1);
+    return `Se dispara automáticamente cuando un registro de "${fuenteNombre}" cumple la condición: ${offsetsTxt} respecto a su fecha objetivo. El envío se realiza ${canalTxt} ${cronLower} (hora México).`;
+  }
+  const hora = (trigger.hora_envio || '').slice(0, 5);
   return `Se dispara automáticamente cuando un registro de "${fuenteNombre}" cumple la condición: ${offsetsTxt} respecto a su fecha objetivo. El envío se realiza ${canalTxt} a las ${hora || '--:--'} (hora México).`;
 }
 
@@ -1281,7 +1288,7 @@ export default function AdministrarAvisos() {
                         const fuente = fuentesTrigger.find(f => f.id === trig.id_fuente);
                         return (
                           <div key={idx} className="rounded-md bg-background border p-3 space-y-1">
-                            <p className="text-foreground">{describeEventTrigger(trig, fuente)}</p>
+                            <p className="text-foreground">{describeEventTrigger(trig, fuente, detailAviso.cron_expression)}</p>
                             {fuente?.descripcion && (
                               <p className="text-xs text-muted-foreground">{fuente.descripcion}</p>
                             )}
