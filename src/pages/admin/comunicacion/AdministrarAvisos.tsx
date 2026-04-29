@@ -571,9 +571,13 @@ export default function AdministrarAvisos() {
           toast({ title: "Error", description: "Ingresa al menos un offset de días (ej. -5,-3,-1)", variant: "destructive" });
           return;
         }
-        if (!/^\d{2}:\d{2}$/.test(eventoHora)) {
-          toast({ title: "Error", description: "Hora de envío inválida (formato HH:MM)", variant: "destructive" });
-          return;
+        // Si NO hay cron, la hora de envío es obligatoria. Si SÍ hay cron,
+        // el cron manda y la hora se deriva de él (ignorada en runtime).
+        if (!cronExpression || !cronExpression.trim()) {
+          if (!/^\d{2}:\d{2}$/.test(eventoHora)) {
+            toast({ title: "Error", description: "Hora de envío inválida (formato HH:MM)", variant: "destructive" });
+            return;
+          }
         }
         // cron_expression es OPCIONAL en modo evento (gate de día). Si la
         // capturó el usuario, validamos su sintaxis.
