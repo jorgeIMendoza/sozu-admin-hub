@@ -534,6 +534,21 @@ export function JuicioTerminadoDialog({
             </div>
           </div>
 
+          {/* Nuevo precio de lista (solo al liberar) */}
+          {accionSeleccionada === 'liberar' && (
+            <div className="space-y-2 p-4 border rounded-lg bg-amber-50/40 dark:bg-amber-950/20">
+              <Label>Nuevo precio de lista (opcional)</Label>
+              <CurrencyInput
+                value={nuevoPrecioLista * 100}
+                onChange={(value) => setNuevoPrecioLista(value / 100)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Si se captura un valor mayor a 0, se actualizará el precio de lista de la propiedad al regresarla a Inventario. La propiedad quedará como <strong>borrador</strong> y no será visible hasta que se apruebe manualmente.
+              </p>
+            </div>
+          )}
+
           {/* File Upload */}
           <div className="space-y-2">
             <Label htmlFor="documentos">Documentos del Juicio *</Label>
