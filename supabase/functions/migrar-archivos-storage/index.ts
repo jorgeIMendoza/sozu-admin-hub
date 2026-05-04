@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Process migration
+    // Process migration in parallel batches
     const results = {
       total: rows.length,
       exitosos: 0,
@@ -98,32 +98,30 @@ Deno.serve(async (req) => {
       detalles_errores: [] as Array<{ id: number; error: string }>,
     };
 
-    for (const row of rows) {
+    const CONCURRENCY = 8;
+    const processOne = async (row: { id: number; url: string }) => {
       try {
         const oldUrl = row.url;
-        if (!oldUrl || !oldUrl.includes("api.sozu.com/storage/uploads/")) continue;
+        if (!oldUrl || !oldUrl.includes("api.sozu.com/storage/uploads/")) return;
 
-        // Extract filename from URL
         const urlParts = oldUrl.split("/");
         const fileName = urlParts[urlParts.length - 1];
         if (!fileName) {
           results.errores++;
           results.detalles_errores.push({ id: row.id, error: "No se pudo extraer nombre de archivo" });
-          continue;
+          return;
         }
 
-        // Download file from legacy URL
         const fileRes = await fetch(oldUrl);
         if (!fileRes.ok) {
           results.errores++;
-          results.detalles_errores.push({ id: row.id, error: `Download failed: ${fileRes.status} ${fileRes.statusText}` });
-          continue;
+          results.detalles_errores.push({ id: row.id, error: `Download failed: ${fileRes.status}` });
+          return;
         }
 
         const fileBlob = await fileRes.blob();
         const storagePath = `${carpeta}/${fileName}`;
 
-        // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from("legacy-uploads")
           .upload(storagePath, fileBlob, {
@@ -134,17 +132,15 @@ Deno.serve(async (req) => {
         if (uploadError) {
           results.errores++;
           results.detalles_errores.push({ id: row.id, error: `Upload failed: ${uploadError.message}` });
-          continue;
+          return;
         }
 
-        // Get public URL
         const { data: publicUrlData } = supabase.storage
           .from("legacy-uploads")
           .getPublicUrl(storagePath);
 
         const newUrl = publicUrlData.publicUrl;
 
-        // Update record in DB via PostgREST
         const updateUrl = `${supabaseUrl}/rest/v1/${tabla}?id=eq.${row.id}`;
         const updateBody: Record<string, string> = {};
         updateBody[columna] = newUrl;
@@ -164,14 +160,19 @@ Deno.serve(async (req) => {
           const errText = await updateRes.text();
           results.errores++;
           results.detalles_errores.push({ id: row.id, error: `DB update failed: ${errText}` });
-          continue;
+          return;
         }
 
         results.exitosos++;
       } catch (e) {
         results.errores++;
-        results.detalles_errores.push({ id: row.id, error: `Exception: ${e.message}` });
+        results.detalles_errores.push({ id: row.id, error: `Exception: ${(e as Error).message}` });
       }
+    };
+
+    for (let i = 0; i < rows.length; i += CONCURRENCY) {
+      const batch = rows.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map(processOne));
     }
 
     return new Response(JSON.stringify({
