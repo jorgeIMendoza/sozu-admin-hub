@@ -1,61 +1,35 @@
+
 ## Problema
 
-Hoy en modo evento conviven dos campos que se contradicen:
+En el modal "Editar Cuenta de Cobranza" el campo **Fecha de Compra** se guarda en `cuentas_cobranza.fecha_compra` (ver `EditCuentaCobranzaDialog.tsx` línea 1119–1142, mutation `updateFechaCompraMutation`).
 
-- **Hora de envío** (`triggers.hora_envio`): usada para una ventana horaria del día.
-- **Cron de día permitido** (`avisos.cron_expression`): usado como "gate" de día/hora.
+Sin embargo, el PDF de Estado de Cuenta NO lee ese campo. Lee `ofertas.fecha_generacion`, que es la fecha en la que se generó la oferta original y nunca cambia cuando el usuario actualiza la fecha de compra de la cuenta.
 
-En `evaluar-triggers-evento` ambos se aplican en cascada: primero `withinSendWindow(hora_envio)` y luego `cronMatchesDay(cron_expression)`. Eso hace que un cron `10 9 30 * *` con `hora_envio = 10:00` sea ambiguo (la UI dice "el día 30 a las 9:10" pero la ventana de envío sigue siendo 10:00 ± tolerancia).
+Archivos afectados:
+- `supabase/functions/generar-estado-cuenta/index.ts` línea 327:
+  ```ts
+  if (oferta.fecha_generacion) detailsRight.push({ label: 'Fecha de compra:', value: formatDate(oferta.fecha_generacion) });
+  ```
+- `src/services/estadoCuentaService.ts` línea 462: mismo patrón con `data.oferta.fecha_generacion`.
 
-## Decisión
+Por eso la cuenta 82 sigue mostrando 24/11/2025 (la fecha original en `ofertas`) aunque actualizaste a 21/05/2024 en `cuentas_cobranza.fecha_compra`.
 
-**Cuando exista `cron_expression` en modo evento, el cron manda y se ignora `hora_envio`.** La hora de disparo la define el cron. `hora_envio` queda como fallback sólo para los avisos por evento que **no** tienen cron (comportamiento clásico de offsets diarios tipo `-5,-3,-1` con hora fija).
+## Cambios propuestos
 
-## Cambios
+1. **Edge Function `generar-estado-cuenta`**
+   - Incluir `fecha_compra` en el SELECT de `cuentas_cobranza` (la consulta principal de la cuenta).
+   - En el bloque que arma `detailsRight`, usar `cuenta.fecha_compra` con fallback a `oferta.fecha_generacion` si está vacío:
+     ```ts
+     const fechaCompraMostrada = cuenta.fecha_compra || oferta.fecha_generacion;
+     if (fechaCompraMostrada) detailsRight.push({ label: 'Fecha de compra:', value: formatDate(fechaCompraMostrada) });
+     ```
 
-### 1. UI — `src/pages/admin/comunicacion/AdministrarAvisos.tsx`
+2. **Servicio cliente `src/services/estadoCuentaService.ts`**
+   - Asegurar que `data.cuenta.fecha_compra` se traiga del query (revisar el fetch que arma `data`) y aplicar el mismo fallback en línea 462.
 
-- En el bloque de modo evento, **mover/ocultar el input "Hora de envío"** cuando `cronExpression` esté lleno:
-  - Si `cronExpression` está vacío → se muestra "Hora de envío" como hoy.
-  - Si `cronExpression` tiene valor → se oculta el input y se muestra una nota: *"La hora la define el Cron de día permitido. Hora de envío deshabilitada."*
-- Reordenar para que primero aparezca **Cron** y luego, condicionalmente, **Hora de envío**.
-- Ajustar la nota de Cron: *"Si lo dejas vacío, se evalúa todos los días a la hora de envío. Si lo capturas, el cron define día y hora exactos; la hora de envío se ignora."*
-- Al guardar, si hay `cronExpression`, seguir mandando `hora_envio` al backend (para no romper el schema), pero derivarlo del cron (extraer `minuto hora` y guardarlo como `HH:MM:00`) para que quede coherente en BD. Si no se puede parsear (cron con listas/rangos en hora) → guardar `hora_envio` como `00:00:00` placeholder.
+3. **No se requieren cambios de DB** — la columna `cuentas_cobranza.fecha_compra` ya existe y se está actualizando correctamente.
 
-### 2. Edge function — `supabase/functions/evaluar-triggers-evento/index.ts`
+## Verificación
 
-En el loop por trigger, cambiar el orden y la lógica:
-
-```ts
-const hasCron = aviso.cron_expression && typeof aviso.cron_expression === 'string';
-
-if (hasCron) {
-  // El cron manda: día y hora.
-  if (!cronMatchesNow(aviso.cron_expression, mexNow)) {
-    addMotivo(metrics, `Cron no aplica ahora (${aviso.cron_expression})`);
-    continue;
-  }
-  // No evaluar withinSendWindow(hora_envio) en este caso.
-} else {
-  // Sin cron: comportamiento clásico con ventana de hora_envio.
-  if (!ignoreWindow && !withinSendWindow(trig.hora_envio, mexNow)) {
-    addMotivo(metrics, `Fuera de ventana de envío (${trig.hora_envio})`);
-    continue;
-  }
-}
-```
-
-Donde `cronMatchesNow` ya existe en `ejecutar-avisos-cron` (chequea minuto+hora+día). Reutilizar la misma función (copiarla a `evaluar-triggers-evento` para no introducir un import compartido).
-
-Actualmente `cronMatchesDay` sólo valida día/mes/dow ignorando minuto/hora — eso era correcto cuando hora_envio mandaba. Ahora cambiamos a `cronMatchesNow` (incluye minuto/hora) cuando hay cron en modo evento.
-
-### 3. Sin migración de BD
-
-`triggers.hora_envio` se queda como NOT NULL — sólo cambia su semántica (ignorado si hay cron). Los avisos viejos sin cron siguen funcionando idénticos.
-
-## Resultado esperado
-
-- Aviso con cron `10 9 30 * *`: dispara **el día 30 a las 9:10 MX**, sin importar `hora_envio`. La UI ya no muestra "Hora de envío" para evitar confusión.
-- Aviso con offsets `-5,-3,-1` y sin cron: sigue disparando a la `hora_envio` configurada todos los días que apliquen.
-
-¿Apruebas?
+- Regenerar el estado de cuenta de la cuenta 82 y confirmar que ahora muestre **21/05/2024**.
+- Confirmar que cuentas sin `fecha_compra` editada sigan mostrando `oferta.fecha_generacion` (fallback).

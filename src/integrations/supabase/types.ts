@@ -1736,6 +1736,51 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_pagos_bottura: {
+        Row: {
+          clabe_stp: string | null
+          clave_rastreo: string | null
+          fecha_acordada: string | null
+          fecha_pago: string | null
+          id_cuenta_cobranza: number | null
+          metodo_pago: string | null
+          monto: number | null
+          numero_propiedad: string | null
+          pago: string | null
+          proyecto: string | null
+          url_cep: string | null
+          url_recibo: string | null
+        }
+        Insert: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          proyecto?: string | null
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Update: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          proyecto?: string | null
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Relationships: []
+      }
       borrar_pagos_duplicate2: {
         Row: {
           activo: boolean

@@ -324,7 +324,8 @@ Deno.serve(async (req) => {
     ry -= 12;
 
     const detailsRight: { label: string; value: string }[] = [];
-    if (oferta.fecha_generacion) detailsRight.push({ label: 'Fecha de compra:', value: formatDate(oferta.fecha_generacion) });
+    const fechaCompraMostrada = (cuenta as any).fecha_compra || oferta.fecha_generacion;
+    if (fechaCompraMostrada) detailsRight.push({ label: 'Fecha de compra:', value: formatDate(fechaCompraMostrada) });
     if (esquemaPago?.numero_mensualidades) detailsRight.push({ label: 'Parcialidades:', value: String(esquemaPago.numero_mensualidades) });
 
     const porcEng = esquemaPago?.porcentaje_enganche || 0;

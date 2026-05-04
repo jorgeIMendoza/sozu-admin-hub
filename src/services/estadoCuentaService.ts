@@ -458,8 +458,9 @@ export class EstadoCuentaService {
 
     const detailsRight = [];
     
-    if (data.oferta?.fecha_generacion) {
-      detailsRight.push({ label: "Fecha de compra:", value: formatDate(data.oferta.fecha_generacion) });
+    const fechaCompraMostrada = (data.cuenta as any)?.fecha_compra || data.oferta?.fecha_generacion;
+    if (fechaCompraMostrada) {
+      detailsRight.push({ label: "Fecha de compra:", value: formatDate(fechaCompraMostrada) });
     }
     if (data.esquemaPago?.numero_mensualidades) {
       detailsRight.push({ label: "Número de parcialidades:", value: String(data.esquemaPago.numero_mensualidades) });
