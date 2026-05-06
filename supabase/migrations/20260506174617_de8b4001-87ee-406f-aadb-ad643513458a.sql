@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.scan_legacy_urls() TO postgres, anon, authenticated;
