@@ -98,7 +98,36 @@ Deno.serve(async (req) => {
       detalles_errores: [] as Array<{ id: number; error: string }>,
     };
 
-    const CONCURRENCY = 8;
+    const CONCURRENCY = 3;
+    const DOWNLOAD_TIMEOUT_MS = 20000;
+    const BATCH_DELAY_MS = 500;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    const fetchWithTimeout = async (url: string, timeoutMs: number) => {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(t);
+      }
+    };
+
+    const downloadWithRetry = async (url: string) => {
+      try {
+        const r = await fetchWithTimeout(url, DOWNLOAD_TIMEOUT_MS);
+        if (r.ok) return r;
+        if (r.status >= 500) {
+          await sleep(1000);
+          return await fetchWithTimeout(url, DOWNLOAD_TIMEOUT_MS);
+        }
+        return r;
+      } catch (_e) {
+        await sleep(1000);
+        return await fetchWithTimeout(url, DOWNLOAD_TIMEOUT_MS);
+      }
+    };
+
     const processOne = async (row: { id: number; url: string }) => {
       try {
         const oldUrl = row.url;
@@ -112,7 +141,7 @@ Deno.serve(async (req) => {
           return;
         }
 
-        const fileRes = await fetch(oldUrl);
+        const fileRes = await downloadWithRetry(oldUrl);
         if (!fileRes.ok) {
           results.errores++;
           results.detalles_errores.push({ id: row.id, error: `Download failed: ${fileRes.status}` });
@@ -173,6 +202,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < rows.length; i += CONCURRENCY) {
       const batch = rows.slice(i, i + CONCURRENCY);
       await Promise.all(batch.map(processOne));
+      if (i + CONCURRENCY < rows.length) await sleep(BATCH_DELAY_MS);
     }
 
     return new Response(JSON.stringify({
