@@ -8707,6 +8707,14 @@ export type Database = {
         Args: { p_id_entidad?: number; p_id_proyecto?: number }
         Returns: number
       }
+      scan_legacy_urls: {
+        Args: never
+        Returns: {
+          columna: string
+          pendientes: number
+          tabla: string
+        }[]
+      }
       sync_conyuge_compradores: {
         Args: { p_id_persona: number }
         Returns: {
