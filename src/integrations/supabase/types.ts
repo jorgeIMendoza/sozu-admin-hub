@@ -1838,6 +1838,144 @@ export type Database = {
         }
         Relationships: []
       }
+      borrar_pagos_bottura_copia: {
+        Row: {
+          clabe_stp: string | null
+          clave_rastreo: string | null
+          fecha_acordada: string | null
+          fecha_pago: string | null
+          id_cuenta_cobranza: number | null
+          metodo_pago: string | null
+          monto: number | null
+          numero_propiedad: string | null
+          pago: string | null
+          pago_aplicado: number | null
+          proyecto: string | null
+          trabajo_row_id: number
+          url_cep: string | null
+          url_recibo: string | null
+        }
+        Insert: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          pago_aplicado?: number | null
+          proyecto?: string | null
+          trabajo_row_id?: number
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Update: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          pago_aplicado?: number | null
+          proyecto?: string | null
+          trabajo_row_id?: number
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Relationships: []
+      }
+      borrar_pagos_bottura_corregido: {
+        Row: {
+          clabe_stp: string | null
+          clave_rastreo: string | null
+          correccion_dispersion_aplicada: boolean | null
+          fecha_acordada: string | null
+          fecha_pago: string | null
+          filas_en_el_maximo: number | null
+          filas_en_grupo: number | null
+          grupo_suma_aplicado_igual_pdf: boolean | null
+          id_cuenta_cobranza: number | null
+          metodo_pago: string | null
+          monto: number | null
+          monto_real_pdf: number | null
+          monto_referencia_grupo: number | null
+          monto_sistema_origen: number | null
+          mx_aplicado_en_grupo: number | null
+          numero_propiedad: string | null
+          pago: string | null
+          pago_aplicado: number | null
+          pago_aplicado_corregido: number | null
+          proyecto: string | null
+          requiere_revision_manual: boolean | null
+          sum_aplicado_grupo: number | null
+          suma_dispersiones: number | null
+          trabajo_row_id: number | null
+          url_cep: string | null
+          url_recibo: string | null
+        }
+        Insert: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          correccion_dispersion_aplicada?: boolean | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          filas_en_el_maximo?: number | null
+          filas_en_grupo?: number | null
+          grupo_suma_aplicado_igual_pdf?: boolean | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          monto_real_pdf?: number | null
+          monto_referencia_grupo?: number | null
+          monto_sistema_origen?: number | null
+          mx_aplicado_en_grupo?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          pago_aplicado?: number | null
+          pago_aplicado_corregido?: number | null
+          proyecto?: string | null
+          requiere_revision_manual?: boolean | null
+          sum_aplicado_grupo?: number | null
+          suma_dispersiones?: number | null
+          trabajo_row_id?: number | null
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Update: {
+          clabe_stp?: string | null
+          clave_rastreo?: string | null
+          correccion_dispersion_aplicada?: boolean | null
+          fecha_acordada?: string | null
+          fecha_pago?: string | null
+          filas_en_el_maximo?: number | null
+          filas_en_grupo?: number | null
+          grupo_suma_aplicado_igual_pdf?: boolean | null
+          id_cuenta_cobranza?: number | null
+          metodo_pago?: string | null
+          monto?: number | null
+          monto_real_pdf?: number | null
+          monto_referencia_grupo?: number | null
+          monto_sistema_origen?: number | null
+          mx_aplicado_en_grupo?: number | null
+          numero_propiedad?: string | null
+          pago?: string | null
+          pago_aplicado?: number | null
+          pago_aplicado_corregido?: number | null
+          proyecto?: string | null
+          requiere_revision_manual?: boolean | null
+          sum_aplicado_grupo?: number | null
+          suma_dispersiones?: number | null
+          trabajo_row_id?: number | null
+          url_cep?: string | null
+          url_recibo?: string | null
+        }
+        Relationships: []
+      }
       borrar_pagos_duplicate2: {
         Row: {
           activo: boolean
