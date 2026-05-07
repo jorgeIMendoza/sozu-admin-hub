@@ -407,7 +407,9 @@ export default function ComisionesPorPagarTab({
                                         <TableCell>
                                           <Button
                                             size="sm"
-                                            onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
+                            onClick={() => openPagarDialog(com.email, cuenta.idCuenta)}
+                            disabled={!cuenta.esPagadaComisionVenta}
+                            title={!cuenta.esPagadaComisionVenta ? 'La comisión Sozu debe estar pagada antes de liberar el pago al externo' : ''}
                                           >
                                             <Upload className="h-4 w-4 mr-1" />
                                             Pagar
@@ -599,7 +601,9 @@ export default function ComisionesPorPagarTab({
                                         <TableCell>
                                           <Button
                                             size="sm"
-                                            onClick={() => openPagarDialog(comisionista.email, cuenta.idCuenta)}
+                            onClick={() => openPagarDialog(comisionista.email, cuenta.idCuenta)}
+                            disabled={!cuenta.esPagadaComisionVenta}
+                            title={!cuenta.esPagadaComisionVenta ? 'La comisión Sozu debe estar pagada antes de liberar el pago al externo' : ''}
                                           >
                                             <Upload className="h-4 w-4 mr-1" />
                                             Pagar
