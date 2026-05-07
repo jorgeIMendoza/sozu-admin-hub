@@ -1,23 +1,44 @@
-## Ajuste al Edge Function `migrar-archivos-storage`
+## Contexto detectado
 
-Reducir la presión sobre `api.sozu.com` (origen de los timeouts 522) bajando concurrencia y agregando un pequeño delay entre descargas, además de un timeout explícito por archivo para que un host lento no bloquee toda la tanda.
+En `src/pages/admin/ComisionesExternas.tsx` las cuentas con estatus de propiedad ≥ 4 (Apartado/Vendido) **sí se cargan** (filtro línea 394). Lo que las "esconde" en tu segunda imagen es:
 
-### Cambios en `supabase/functions/migrar-archivos-storage/index.ts`
+1. El botón **Aprobar** (línea 895) está deshabilitado cuando `cuenta.es_pagada_comision_venta = false`, con tooltip *"La comisión Sozu debe estar pagada antes de aprobar comisiones externas"*.
+2. La columna "Comisión Sozu" muestra `Pendiente`, pero no hay un aviso visible que invite a continuar el flujo.
 
-1. **Bajar concurrencia**: `CONCURRENCY` de `8` → `3`.
-2. **Timeout por descarga**: envolver el `fetch(oldUrl)` con `AbortController` a **20s**. Si expira, se cuenta como error y se sigue con el siguiente (no rompe la tanda).
-3. **Delay entre lotes**: `await sleep(500)` (500ms) entre cada batch de 3 para no saturar el origen.
-4. **Reintento ligero**: si la descarga falla con 5xx o timeout, reintentar **1 vez** tras 1s antes de marcar como error.
-5. **Sin cambios** en: validación de tabla/columna, payload de entrada, formato de respuesta, lógica de upload a Storage, ni update a la DB. La interfaz pública del Edge Function se mantiene 100% compatible con el n8n y con los `curl` actuales.
+Tus dos cuentas (CCP-001758 y CC-001750) están en estatus **Vendido (5)** pero `es_pagada_comision_venta = false`, por eso aparecen en *Comisiones Sozu / Por Pagar* y siguen ocultas operativamente en *Aprobación de Externas*.
 
-### Despliegue y verificación
+## Análisis de implicaciones (downstream)
 
-1. Desplegar la función.
-2. Lanzar 1 tanda de prueba con `limit: 50` y medir: tiempo total, exitosos, errores.
-3. Si la tasa de error <10%, encadenar tandas hasta vaciar `multimedias_proyecto.url` (consulta de control: `SELECT COUNT(*) FROM multimedias_proyecto WHERE url LIKE '%api.sozu.com%'`).
-4. Reportar total migrado y confirmar 0 pendientes.
+Revisé los hooks/queries siguientes:
+- `subirFacturaMutation` (ComisionesExternas, línea 471): solo requiere `aprobada=true`. **No depende** de `es_pagada_comision_venta`.
+- `PagarComisiones.tsx` (línea 160): filtra `comisionistas.aprobada=true`. **No depende** de `es_pagada_comision_venta`.
+- `AgentComisiones.tsx` (portal del agente): el estatus *factura_requerida* depende de `aprobada && !hasFactura`. **No depende** de Sozu pagada.
+- Edge function `generar-factura-comision-sozu` y `timbrar-factura-comision-sozu`: son del lado de Sozu (factura que recibe Sozu del cliente), no afectan a la factura del externo.
 
-### Notas
+**Conclusión**: aprobar antes de que Sozu cobre **NO rompe** el flujo. El agente externo podrá subir factura, y cuando después se marque la comisión Sozu como pagada, los pagos a externos siguen su curso normal en *Pagar Comisiones*.
 
-- Esto **no bloquea** el workflow n8n que estás montando: ambos pueden coexistir apuntando al mismo bucket/tabla porque el upload usa `upsert: true` y el `WHERE` solo trae filas con URL legacy (las ya migradas se excluyen automáticamente).
-- Si tras el ajuste `api.sozu.com` sigue devolviendo 522 masivamente, la siguiente palanca sería bajar `CONCURRENCY` a `2` o agregar `User-Agent` custom en el `fetch`.
+Único riesgo de negocio: que un externo se llegue a pagar antes que Sozu cobre. Para mitigarlo, mantengo bloqueado el **pago al externo** hasta que Sozu esté pagada (sólo libero la aprobación y la subida de factura).
+
+## Cambios propuestos (sólo `src/pages/admin/ComisionesExternas.tsx`)
+
+### 1. Habilitar Aprobación con propiedad Vendida aunque Sozu no esté pagada
+- Botón *Aprobar* (línea 887-901): quitar la condición `!cuenta.es_pagada_comision_venta` del `disabled`. Mantener únicamente `id_estatus_disponibilidad !== 5`.
+- Actualizar el `title`/tooltip para reflejar la nueva regla.
+
+### 2. Mantener bloqueo del pago final al externo
+- Botón *Marcar como pagada* (sección ~927+): condicionarlo a `cuenta.es_pagada_comision_venta === true` con tooltip explicativo. Esto es el "candado" que protege el orden Sozu → externo.
+
+### 3. Mostrar aviso visible cuando Sozu aún no ha cobrado
+- En la fila expandida (encabezado de "Comisionistas Externos"), agregar un `<Alert variant="warning">` cuando `!cuenta.es_pagada_comision_venta`:
+  > "Comisión Sozu aún no pagada. Puedes aprobar y permitir que el externo suba factura, pero el pago al externo se habilitará una vez que Sozu cobre su comisión."
+- Adicional: en la columna *Comisión Sozu* (línea 804-812), añadir un ícono `AlertCircle` cuando esté Pendiente para hacerlo más evidente a primera vista.
+
+### 4. Sin cambios en backend / RLS / esquema
+No hay tablas, policies ni RPCs que tocar. La query ya trae los registros; sólo se ajusta UI/lógica de habilitación.
+
+## Validación
+
+- Verificar que las cuentas CCP-001758 y CC-001750 aparezcan en *Por Pagar* con botón *Aprobar* habilitado.
+- Verificar que tras aprobar, el agente externo (`AgentComisiones.tsx`) entre en estado `factura_requerida` y pueda subir la factura.
+- Verificar que el botón *Marcar como pagada* permanece deshabilitado hasta que `es_pagada_comision_venta` cambie a true (puedes simularlo en *Comisiones Sozu*).
+- Verificar que el aviso aparece sólo cuando Sozu está pendiente y desaparece al marcar Sozu como pagada.
