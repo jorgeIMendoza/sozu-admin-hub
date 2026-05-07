@@ -178,11 +178,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_acpago_cuenta"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "fk_acuerdos_pago_cuenta_cobranza"
             columns: ["id_cuenta_cobranza"]
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_acuerdos_pago_cuenta_cobranza"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
         ]
       }
@@ -345,6 +359,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pagos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_aplicaciones_pago_pago"
+            columns: ["id_pago"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_pago"]
           },
         ]
       }
@@ -2028,11 +2049,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "pagos_duplicate2_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "pagos_duplicate2_id_cuenta_cobranza_fkey1"
             columns: ["id_cuenta_cobranza"]
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_duplicate2_id_cuenta_cobranza_fkey1"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
           {
             foreignKeyName: "pagos_duplicate2_id_metodos_pago_fkey"
@@ -2147,11 +2182,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "borrar_pagos_revision_evidencias_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "borrar_pagos_revision_evidencias_id_cuenta_cobranza_fkey1"
             columns: ["id_cuenta_cobranza"]
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "borrar_pagos_revision_evidencias_id_cuenta_cobranza_fkey1"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
         ]
       }
@@ -3222,11 +3271,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "comisionistas_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "fk_comisionistas_cuenta"
             columns: ["id_cuenta_cobranza"]
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_comisionistas_cuenta"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
         ]
       }
@@ -3264,6 +3327,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "compradores_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "compradores_id_persona_fkey"
             columns: ["id_persona"]
             isOneToOne: false
@@ -3276,6 +3346,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_compradores_cuenta"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
           {
             foreignKeyName: "fk_compradores_persona"
@@ -3708,6 +3785,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cuentas_cobranza_id_cuenta_cobranza_padre_fkey"
+            columns: ["id_cuenta_cobranza_padre"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "cuentas_cobranza_id_tipo_cancelacion_fkey"
             columns: ["id_tipo_cancelacion"]
             isOneToOne: false
@@ -3849,6 +3933,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_documentos_cuenta_cobranza"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
         ]
       }
@@ -5587,6 +5678,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_pagos_cuenta"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "fk_pagos_metodo"
             columns: ["id_metodos_pago"]
             isOneToOne: false
@@ -5599,6 +5697,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cuentas_cobranza"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
           },
           {
             foreignKeyName: "pagos_id_metodos_pago_fkey"
@@ -6928,6 +7033,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "residentes_id_cuenta_cobranza_fkey"
+            columns: ["id_cuenta_cobranza"]
+            isOneToOne: false
+            referencedRelation: "v_pagos_detalle"
+            referencedColumns: ["id_cuenta_cobranza"]
+          },
+          {
             foreignKeyName: "residentes_id_persona_fkey"
             columns: ["id_persona"]
             isOneToOne: false
@@ -8017,7 +8129,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_pagos_detalle: {
+        Row: {
+          fecha_pago: string | null
+          id_cuenta_cobranza: number | null
+          id_pago: number | null
+          metodo_pago: string | null
+          monto: number | null
+          nombre_legal: string | null
+          numero_piso: string | null
+          numero_propiedad: string | null
+          producto: string | null
+          proyecto: string | null
+          tipo_propiedad: string | null
+          url_cep: string | null
+          url_recibo: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       actualizar_estatus_reservas: { Args: never; Returns: undefined }
