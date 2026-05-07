@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Check, Upload, Eye, FileText, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Upload, Eye, FileText, Search, AlertCircle, AlertTriangle } from "lucide-react";
 import { format, parseISO, endOfMonth, subMonths, isBefore, isEqual } from "date-fns";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { usePagePermissions } from "@/hooks/usePagePermissions";
@@ -806,7 +806,8 @@ export default function ComisionesExternas() {
                         Pagada
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20 gap-1">
+                        <AlertCircle className="h-3 w-3" />
                         Pendiente
                       </Badge>
                     )}
@@ -825,6 +826,14 @@ export default function ComisionesExternas() {
                         {/* Comisionistas Externos */}
                         <div>
                           <h4 className="font-semibold mb-2 text-sm">Comisionistas Externos</h4>
+                          {!cuenta.es_pagada_comision_venta && (
+                            <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs text-amber-800 dark:text-amber-300">
+                              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                              <div>
+                                <strong>Comisión Sozu aún no pagada.</strong> Puedes aprobar y permitir que el externo suba su factura, pero el pago al externo se habilitará una vez que Sozu cobre su comisión.
+                              </div>
+                            </div>
+                          )}
                           <Table>
                             <TableHeader>
                               <TableRow>
@@ -892,8 +901,8 @@ export default function ComisionesExternas() {
                                             e.stopPropagation();
                                             aprobarMutation.mutate({ email: com.email_usuario, idCuenta: cuenta.id, montoComision: com.montoComision, nombreComisionista: com.nombre, proyectoNombre: cuenta.proyecto_nombre, numeroDepartamento: cuenta.numero_departamento });
                                           }}
-                                          disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5 || !cuenta.es_pagada_comision_venta}
-                                          title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : !cuenta.es_pagada_comision_venta ? 'La comisión Sozu debe estar pagada antes de aprobar comisiones externas' : ''}
+                                          disabled={aprobarMutation.isPending || cuenta.id_estatus_disponibilidad !== 5}
+                                          title={cuenta.id_estatus_disponibilidad !== 5 ? 'Solo se puede aprobar cuando la propiedad está en estatus Vendido' : !cuenta.es_pagada_comision_venta ? 'Puedes aprobar; el pago al externo se liberará cuando Sozu cobre su comisión' : ''}
                                         >
                                           <Check className="h-4 w-4 mr-1" />
                                           Aprobar
