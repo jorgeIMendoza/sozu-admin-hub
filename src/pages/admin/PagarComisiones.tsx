@@ -458,6 +458,7 @@ export default function PagarComisiones() {
           urlEvidencia: com.url_evidencia_pago,
           urlFacturaExterna: com.urlFacturaExterna,
           facturaComisionSozu: com.facturaComisionSozu,
+          esPagadaComisionVenta: cuenta.es_pagada_comision_venta === true,
           fechaPagoEnganche
         });
 
@@ -518,6 +519,7 @@ export default function PagarComisiones() {
             montoTotalComision: 0,
             porcentajeTotalComision: 0,
             facturaComisionSozu: com.facturaComisionSozu || null,
+            esPagadaComisionVenta: cuenta.es_pagada_comision_venta === true,
             comisionistas: []
           };
         }
@@ -537,7 +539,8 @@ export default function PagarComisiones() {
           porcentajeComision: com.porcentaje_comision,
           montoComision,
           pagada: com.pagada,
-          urlEvidencia: com.url_evidencia_pago
+          urlEvidencia: com.url_evidencia_pago,
+          esPagadaComisionVenta: com.cuentas_cobranza?.es_pagada_comision_venta === true
         });
 
         return acc;
