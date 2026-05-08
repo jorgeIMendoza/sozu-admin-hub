@@ -28,13 +28,21 @@ jobs:
         with:
           credentials_json: '${{ secrets.FIREBASE_GCP_DEV }}'
 
-      - name: Get Supabase Key from Secret Manager
-        id: secrets
+      - name: Get secrets from Secret Manager
+        id: gcp-secrets
         uses: google-github-actions/get-secretmanager-secrets@v2
         with:
-          secrets_json: |-
-            - secretId: VITE_SUPABASE_PUBLISHABLE_KEY
-              output: SUPABASE_KEY
+          secrets:
+            - name: VITE_SUPABASE_PUBLISHABLE_KEY
+              secretId: VITE_SUPABASE_PUBLISHABLE_KEY
+            - name: VITE_SUPABASE_URL
+              secretId: VITE_SUPABASE_URL
+            - name: VITE_ENVIRONMENT
+              secretId: VITE_ENVIRONMENT
+            - name: VITE_N8N_WEBHOOK_BASE_URL
+              secretId: VITE_N8N_WEBHOOK_BASE_URL
+            - name: VITE_SUPABASE_PROJECT_ID
+              secretId: VITE_SUPABASE_PROJECT_ID
 
       - name: Install dependencies
         run: npm ci
@@ -42,11 +50,11 @@ jobs:
       - name: Build Frontend
         run: npm run build
         env:
-          VITE_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-          VITE_SUPABASE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && 'tzmhgfjmddkfyffkkmto' || 'supabase-dev' }}
-          VITE_SUPABASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://tzmhgfjmddkfyffkkmto.supabase.co' || 'https://supabase-dev.sozu.com' }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.secrets.outputs.SUPABASE_KEY }}
-          VITE_N8N_WEBHOOK_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook' || 'https://n8n-dev.sozu.com/webhook' }}
+          VITE_ENVIRONMENT: ${{ steps.gcp-secrets.outputs.VITE_ENVIRONMENT }}
+          VITE_SUPABASE_PROJECT_ID: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_PROJECT_ID }}
+          VITE_SUPABASE_URL: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_N8N_WEBHOOK_BASE_URL: ${{ steps.gcp-secrets.outputs.VITE_N8N_WEBHOOK_BASE_URL }}
 
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
