@@ -115,8 +115,8 @@ jobs:
             jq '.hosting.site = "sozu-admin-prd"' firebase.json > firebase.json.tmp
             mv firebase.json.tmp firebase.json
           else
-            echo "Rama dev - configurando site: sozu-admin"
-            jq '.hosting.site = "sozu-admin"' firebase.json > firebase.json.tmp
+            echo "Rama dev - configurando site: sozu-admin-dev"
+            jq '.hosting.site = "sozu-admin-dev"' firebase.json > firebase.json.tmp
             mv firebase.json.tmp firebase.json
           fi
 
