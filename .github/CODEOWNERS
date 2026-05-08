@@ -1,0 +1,24 @@
+# Automatic code owners and required reviewers
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Infrastructure & DevOps (Alo - PM Infraestructura)
+.github/workflows/ @alo-infraestructura
+Dockerfile* @alo-infraestructura
+docker-compose* @alo-infraestructura
+firebase.json @alo-infraestructura
+
+# Build & Configuration (shared responsibility)
+vite.config.* @alo-infraestructura @sebas-pm
+tsconfig.json @alo-infraestructura @sebas-pm
+package.json @alo-infraestructura
+.env.* @alo-infraestructura
+
+# Source code (Sebas - PM Funcionalidad, Jorge - Developer)
+src/ @sebas-pm @jorgemendoza
+
+# Critical integrations (all stakeholders)
+src/integrations/supabase/ @sebas-pm @jorgemendoza @alo-infraestructura
+src/integrations/ @sebas-pm @jorgemendoza @alo-infraestructura
+
+# Default reviewer
+* @jorgemendoza
