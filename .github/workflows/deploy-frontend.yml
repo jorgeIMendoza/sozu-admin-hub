@@ -30,7 +30,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linter
+      - name: Run linter (only on main/dev push)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         run: npm run lint --if-present
 
       - name: Build Frontend
@@ -42,25 +43,14 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ github.ref == 'refs/heads/main' && secrets.SUPABASE_PRD_ANON_KEY || secrets.SUPABASE_DEV_ANON_KEY }}
           VITE_N8N_WEBHOOK_BASE_URL: ${{ github.ref == 'refs/heads/main' && 'https://automatizacion-n8n.fbqqbe.easypanel.host/webhook' || 'https://n8n-dev.sozu.com/webhook' }}
 
-      - name: Deploy to Firebase (Production)
-        if: github.ref == 'refs/heads/main'
+      - name: Deploy to Firebase (only on main/dev push)
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_GCP_DEV }}'
           channelId: live
-          projectId: sozu-admin-prd
-        env:
-          FIREBASE_CLI_PREVIEWS: hostingchannels
-
-      - name: Deploy to Firebase (Development)
-        if: github.ref == 'refs/heads/dev'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_GCP_DEV }}'
-          channelId: live
-          projectId: sozu-admin-dev
+          projectId: ${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd' || 'sozu-admin-dev' }}
         env:
           FIREBASE_CLI_PREVIEWS: hostingchannels
 
