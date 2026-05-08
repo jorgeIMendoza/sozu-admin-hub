@@ -77,6 +77,45 @@ jobs:
             SITE="sozu-admin-dev"
           fi
 
+          cat > firebase.json << 'FIREBASE_EOF'
+          {
+            "hosting": {
+              "public": "dist",
+              "ignore": [
+                "firebase.json",
+                "**/.*",
+                "**/node_modules/**"
+              ],
+              "rewrites": [
+                {
+                  "source": "**",
+                  "destination": "/index.html"
+                }
+              ],
+              "headers": [
+                {
+                  "source": "/index.html",
+                  "headers": [
+                    {
+                      "key": "Cache-Control",
+                      "value": "no-cache, no-store, must-revalidate"
+                    }
+                  ]
+                },
+                {
+                  "source": "/**/*.@(js|css|woff|woff2)",
+                  "headers": [
+                    {
+                      "key": "Cache-Control",
+                      "value": "max-age=31536000, immutable"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          FIREBASE_EOF
+
           jq --arg site "$SITE" '.hosting.site = $site' firebase.json > firebase.json.tmp
           mv firebase.json.tmp firebase.json
 
