@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { DevelopmentBanner } from "@/components/DevelopmentBanner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
@@ -206,6 +207,7 @@ const App = () => (
         <Sonner />
         <PWAInstallPrompt />
         <BrowserRouter>
+          <DevelopmentBanner />
           <AuthProvider>
             <AgentImpersonationProvider>
             <ClienteImpersonationProvider>
