@@ -71,12 +71,6 @@ jobs:
 
       - name: Configure firebase.json based on branch
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            SITE="sozu-admin-prd"
-          else
-            SITE="sozu-admin-dev"
-          fi
-
           cat > firebase.json << 'FIREBASE_EOF'
           {
             "hosting": {
@@ -116,11 +110,16 @@ jobs:
           }
           FIREBASE_EOF
 
-          jq --arg site "$SITE" '.hosting.site = $site' firebase.json > firebase.json.tmp
-          mv firebase.json.tmp firebase.json
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "Rama main - usando sitio por defecto de prd"
+          else
+            echo "Rama dev - agregando site: sozu-admin-dev"
+            jq '.hosting.site = "sozu-admin-dev"' firebase.json > firebase.json.tmp
+            mv firebase.json.tmp firebase.json
+          fi
 
-          echo "firebase.json configurado con site: $SITE"
-          cat firebase.json | jq '.hosting.site'
+          echo "firebase.json configurado:"
+          cat firebase.json | jq '.hosting | {site, public}'
 
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
