@@ -1,11 +1,10 @@
 name: Deploy Frontend to Firebase
 
 on:
-  pull_request:
+  push:
     branches:
       - dev
       - main
-    types: [closed]
 
 jobs:
   build-and-deploy:
