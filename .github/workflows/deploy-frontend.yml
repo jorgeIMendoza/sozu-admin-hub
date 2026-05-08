@@ -69,6 +69,20 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
+      - name: Configure firebase.json based on branch
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            SITE="sozu-admin-prd-001"
+          else
+            SITE="sozu-admin-dev"
+          fi
+
+          jq --arg site "$SITE" '.hosting.site = $site' firebase.json > firebase.json.tmp
+          mv firebase.json.tmp firebase.json
+
+          echo "firebase.json configurado con site: $SITE"
+          cat firebase.json | jq '.hosting.site'
+
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
