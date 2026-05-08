@@ -28,17 +28,17 @@ jobs:
         with:
           credentials_json: '${{ secrets.FIREBASE_GCP_DEV }}'
 
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Get secrets from Secret Manager
         id: gcp-secrets
-        uses: google-github-actions/get-secretmanager-secrets@v2
-        with:
-          secrets: |-
-            VITE_SUPABASE_PUBLISHABLE_KEY:VITE_SUPABASE_PUBLISHABLE_KEY
-            VITE_SUPABASE_URL:VITE_SUPABASE_URL
-            VITE_ENVIRONMENT:VITE_ENVIRONMENT
-            VITE_N8N_WEBHOOK_BASE_URL:VITE_N8N_WEBHOOK_BASE_URL
-            VITE_SUPABASE_PROJECT_ID:VITE_SUPABASE_PROJECT_ID
-          export_to_environment: true
+        run: |
+          echo "VITE_SUPABASE_PUBLISHABLE_KEY=$(gcloud secrets versions access latest --secret=VITE_SUPABASE_PUBLISHABLE_KEY)" >> $GITHUB_ENV
+          echo "VITE_SUPABASE_URL=$(gcloud secrets versions access latest --secret=VITE_SUPABASE_URL)" >> $GITHUB_ENV
+          echo "VITE_ENVIRONMENT=$(gcloud secrets versions access latest --secret=VITE_ENVIRONMENT)" >> $GITHUB_ENV
+          echo "VITE_N8N_WEBHOOK_BASE_URL=$(gcloud secrets versions access latest --secret=VITE_N8N_WEBHOOK_BASE_URL)" >> $GITHUB_ENV
+          echo "VITE_SUPABASE_PROJECT_ID=$(gcloud secrets versions access latest --secret=VITE_SUPABASE_PROJECT_ID)" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: npm ci
