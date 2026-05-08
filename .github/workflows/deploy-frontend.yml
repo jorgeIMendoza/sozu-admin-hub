@@ -37,7 +37,7 @@ jobs:
       - name: Get secrets from Secret Manager
         id: gcp-secrets
         run: |
-          PROJECT_ID=${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd-001' || 'sozu-admin-dev' }}
+          PROJECT_ID=${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd' || 'sozu-admin-dev' }}
 
           echo "=== Intentando extraer secretos del proyecto: $PROJECT_ID ==="
 
@@ -111,9 +111,11 @@ jobs:
           FIREBASE_EOF
 
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "Rama main - usando sitio por defecto de prd"
+            echo "Rama main - configurando site: sozu-admin-prd"
+            jq '.hosting.site = "sozu-admin-prd"' firebase.json > firebase.json.tmp
+            mv firebase.json.tmp firebase.json
           else
-            echo "Rama dev - agregando site: sozu-admin-dev"
+            echo "Rama dev - configurando site: sozu-admin-dev"
             jq '.hosting.site = "sozu-admin-dev"' firebase.json > firebase.json.tmp
             mv firebase.json.tmp firebase.json
           fi
@@ -127,6 +129,6 @@ jobs:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: ${{ github.ref == 'refs/heads/main' && secrets.FIREBASE_GCP_PRD || secrets.FIREBASE_GCP_DEV }}
           channelId: live
-          projectId: ${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd-001' || 'sozu-admin-dev' }}
+          projectId: ${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd' || 'sozu-admin-dev' }}
         env:
           FIREBASE_CLI_PREVIEWS: hostingchannels
