@@ -32,12 +32,12 @@ jobs:
         id: gcp-secrets
         uses: google-github-actions/get-secretmanager-secrets@v2
         with:
-          secrets:
-            VITE_SUPABASE_PUBLISHABLE_KEY: VITE_SUPABASE_PUBLISHABLE_KEY
-            VITE_SUPABASE_URL: VITE_SUPABASE_URL
-            VITE_ENVIRONMENT: VITE_ENVIRONMENT
-            VITE_N8N_WEBHOOK_BASE_URL: VITE_N8N_WEBHOOK_BASE_URL
-            VITE_SUPABASE_PROJECT_ID: VITE_SUPABASE_PROJECT_ID
+          secrets: |-
+            VITE_SUPABASE_PUBLISHABLE_KEY:VITE_SUPABASE_PUBLISHABLE_KEY
+            VITE_SUPABASE_URL:VITE_SUPABASE_URL
+            VITE_ENVIRONMENT:VITE_ENVIRONMENT
+            VITE_N8N_WEBHOOK_BASE_URL:VITE_N8N_WEBHOOK_BASE_URL
+            VITE_SUPABASE_PROJECT_ID:VITE_SUPABASE_PROJECT_ID
 
       - name: Install dependencies
         run: npm ci
