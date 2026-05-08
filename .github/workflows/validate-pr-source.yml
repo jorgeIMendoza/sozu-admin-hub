@@ -1,0 +1,20 @@
+name: Validate PR Source Branch
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is from dev branch
+        if: github.head_ref != 'dev'
+        run: |
+          echo "❌ Las PRs a 'main' solo pueden venir de la rama 'dev'"
+          echo "Tu PR viene de: ${{ github.head_ref }}"
+          exit 1
+
+      - name: ✅ PR source is valid (from dev)
+        if: github.head_ref == 'dev'
+        run: echo "✅ PR viene correctamente de la rama dev"
