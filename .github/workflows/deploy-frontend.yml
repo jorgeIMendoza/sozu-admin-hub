@@ -65,12 +65,6 @@ jobs:
 
       - name: Build Frontend
         run: npm run build
-        env:
-          VITE_ENVIRONMENT: ${{ steps.gcp-secrets.outputs.VITE_ENVIRONMENT }}
-          VITE_SUPABASE_PROJECT_ID: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_PROJECT_ID }}
-          VITE_SUPABASE_URL: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ steps.gcp-secrets.outputs.VITE_SUPABASE_PUBLISHABLE_KEY }}
-          VITE_N8N_WEBHOOK_BASE_URL: ${{ steps.gcp-secrets.outputs.VITE_N8N_WEBHOOK_BASE_URL }}
 
       - name: Deploy to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
