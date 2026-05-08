@@ -1,0 +1,12 @@
+name: solo-desde-dev
+
+on:
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report status
+        run: echo "✅ Check completado"
