@@ -403,6 +403,10 @@ export default function InmobComisiones() {
                             </Button>
                           ) : isSozu ? (
                             <span className="text-xs text-muted-foreground">Sin factura</span>
+                          ) : r.estatus !== "Pendiente factura" ? (
+                            <span className="text-[11px] text-muted-foreground" title="La factura podrá subirse cuando admin apruebe la comisión">
+                              Pendiente de aprobación
+                            </span>
                           ) : (
                             <FacturaUploadButton
                               cuentaId={r.cuentaId}
@@ -522,6 +526,10 @@ export default function InmobComisiones() {
                 <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => { setPdfUrl(selectedComision.facturaUrl); setSelectedComision(null); }}>
                   <FileText className="h-4 w-4" /> Ver factura
                 </Button>
+              ) : !isSozu && selectedComision.estatus !== "Pendiente factura" ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  La factura podrá subirse cuando el administrador apruebe la comisión.
+                </div>
               ) : !isSozu && (
                 <FacturaUploadButton
                   cuentaId={selectedComision.cuentaId}
@@ -768,43 +776,47 @@ async function fetchSozuComisiones(agentEmails: string[], dateRanges: { start: s
 async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string, dateRanges: { start: string; end: string }[]) {
   if (!inmobEmail) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
 
-  let query = (supabase as any)
-    .from("ofertas")
-    .select("id, email_creador, id_propiedad, id_producto, fecha_creacion")
-    .in("email_creador", agentEmails)
-    .eq("activo", true);
-
-  if (dateRanges.length > 0) {
-    const orClauses = dateRanges.map(r => `and(fecha_creacion.gte.${r.start},fecha_creacion.lte.${r.end})`).join(",");
-    query = query.or(orClauses);
-  }
-
-  const { data: ofertas } = await query;
-  if (!ofertas || ofertas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
-
-  const ofertaIds = ofertas.map((o: any) => o.id);
-
-  const { data: cuentas } = await (supabase as any)
-    .from("cuentas_cobranza")
-    .select("id, id_oferta, precio_final, activo, fecha_pago_comision, es_pagada_comision_venta")
-    .in("id_oferta", ofertaIds)
-    .is("id_cuenta_cobranza_padre", null);
-
-  if (!cuentas || cuentas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
-
-  const cuentaIds = cuentas.map((c: any) => c.id);
-
-  // Get comisionistas for this inmobiliaria
+  // Start from comisionistas: agency email OR any of its agents (covers ofertas created by Sozu where the agent was added as comisionista)
+  const comisionistasEmails = [...new Set([inmobEmail, ...agentEmails].filter(Boolean))];
   const { data: comisionistas } = await (supabase as any)
     .from("comisionistas")
-    .select("id_cuenta_cobranza, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision, url_evidencia_pago")
-    .in("id_cuenta_cobranza", cuentaIds)
-    .eq("email_usuario", inmobEmail)
+    .select("id_cuenta_cobranza, email_usuario, porcentaje_comision, aprobada, pagada, fecha_actualizacion, fecha_pago_comision, url_evidencia_pago")
+    .in("email_usuario", comisionistasEmails)
     .eq("activo", true);
 
   if (!comisionistas || comisionistas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
 
-  const comMap = new Map<number, any>(comisionistas.map((c: any) => [c.id_cuenta_cobranza, c]));
+  const cuentaIds = [...new Set((comisionistas as any[]).map((c: any) => c.id_cuenta_cobranza).filter(Boolean))] as number[];
+  if (cuentaIds.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
+
+  const { data: cuentas } = await (supabase as any)
+    .from("cuentas_cobranza")
+    .select("id, id_oferta, precio_final, activo, fecha_pago_comision, es_pagada_comision_venta")
+    .in("id", cuentaIds)
+    .is("id_cuenta_cobranza_padre", null);
+
+  if (!cuentas || cuentas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
+
+  const ofertaIds = [...new Set(cuentas.map((c: any) => c.id_oferta).filter(Boolean))] as number[];
+  let ofertasQuery = (supabase as any)
+    .from("ofertas")
+    .select("id, email_creador, id_propiedad, id_producto, fecha_creacion")
+    .in("id", ofertaIds)
+    .eq("activo", true);
+  if (dateRanges.length > 0) {
+    const orClauses = dateRanges.map(r => `and(fecha_creacion.gte.${r.start},fecha_creacion.lte.${r.end})`).join(",");
+    ofertasQuery = ofertasQuery.or(orClauses);
+  }
+  const { data: ofertas } = await ofertasQuery;
+  if (!ofertas || ofertas.length === 0) return { rows: [], kpis: { totalGenerada: 0, pagadas: 0, pendientes: 0, enRevision: 0, programadas: 0 } };
+
+  // Prefer inmobiliaria's own comisionista record; fall back to agent's record
+  const comMap = new Map<number, any>();
+  (comisionistas as any[]).forEach((c: any) => {
+    const existing = comMap.get(c.id_cuenta_cobranza);
+    const isInmob = (c.email_usuario || "").toLowerCase() === (inmobEmail || "").toLowerCase();
+    if (!existing || isInmob) comMap.set(c.id_cuenta_cobranza, c);
+  });
 
   // Get property info
   const propIds = [...new Set(ofertas.filter((o: any) => o.id_propiedad).map((o: any) => o.id_propiedad))] as number[];
@@ -876,12 +888,12 @@ async function fetchExternalComisiones(agentEmails: string[], inmobEmail: string
     const oferta = ofertaMap.get(cuenta.id_oferta);
     const prop = oferta?.id_propiedad ? propMap.get(oferta.id_propiedad) : null;
     const estatusPropId = prop?.id_estatus_disponibilidad;
+    const esProducto = !!oferta?.id_producto;
 
-    if (estatusPropId && estatusPropId >= VENDIDO_ID) {
-      totalGenerada += comision;
-    } else {
-      continue;
-    }
+    // Include if: property is sold (>=5), OR it's a product offer (no direct property), OR commission is already approved/paid
+    const include = (estatusPropId && estatusPropId >= VENDIDO_ID) || esProducto || com.aprobada || com.pagada;
+    if (!include) continue;
+    totalGenerada += comision;
 
     const em = prop ? emMap.get(prop.id_edificio_modelo) : null;
     const edif = em ? edifMap.get(em.id_edificio) : null;

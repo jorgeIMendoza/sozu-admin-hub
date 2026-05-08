@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AgentPortalHeader } from "@/components/admin/agent-portal/AgentPortalHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,11 +8,12 @@ import { useAgentOnboardingStatus } from "@/hooks/useAgentOnboardingStatus";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 import { useCtaTracker } from "@/hooks/useCtaTracker";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Lock, CheckCircle2, AlertCircle, DollarSign, Clock, FileText, CalendarCheck } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, AlertCircle, DollarSign, Clock, FileText, CalendarCheck, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { formatCuentaCobranzaId } from "@/utils/cuentaCobranzaUtils";
+import { toast } from "sonner";
 
 type TabKey = 'todas' | 'pendiente' | 'en_revision' | 'factura_requerida' | 'programada' | 'pagada';
 
@@ -29,6 +30,7 @@ const AgentComisiones = () => {
   const { profile, user } = useAuth();
   const { impersonatedAgentEmail, impersonatedAgentPersonaId, isImpersonating } = useAgentImpersonation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const personaId = isImpersonating ? impersonatedAgentPersonaId : profile?.id_persona;
   const agentEmail = isImpersonating ? impersonatedAgentEmail : (user?.email || profile?.email);
   const isAgentRole = profile?.rol_nombre === 'Agente Inmobiliario';
@@ -148,19 +150,27 @@ const AgentComisiones = () => {
         }
       }
 
-      const { data: facturas } = await (supabase as any)
-        .from('documentos')
-        .select('id, id_tipo_documento')
-        .eq('id_persona', personaId)
-        .eq('id_tipo_documento', 46)
-        .eq('activo', true);
-      const hasFactura = (facturas || []).length > 0;
+      const cuentaIdsForFactura = comisionistas.map((c: any) => c.id_cuenta_cobranza).filter(Boolean);
+      const { data: facturas } = cuentaIdsForFactura.length > 0
+        ? await (supabase as any)
+            .from('documentos')
+            .select('id, id_cuenta_cobranza, url')
+            .in('id_cuenta_cobranza', cuentaIdsForFactura)
+            .eq('id_tipo_documento', 46)
+            .eq('activo', true)
+        : { data: [] };
+      const facturaUrlMap = new Map<number, string>();
+      (facturas || []).forEach((f: any) => {
+        if (f.id_cuenta_cobranza) facturaUrlMap.set(f.id_cuenta_cobranza, f.url || '');
+      });
 
       return comisionistas.map((c: any) => {
         const cuenta = cuentaMap.get(c.id_cuenta_cobranza);
         const precioFinal = cuenta?.precio_final || 0;
         const montoComision = precioFinal * (c.porcentaje_comision || 0) / 100;
         const propSold = cuenta?.id_estatus_disponibilidad === 5;
+        const facturaUrl = facturaUrlMap.get(c.id_cuenta_cobranza) || null;
+        const hasFactura = facturaUrlMap.has(c.id_cuenta_cobranza);
 
         let detailedStatus: string;
         if (c.pagada) {
@@ -184,6 +194,7 @@ const AgentComisiones = () => {
           monto_comision: montoComision,
           detailed_status: detailedStatus,
           cuenta_cobranza_label: formatCuentaCobranzaId(c.id_cuenta_cobranza, cuenta?.tipo),
+          factura_url: facturaUrl,
         };
       });
     },
@@ -376,6 +387,17 @@ const AgentComisiones = () => {
                         Ver comprobante
                       </a>
                     )}
+                    {c.factura_url && (
+                      <a
+                        href={c.factura_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-[hsl(var(--agent-primary))] font-medium underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Ver factura
+                      </a>
+                    )}
                   </div>
                   {c.precio_final > 0 && (
                     <span className="text-[10px] text-[hsl(var(--agent-text-secondary))]">
@@ -383,6 +405,17 @@ const AgentComisiones = () => {
                     </span>
                   )}
                 </div>
+                {c.detailed_status === 'factura_requerida' && !c.factura_url && agentEmail && personaId && (
+                  <div className="mt-3">
+                    <AgentFacturaUploadButton
+                      cuentaId={c.id_cuenta_cobranza}
+                      agentEmail={agentEmail}
+                      personaId={personaId}
+                      onUploaded={() => queryClient.invalidateQueries({ queryKey: ['agent-comisiones', agentEmail] })}
+                      track={track}
+                    />
+                  </div>
+                )}
               </div>
             );
           })
@@ -391,6 +424,80 @@ const AgentComisiones = () => {
     </div>
   );
 };
+
+function AgentFacturaUploadButton({
+  cuentaId,
+  agentEmail,
+  personaId,
+  onUploaded,
+  track,
+}: {
+  cuentaId: number;
+  agentEmail: string;
+  personaId: number;
+  onUploaded: () => void;
+  track: ReturnType<typeof useCtaTracker>['track'];
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const path = `facturas-comision/${cuentaId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('documentos').upload(path, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('documentos').getPublicUrl(path);
+
+      const { error: insertError } = await (supabase as any).from('documentos').insert({
+        id_cuenta_cobranza: cuentaId,
+        id_tipo_documento: 46,
+        url: publicUrl,
+        id_persona: personaId,
+        numero: agentEmail,
+        activo: true,
+      });
+      if (insertError) throw insertError;
+
+      toast.success('Factura subida correctamente');
+      onUploaded();
+    } catch (err: any) {
+      console.error('Error uploading factura:', err);
+      toast.error('Error al subir la factura');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+          e.target.value = '';
+        }}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => {
+          track({ page: 'agent_comisiones', elementId: 'btn_subir_factura_agent', elementLabel: 'Subir factura', metadata: { cuentaId } });
+          fileRef.current?.click();
+        }}
+        className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg bg-[hsl(var(--agent-primary))] text-white text-xs font-semibold active:scale-[0.98] transition-transform disabled:opacity-60"
+      >
+        {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        {uploading ? 'Subiendo...' : 'Subir factura'}
+      </button>
+    </>
+  );
+}
 
 function CheckItem({ label, done }: { label: string; done: boolean }) {
   return (
