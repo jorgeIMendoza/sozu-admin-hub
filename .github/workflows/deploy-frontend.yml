@@ -34,7 +34,7 @@ jobs:
       - name: Get secrets from Secret Manager
         id: gcp-secrets
         run: |
-          PROJECT_ID=${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd' || 'sozu-admin-dev' }}
+          PROJECT_ID=${{ github.ref == 'refs/heads/main' && 'sozu-admin-prd-001' || 'sozu-admin-dev' }}
 
           echo "=== Intentando extraer secretos del proyecto: $PROJECT_ID ==="
 
